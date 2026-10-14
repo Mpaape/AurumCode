@@ -11,8 +11,8 @@ import (
 )
 
 // factsLine is the line under the headline: the gate, how many files were
-// reviewed and in how many parts, and whether
-// the codebase context was reduced to fit the model's window.
+// reviewed and in how many parts. A reduced codebase context is a note in
+// the details (readerLimitations), not a fact of the decision.
 func factsLine(result *types.ReviewResult, diff *types.Diff, copy reviewCopy, rule blocking.Rule) string {
 	gate := copy.factsNoGate
 	if rule.Gated() {
@@ -34,9 +34,6 @@ func factsLine(result *types.ReviewResult, diff *types.Diff, copy reviewCopy, ru
 			filesText += " " + fmt.Sprintf(copy.factsParts, n)
 		}
 		parts = append(parts, filesText)
-	}
-	if result.Metadata[metaContextReduced] != "" {
-		parts = append(parts, copy.factsContextReduced)
 	}
 	return strings.Join(parts, " · ")
 }

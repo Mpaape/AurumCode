@@ -29,15 +29,16 @@ const (
 	maxModelLimitations = 3
 )
 
-// formatFormalReviewSummary keeps an actionable native suggestion from being
-// duplicated as a second code block in the review summary. The title,
-// description and location remain in the summary while the replacement itself
-// is attached to the exact changed lines by nativeSuggestionComment.
+// formatFormalReviewSummary keeps the fix of a blocking finding from being
+// duplicated as a second code block in the review summary: the replacement
+// is published in that finding's line comment (findingComment), while the
+// title, description and location remain in the summary.
 func formatFormalReviewSummary(result *types.ReviewResult, diff *types.Diff, language string, rule blocking.Rule) string {
 	copy := *result
 	copy.Suggestions = append([]types.ReviewSuggestion(nil), result.Suggestions...)
+	blockingIssues, _ := splitFindings(result.Issues, rule)
 	for i := range copy.Suggestions {
-		if isNativeSuggestion(diff, copy.Suggestions[i]) {
+		if attachedToBlocking(diff, copy.Suggestions[i], blockingIssues) {
 			copy.Suggestions[i].ProposedCode = ""
 		}
 	}
@@ -147,6 +148,10 @@ const (
 // below the threshold are observations; nothing is approval.
 func decide(result *types.ReviewResult, rule blocking.Rule) (reviewDecision, int) {
 	if n := rule.Count(result.Issues); n > 0 {
+		// A problem two sources reported is published, and counted, once.
+		if shown := n - atoiOrZero(result.Metadata[metaAbsorbedBlocking]); shown > 0 {
+			n = shown
+		}
 		return decisionBlocked, n
 	}
 	if rule.Fails() || result.Metadata["quality_degraded"] == metaTrue || result.Metadata[prompt.PolicyGateWithheldKey] == metaTrue {
@@ -219,35 +224,32 @@ func splitFindings(issues []types.ReviewIssue, rule blocking.Rule) (blockingIssu
 // writeBlockingFinding is one problem to fix: where, what, the rule, and
 // the fields that help fix it.
 func writeBlockingFinding(b *strings.Builder, issue types.ReviewIssue, copy reviewCopy) {
-	fmt.Fprintf(b, "- **`%s:%d`** — %s", issue.File, issue.Line, strings.TrimSpace(issue.Message))
+	fmt.Fprintf(b, "- **`%s:%d`** — %s", issue.File, issue.Line, readableText(issue.Message))
 	if issue.Side == "LEFT" {
 		b.WriteString(" (`LEFT`)")
 	}
-	writeRuleSuffix(b, issue)
 	b.WriteString("\n")
-	writeFindingFields(b, issue, copy)
-	printAssessment(b, issue)
+	writeFindingFields(b, withAssessedFix(issue), copy)
+}
+
+// withAssessedFix fills an empty suggested fix with the one the model wrote
+// when it assessed the finding, so a scanner's finding still says how to
+// fix it; the assessment's own bookkeeping (evidence ids, status) is not
+// published.
+func withAssessedFix(issue types.ReviewIssue) types.ReviewIssue {
+	if strings.TrimSpace(issue.Suggestion) == "" && issue.Assessment != nil {
+		issue.Suggestion = strings.TrimSpace(issue.Assessment.Suggestion)
+	}
+	return issue
 }
 
 // writeObservation is one non-blocking finding, in one line.
 func writeObservation(b *strings.Builder, issue types.ReviewIssue, label string) {
-	fmt.Fprintf(b, "- `%s:%d` — %s", issue.File, issue.Line, strings.TrimSpace(issue.Message))
-	writeRuleSuffix(b, issue)
+	fmt.Fprintf(b, "- `%s:%d` — %s", issue.File, issue.Line, readableText(issue.Message))
 	if label != "" {
 		fmt.Fprintf(b, " — %s", label)
 	}
 	b.WriteString("\n")
-}
-
-// writeRuleSuffix names the rule after a finding whose message does not
-// already cite it (the engine appends the catalog citation to the model's
-// findings; a scanner's message may not carry the rule id).
-func writeRuleSuffix(b *strings.Builder, issue types.ReviewIssue) {
-	rule := strings.TrimSpace(issue.RuleID)
-	if rule == "" || strings.Contains(issue.Message, rule) {
-		return
-	}
-	fmt.Fprintf(b, " (`%s`)", rule)
 }
 
 // detailsSections is the content of the collapsed block: the model's
@@ -263,9 +265,10 @@ func detailsSections(result *types.ReviewResult, copy reviewCopy) string {
 		writeAffectedTests(&b, result, copy)
 		b.WriteString("\n")
 	}
-	if len(result.Limitations) > 0 {
+	writeRulesSection(&b, result, copy)
+	if limits := readerLimitations(result, copy); len(limits) > 0 {
 		fmt.Fprintf(&b, "#### %s\n\n", copy.limits)
-		writeReviewBullets(&b, result.Limitations)
+		writeReviewBullets(&b, limits)
 	}
 	return joinDetails(strings.TrimSpace(b.String()), toolVersionLine(toolVersion(), copy))
 }

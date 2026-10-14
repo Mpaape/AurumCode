@@ -87,6 +87,9 @@ type Breach struct {
 	Severity string
 	Path     string
 	Line     int
+	// RuleID is the finding's rule, so the status can name a problem the
+	// same way whichever source reported it.
+	RuleID string
 }
 
 // noteBreach records issue as FirstBreach unless one is already recorded.
@@ -94,7 +97,7 @@ func (r *Result) noteBreach(title string, issue types.ReviewIssue) {
 	if r.FirstBreach != nil {
 		return
 	}
-	r.FirstBreach = &Breach{Title: title, Severity: issue.Severity, Path: issue.File, Line: issue.Line}
+	r.FirstBreach = &Breach{Title: title, Severity: issue.Severity, Path: issue.File, Line: issue.Line, RuleID: issue.RuleID}
 }
 
 // Contribution is one contributor's footprint on a Result.

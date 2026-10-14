@@ -23,7 +23,7 @@ func TestAUR454PublishedBodyExplainsMergeAndCollapse(t *testing.T) {
 	shown := presentation{consolidate.Apply(in, consolidate.Options{Collapse: map[string]bool{"info": true}, Blocking: func(i types.ReviewIssue) bool { return i.Severity == "error" }})}
 	for _, language := range []string{"pt-BR", "en-US"} {
 		issues := shown.withSources(language)
-		if len(issues) != 1 || !strings.Contains(issues[0].Message, "analysis, "+i18n.Text(language, "review.presentation_model_source")) {
+		if len(issues) != 1 || !strings.Contains(issues[0].Message, i18n.Text(language, "review.source.analysis")+" "+i18n.Text(language, "review.and")+" "+i18n.Text(language, "review.presentation_model_source")) {
 			t.Fatalf("(%s) consolidated finding not traceable: %+v", language, issues)
 		}
 		body := presentationNotice(shown, language)

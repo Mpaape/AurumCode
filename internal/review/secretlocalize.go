@@ -23,9 +23,8 @@ var commitTail = regexp.MustCompile(`^(.*) in commit (\S+) \((\S+ \S+)\)$`)
 
 // LocalizeSecretFinding shows a finding of a secrets engine (category
 // "secrets") in the review's language: the catalog's hardcoded-secret label
-// first, then the rule, then the engine's own text as a detail, with the
-// commit and the engine version in parentheses instead of in the middle of
-// the sentence. English, and a finding of any other category, keep the
+// first, then the rule, the engine version and the commit in parentheses;
+// the engine's own English sentence is left out. English, and a finding of any other category, keep the
 // engine's message as before; the rule id, the place and the severity never
 // change.
 func LocalizeSecretFinding(language, category, engine string, issue types.ReviewIssue) types.ReviewIssue {
@@ -38,11 +37,14 @@ func LocalizeSecretFinding(language, category, engine string, issue types.Review
 		issue.Message = i18n.Format(language, "scanner.gitleaks_ignore_present", issue.RuleID)
 		return issue
 	}
+	found := displayName(engine)
 	detail := strings.TrimSuffix(issue.Message, " (rule "+issue.RuleID+")")
 	if m := commitTail.FindStringSubmatch(detail); m != nil {
-		detail = i18n.Format(language, "scanner.commit_detail", strings.TrimRight(strings.TrimSpace(m[1]), "."), m[2], m[3])
+		found = i18n.Format(language, "scanner.commit_detail", m[3], m[2])
 	}
-	issue.Message = i18n.Format(language, "scanner.secret_finding", i18n.Text(language, secretRuleKey), issue.RuleID, displayName(engine), detail)
+	// The engine's own English sentence is not shown: the catalog label
+	// says what was found, the rule says which pattern matched.
+	issue.Message = i18n.Format(language, "scanner.secret_finding", i18n.Text(language, secretRuleKey), issue.RuleID, found)
 	return issue
 }
 

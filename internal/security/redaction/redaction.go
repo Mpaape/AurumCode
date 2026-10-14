@@ -203,6 +203,12 @@ func redactBareKeyValues(s string) string {
 		if t == nil {
 			t = newLexTable(s)
 		}
+		if strings.HasPrefix(s[start:], Marker) {
+			// Already masked by an earlier pass: masking the marker again
+			// would leave a stray "]" behind ("[REDACTED]]").
+			pos = start + len(Marker)
+			continue
+		}
 		end := int(t.bareEnd[start])
 		if t.codeValue(s, start, end) {
 			// The value is kept as code, so the arguments of the call it

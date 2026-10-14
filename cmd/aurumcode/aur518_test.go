@@ -55,6 +55,10 @@ func setAUR518LLMFixture(t *testing.T) {
 
 const hardcodedSecretMessage = "Hardcoded secret or credential assigned inline"
 
+// publishedSecretTitle is how the parecer titles a secret finding, whichever
+// source reported it.
+const publishedSecretTitle = "Possible secret in the code"
+
 // policyRuleOverrideWarningSnippet is a fragment of ApplyCentralPolicy's own
 // warning text (internal/config/central.go) for a dropped rule override,
 // including the quoted rule id. It is used, instead of the bare rule id, to
@@ -237,7 +241,7 @@ func TestAUR518PRPolicyWarningReachesPublishedReview(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("runPRReview exit=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
-	if !strings.Contains(posted.Body, hardcodedSecretMessage) {
+	if !strings.Contains(posted.Body, publishedSecretTitle) {
 		t.Fatalf("published review lost the policy-protected finding:\n%s", posted.Body)
 	}
 	// The finding's own rule citation (enforceRuleCitations) already names
