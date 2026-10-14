@@ -119,7 +119,7 @@ Mudanca sem risco.
 
 **Cobertura da revisão — arquivos do diff cobertos: 1 de 1; sem revisão completa: 1.**
 
-- 1 arquivo foi filtrado antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
+- 1 arquivo foi filtrado antes da revisão (gerado, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
 
 - Contexto do repositório omitido: não foi possível confirmar a identidade do checkout local; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto.

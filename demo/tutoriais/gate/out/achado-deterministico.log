@@ -62,7 +62,6 @@ aurumcode review: rule_id é obrigatório: um achado sem rule_id, ou com id desc
 aurumcode review: Exemplo pronto no código-fonte do AurumCode: tests/fixtures/review/known-problem-response.json
 aurumcode review: security pass applied 4 of 8 security rules (security/command-injection, security/hardcoded-secret, security/sql-injection, security/xss); see internal/review/rules/security.yml for the full catalog
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
-aurumcode review: policy gate: revisão inconclusiva — revisão por modelo não executada (sem provedor configurado) [quality_skipped]
 A revisão por modelo não rodou. O relatório abaixo cobre só a análise determinística.
 ## AurumCode revisão de código
 
@@ -74,5 +73,6 @@ gate da política: passou · 1 arquivo revisado
 
 Security findings (standards/security-review):
 No security findings.
+aurumcode review: policy gate: revisão inconclusiva — revisão por modelo não executada (sem provedor configurado) [quality_skipped]
 exit_code=0
 RESULTADO: warn sem achado deterministico continua so avisando (exit 0)

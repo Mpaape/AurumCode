@@ -1690,25 +1690,39 @@ review nomeiam cada achado rebaixado
 uma seção de SAST de origem da política nunca é rebaixada: nada muda em
 relação ao comportamento anterior ao padrão `model`.
 
-A triagem falha fechada. Quando o modelo não respondeu de forma limpa (sem
-provedor, falha do provedor, resposta que não passou no parser ou que só foi
-lida em modo degradado, limite de deliberação), nada é rebaixado, nem mesmo
-pela contestação justificada de um perfil ou lote saudável quando outro perfil
-ou lote da mesma execução saiu degradado. Se havia evidência de uma fonte
-triável, com gate declarado e sem política central, o stderr e as limitações
-do parecer dizem isso, no idioma de `review.language`:
+O modelo sempre decide. Um achado de fonte triável que a revisão (inteira ou
+em lotes) deixou sem avaliação vai ao modelo numa chamada de triagem dedicada:
+um prompt pequeno com a regra, o local e o trecho ao redor, cuja resposta passa
+pela mesma validação (contestação só vale com justificativa). Se o provedor
+recusar o prompt por tamanho, os achados são divididos em metades; não há teto
+de quantidade. Contestado com justificativa, o achado deixa de contar;
+confirmado, bloqueia como sempre.
+
+Quando o modelo não deu resposta utilizável (falha do provedor, recusa sem
+espaço, resposta que não passou no parser ou só foi lida em modo degradado,
+limite de deliberação, ou a própria triagem dedicada sem resposta), nada é
+rebaixado, nem mesmo pela contestação de um perfil ou lote saudável. Os achados
+que bloqueariam também não reprovam o gate como erro estático: ficam
+aguardando a avaliação do modelo, numa linha só, e o gate fica inconclusivo
+pelo motivo do modelo e falha, qualquer que seja `gate.inconclusive`:
+
+```text
+aurumcode review: policy gate: gate.triage: achados determinísticos aguardando a avaliação do modelo: 29 — o modelo não deu uma resposta utilizável (o provedor de modelo não respondeu [provider_failure]); sem a decisão do modelo não há veredito
+```
+
+Sem provedor configurado (`quality_skipped`), a evidência conta
+integralmente, como antes, e o stderr e as limitações do parecer dizem isso:
 
 ```text
 aurumcode review: gate.triage: a triagem pelo modelo não ocorreu — revisão por modelo não executada (sem provedor configurado) [quality_skipped]; a evidência determinística contou integralmente e o bloqueio foi mantido
 ```
 
 Depois do travessão vai o motivo, em pt-BR como frase com o código entre
-colchetes e em inglês como o próprio código entre parênteses
-(`quality_skipped`, `provider_failure`, `model_parse_failure`,
-`degraded_parse`, ...); quando o gate passa mesmo assim, a linha termina
-em "contou integralmente", sem falar em bloqueio. Com todas as fontes da
-evidência em `none`, sem gate declarado ou sob política central, nada é
-anunciado: a triagem não teria ocorrido de qualquer forma.
+colchetes e em inglês como o próprio código entre parênteses; quando o gate
+passa mesmo assim, a linha termina em "contou integralmente", sem falar em
+bloqueio. Com todas as fontes da evidência em `none`, sem gate declarado ou
+sob política central, nada é anunciado nem aguarda: a triagem não teria
+ocorrido de qualquer forma.
 
 Um review que ofereceu evidência não é servido do cache de modelo por arquivo
 (o cache guarda achados, não avaliações), e a chave de reaproveitamento do

@@ -52,6 +52,7 @@ aurumcode review: rule_id é obrigatório: um achado sem rule_id, ou com id desc
 aurumcode review: Exemplo pronto no código-fonte do AurumCode: tests/fixtures/review/known-problem-response.json
 aurumcode review: --exigir-qualidade: a revisão por modelo não rodou, então esta execução não é uma revisão completa
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: revisão inconclusiva — o provedor de modelo não respondeu [provider_failure]
 A revisão por modelo não rodou. O relatório abaixo cobre só a análise determinística.
 ## AurumCode revisão de código
 
@@ -60,6 +61,5 @@ A revisão por modelo não rodou. O relatório abaixo cobre só a análise deter
 > A revisão por modelo não foi concluída. Apenas as verificações determinísticas produziram resultado; este parecer não aprova a mudança.
 
 gate da política: passou · 1 arquivo revisado
-aurumcode review: policy gate: revisão inconclusiva — o provedor de modelo não respondeu [provider_failure]
 exit_code=1
 RESULTADO: --exigir-qualidade reprova mesmo com warn (provider_failure)
