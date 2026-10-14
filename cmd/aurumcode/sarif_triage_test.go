@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -12,10 +11,10 @@ import (
 )
 
 // A deterministic finding the model disputed and the gate's triage stopped
-// counting goes to the SARIF suppressed, with the model's reason: code
-// scanning must not show as an error what the gate decided against. A
-// finding nobody disputed stays an open result.
-func TestSARIFCarriesModelDisputedFindingsSuppressed(t *testing.T) {
+// counting is left out of the SARIF: code scanning does not dismiss an alert
+// from a SARIF suppression, so a refuted finding must disappear for the
+// alert to close. A finding nobody disputed stays an open result.
+func TestSARIFLeavesOutModelDisputedFindings(t *testing.T) {
 	disputed := types.ReviewIssue{
 		RuleID: "gitleaks:generic-api-key", File: "demo/fixture.json", Line: 17, Severity: "error",
 		Message:    "segredo no codigo",
@@ -56,8 +55,8 @@ func TestSARIFCarriesModelDisputedFindingsSuppressed(t *testing.T) {
 		}
 		got[r.RuleID] = why
 	}
-	if !strings.Contains(got["gitleaks:generic-api-key"], "contestado pelo modelo") || !strings.Contains(got["gitleaks:generic-api-key"], "canario sintetico") {
-		t.Fatalf("the disputed finding must be suppressed with the model's reason, got %q", got["gitleaks:generic-api-key"])
+	if why, present := got["gitleaks:generic-api-key"]; present {
+		t.Fatalf("the disputed finding must be left out of the SARIF, got %q", why)
 	}
 	if got["security/sql-injection"] != "open" {
 		t.Fatalf("an undisputed finding must stay open, got %q", got["security/sql-injection"])
