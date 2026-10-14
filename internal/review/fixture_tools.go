@@ -39,9 +39,11 @@ type fixtureToolEnvelope struct {
 
 // NewOfflineProvider is the provider of an offline fixture file: a
 // ToolFixtureProvider when the fixture declares tool calls, the plain
-// fixture provider otherwise.
-func NewOfflineProvider(content, name, capturePath string) llm.Provider {
+// fixture provider otherwise. A positive window is the context window, in
+// tokens, of the model it stands in for (FakeProvider.Window).
+func NewOfflineProvider(content, name, capturePath string, window int) llm.Provider {
 	base := NewFixtureProvider(content, name, capturePath)
+	base.Window = window
 	var top map[string]json.RawMessage
 	if json.Unmarshal([]byte(content), &top) != nil {
 		return base

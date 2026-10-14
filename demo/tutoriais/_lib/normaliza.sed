@@ -11,8 +11,10 @@
 #   2026-10-02T13:42:30Z                          -> <timestamp>
 #   is 30.0 days old                              -> is <duracao> days old
 #   idade: 30.0 days                              -> idade: <duracao>
+#   cerca de 66994 tokens / about 66994 tokens    -> cerca de <N> tokens / about <N> tokens
 s/board valid: [0-9]+ atomic cards/board valid: <N> atomic cards/g
 s#analysis-data/[0-9]{8}T[0-9]{6}Z#analysis-data/<timestamp>#g
 s/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z/<timestamp>/g
 s/is [0-9]+(\.[0-9]+)? days old/is <duracao> days old/g
 s/(^|[^[:alnum:]])idade: [0-9]+(\.[0-9]+)?( [a-z]+)?/\1idade: <duracao>/g
+s/(cerca de|about) [0-9]+ tokens/\1 <N> tokens/g

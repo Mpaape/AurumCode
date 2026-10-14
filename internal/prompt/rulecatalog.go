@@ -1,7 +1,6 @@
 package prompt
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -60,10 +59,10 @@ func catalogIDs(load func() ([]string, error)) ([]string, error) {
 }
 
 // EmbeddedDefaultsErr reports whether the defaults compiled into the binary
-// (templates/limits.yml and the review rule catalog) loaded. A non-nil
-// value is a build defect; every prompt assembly returns it.
+// (the review rule catalog) loaded. A non-nil value is a build defect; every
+// prompt assembly returns it.
 func EmbeddedDefaultsErr() error {
-	return errors.Join(defaultSlotLimitsErr, defaultRuleCatalogErr)
+	return defaultRuleCatalogErr
 }
 
 // ValidateRuleCatalog rejects an empty or unsorted catalog and a blank id.
@@ -72,8 +71,8 @@ func EmbeddedDefaultsErr() error {
 // rendered whole, because a truncated one would make the model cite a rule
 // that exists but was cut, and the gate would discard the finding, while a
 // policy of hundreds of skill sections is an ordinary catalog. The prompt
-// as a whole is bounded by the model's context window (prompt_max_tokens
-// in templates/limits.yml), never by this section.
+// as a whole is bounded by the model's context window, never by this
+// section.
 func ValidateRuleCatalog(ids []string) error {
 	if len(ids) == 0 {
 		return fmt.Errorf("review rule catalog is empty: the prompt would ask the model to choose a rule_id from an empty list")
@@ -146,12 +145,11 @@ func (b *PromptBuilder) ruleCatalogSection() (string, error) {
 	return RenderRuleCatalog(b.ruleCatalog), nil
 }
 
-// SetSlotLimits replaces this builder's slot ceilings (the prompt-wide
-// default, evidence and tools sections). Every ceiling must be positive: a
-// zero would silently disable the section's bound.
+// SetSlotLimits replaces this builder's optional slot ceilings. A zero
+// ceiling bounds nothing; a negative one is a caller's mistake.
 func (b *PromptBuilder) SetSlotLimits(limits SlotLimits) error {
-	if limits.PromptMaxTokens <= 0 || limits.EvidenceMaxTokens <= 0 || limits.ToolsMaxTokens <= 0 {
-		return fmt.Errorf("every slot ceiling must be a positive token count: %+v", limits)
+	if limits.EvidenceMaxTokens < 0 || limits.ToolsMaxTokens < 0 {
+		return fmt.Errorf("a slot ceiling must not be negative: %+v", limits)
 	}
 	b.limits = limits
 	return nil

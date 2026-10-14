@@ -96,6 +96,7 @@ func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int
 	} else {
 		b.result, err = reviewer.GenerateReviewWithContext(b.ctx, qc.toSend, reviewCtx)
 		b.transcript = reviewer.Transcript()
+		b.noteRefusals(reviewer.PromptRefusals())
 		b.noteBatches(reviewer.Batches())
 	}
 	if b.noteDeliberationLimit(err) {

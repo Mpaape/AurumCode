@@ -134,10 +134,11 @@ quality_gates:
   `inconclusive: block`; o motivo inconclusivo de uma engine traz o detalhe
   da falha, resumido e redigido (`[detalhe: ...]`), no parecer e na auditoria.
 - PR grande também é revisado: quando o GitHub recusa o diff por tamanho, o
-  diff sai do checkout verificado do PR; quando ele não cabe num prompt, a
-  revisão é feita em lotes por diretório, com um parecer e um gate. Só no teto
-  de lotes (`batches`, padrão 4) a revisão fica parcial, listando os arquivos
-  que ficaram fora (ver "PR grande" em docs/configuration.md).
+  diff sai do checkout verificado do PR; quando o modelo recusa o prompt por
+  ser maior que a janela dele, a revisão é feita em lotes por diretório, com
+  um parecer e um gate. O produto não põe teto de tamanho: só num teto de
+  lotes que você escreveu (`batches`) a revisão fica parcial, listando os
+  arquivos que ficaram fora (ver "PR grande" em docs/configuration.md).
 - Saída gravada por script (logs de tutorial, golden files, capturas) repete
   de propósito exemplos de injeção e canários de segredo: ponha-a em `ignore`
   e revise a fonte que a gera.

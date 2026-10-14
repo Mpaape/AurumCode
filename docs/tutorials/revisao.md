@@ -316,6 +316,7 @@ review:
 
 <!-- saida: pr-workflow -->
 ```text
+aurumcode review: o modelo recusou um prompt de cerca de <N> tokens por ser longo demais (janela de 78000 tokens); revisando em partes menores
 aurumcode review: o diff não coube em um só prompt; revisado em 3 lotes por diretório (arquivos por lote: 2, 2, 2)
 parecer publicado na PR #7 como aprovação (sem comentários na linha).
 exit_code=0
@@ -323,10 +324,14 @@ exit_code=0
 
 O que observar: a primeira linha do stderr diz que a API recusou o diff e que
 o mesmo intervalo `main...feature` foi lido do checkout verificado (com os
-dois commits e o número de arquivos). O diff passa do orçamento de um prompt,
-então a revisão é feita em três lotes, um por diretório, com um só parecer e
-um só gate. Com `batches.max_batches: 1` na política, o teto é atingido: os
-arquivos fora são listados na cobertura publicada e a aprovação é retida.
+dois commits e o número de arquivos). O produto não põe teto no prompt: a
+primeira tentativa manda o diff inteiro. O modelo do tutorial é simulado com
+uma janela de 78000 tokens (`AURUMCODE_LLM_FIXTURE_WINDOW`) e recusa o pedido
+por ser longo demais, como um modelo real recusa; a revisão aprende o teto da
+própria recusa e refaz em três lotes, um por diretório, com um só parecer e
+um só gate. Com `batches.max_batches: 1` na política, que é um teto
+opcional escolhido por quem escreve a política, ele é atingido: os arquivos
+fora são listados na cobertura publicada e a aprovação é retida.
 
 <!-- saida: pr-workflow -->
 ```text

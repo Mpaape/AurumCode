@@ -31,14 +31,22 @@ type budgetedSlotData struct {
 	Omitted int
 }
 
-// renderBudgetedSlot renders items into the slot named slotName, admitting
-// them in order while the whole section stays within maxTokens. An item
-// that does not fit is counted, never cut, and the section states how many
-// were omitted. No items renders nothing at all. admitted holds the indexes
-// of the items the text carries.
+// renderBudgetedSlot renders items into the slot named slotName. With a
+// positive maxTokens it admits them in order while the whole section stays
+// within the ceiling; an item that does not fit is counted, never cut, and
+// the section states how many were omitted. Without a ceiling (zero, the
+// default) every item is admitted, in one pass. No items renders nothing at
+// all. admitted holds the indexes of the items the text carries.
 func renderBudgetedSlot(slotName string, items []string, maxTokens int, est TokenEstimator) (text string, admitted []int) {
 	if len(items) == 0 {
 		return "", nil
+	}
+	if maxTokens <= 0 {
+		admitted = make([]int, len(items))
+		for i := range items {
+			admitted[i] = i
+		}
+		return renderSlot(slotName, budgetedSlotData{Items: items}), admitted
 	}
 	data := budgetedSlotData{}
 	for i, item := range items {

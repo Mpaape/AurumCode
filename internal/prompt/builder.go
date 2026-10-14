@@ -14,7 +14,7 @@ import (
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-//go:embed templates/*.md templates/*.yml
+//go:embed templates/*.md
 var templateFS embed.FS
 
 // PromptBuilder builds prompts for LLM code review
@@ -27,10 +27,10 @@ type PromptBuilder struct {
 	// inventing an id the AUR-434 gate discards. See rulecatalog.go for
 	// where the default ids come from.
 	ruleCatalog []string
-	// limits are the slot ceilings (templates/limits.yml by default).
+	// limits are the optional slot ceilings; the zero value bounds nothing.
 	limits SlotLimits
-	// defaultsErr is why the embedded defaults (limits, rule catalog) did
-	// not load; while set, every assembly fails with it.
+	// defaultsErr is why the embedded defaults (the rule catalog) did not
+	// load; while set, every assembly fails with it.
 	defaultsErr error
 }
 
@@ -41,7 +41,6 @@ func NewPromptBuilder() *PromptBuilder {
 		templates:        make(map[string]*template.Template),
 		estimator:        NewHeuristicEstimator(), // Default estimator
 		ruleCatalog:      DefaultRuleCatalog,
-		limits:           defaultSlotLimits,
 		defaultsErr:      EmbeddedDefaultsErr(),
 	}
 	pb.loadTemplates()
@@ -55,7 +54,6 @@ func NewPromptBuilderWithEstimator(estimator TokenEstimator) *PromptBuilder {
 		templates:        make(map[string]*template.Template),
 		estimator:        estimator,
 		ruleCatalog:      DefaultRuleCatalog,
-		limits:           defaultSlotLimits,
 		defaultsErr:      EmbeddedDefaultsErr(),
 	}
 	pb.loadTemplates()
@@ -500,9 +498,7 @@ func (b *PromptBuilder) BuildPrompt(diff *types.Diff, metrics *analyzer.DiffMetr
 	// unbounded prose list alone overflows the budget. Refuse loudly instead
 	// of shipping a prompt that exceeds MaxTokens.
 	if opts.MaxTokens > 0 && len(trimmedSegments) == 0 && total > opts.MaxTokens {
-		return PromptParts{}, fmt.Errorf(
-			"prompt instructions and fixed content need %d tokens and the reply reserves %d, which leaves no room for a single code change in the %d-token budget: refusing to assemble a %s prompt with no diff in it",
-			fixedTokens, opts.ReserveReply, opts.MaxTokens, opts.SchemaKind)
+		return PromptParts{}, &NoRoomError{FixedTokens: fixedTokens, ReserveReply: opts.ReserveReply, MaxTokens: opts.MaxTokens, SchemaKind: opts.SchemaKind}
 	}
 
 	// Build user content from trimmed segments, plus AC-003's coverage

@@ -488,13 +488,13 @@ descartado e contado como não vinculado, exatamente como hoje um `rule_id`
 desconhecido já é (o aviso de descarte do terminal/PR cobre os dois casos).
 
 A lista de ids e o texto das skills entram **inteiros** no prompt, sem teto de
-tamanho próprio: uma política de centenas de seções funciona. O único limite
-que ainda alcança a política é o do prompt inteiro (`prompt_max_tokens` em
-`limits.yml`, 120000 tokens estimados por padrão): o diff cede primeiro, e o
-que não cabe dele é declarado na seção de cobertura. A política nunca é
-cortada; só se ela sozinha não deixar espaço para nenhuma mudança de código a
-revisão é recusada, com uma mensagem que diz isso. O id carrega o título
-inteiro da seção
+tamanho: uma política de centenas de seções funciona. O produto não põe teto
+em nenhum prompt; o único limite é a janela de contexto do próprio modelo, e
+quando o modelo recusa o prompt por ser longo demais é o diff que se divide
+em partes (veja [PR grande](#pr-grande-diff-local-e-revisao-em-lotes)). A
+política nunca é cortada; só se ela, as instruções e o contexto sozinhos não
+couberem na janela do modelo a revisão falha, com uma mensagem que diz isso.
+O id carrega o título inteiro da seção
 (`seguranca#sec-001-um-segredo-nunca-volta-ao-agente`), então renomear um
 título muda o id, e é o id que `exceptions`, a auditoria e o SARIF guardam;
 `## SEC-001` dá o id curto `seguranca#sec-001`.
@@ -1475,8 +1475,8 @@ consumidor.
 | `changelog_check.bots` | Modo para PR aberta por bot (Dependabot, Renovate): `off`, `suggest` ou `required`; só rebaixa `mode`, nunca eleva | `suggest` |
 | `review.profiles` | Analistas (perfis de revisor) executados na mesma revisão, local, MCP e PR: cada um faz a sua passada do modelo, pede as ferramentas da deliberação dentro do teto somado da revisão, e o achado diz quem o encontrou; os do time ficam no arquivo `profiles.yml` da pasta `.aurumcode`, lido da branch base na PR | vazio |
 | `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado, e numa execução inconclusiva nada é agrupado | vazio (todo achado publicado um a um) |
-| `batches.max_batches` | Teto de lotes de uma revisão que não cabe num prompt | `4` |
-| `batches.max_prompt_tokens` | Teto da soma estimada dos prompts dos lotes | `480000` |
+| `batches.max_batches` | Teto opcional de lotes de uma revisão que o modelo recusou por tamanho | sem teto |
+| `batches.max_prompt_tokens` | Teto opcional da soma estimada dos prompts dos lotes | sem teto |
 | `rules.<id>.enabled` | Liga/desliga uma regra reconhecida | embutido |
 | `rules.<id>.severity` | Sobrescreve a severidade de uma regra | embutido |
 | `ignore` | Globs de caminhos removidos antes da análise; vale também para o escopo dos scanners (achado ou erro de parse em caminho ignorado não conta) | vazio |
@@ -1621,8 +1621,8 @@ declarado parar de contar achados do Semgrep.
 A passagem de segurança (`--seguranca`), o catálogo de análise embutido e o
 SAST rodam **antes** do modelo. Cada achado chega ao prompt como um item de
 evidência (`[E1] origem=analysis regra=... local=file:line severidade=... trecho: ...`),
-redigido, sob o teto de evidência de `limits.yml`; um item deixado de fora
-pelo teto é contado como "N omitidos" e continua contando no gate. O modelo
+redigido; todos os itens entram no prompt, sem teto de tamanho (num PR que o
+modelo recusa por tamanho, cada lote leva a evidência dos seus arquivos). O modelo
 responde, além dos campos de sempre, `evidence_assessments`: por id de
 evidência, um `status` (`confirmed`, `disputed`, `needs_context`), uma
 `justification`, `correlates_with` (outros ids que apontam para o mesmo
@@ -1666,9 +1666,10 @@ continua retendo).
 (origem `security`), exatamente como `gate.sources: analysis` os conta: o
 vocabulário continua sendo o de `gate.sources`, e uma contestação é casada
 por origem, regra, caminho e linha, então nunca rebaixa o achado de outra
-fonte no mesmo lugar. A evidência que o teto do prompt deixou de fora
-(declarada como "N omitidos") nunca foi lida pelo modelo: uma avaliação dela
-é descartada com o mesmo aviso de um id nunca oferecido, e nunca rebaixa.
+fonte no mesmo lugar. Uma evidência que o prompt não levou (a de um arquivo
+que não estava no lote, ou a que um teto escolhido por quem chama deixou de
+fora, declarada como "N omitidos") nunca foi lida pelo modelo: uma avaliação
+dela é descartada com o mesmo aviso de um id nunca oferecido, e nunca rebaixa.
 
 As chaves de `triage` são os nomes de `gate.sources` (`skills`, `analysis`,
 `sast` ou o nome de uma engine registrada); os valores são `model` (o padrão
@@ -1936,39 +1937,51 @@ antes paravam a revisão:
   revisão falha (saída 1) sem enviar nada ao modelo nem publicar. O
   workflow reutilizável já faz o checkout do head com histórico completo. Com
   a API respondendo o diff, nada muda: o diff local é só o caminho da recusa.
-- **O diff passa do orçamento de um prompt.** Quando o prompt único deixaria
-  um arquivo com patch fora, no todo ou em parte, a revisão é feita em
-  **lotes**: os arquivos são agrupados por diretório (um diretório fica
-  inteiro num lote quando cabe; senão completa o lote arquivo a arquivo), e
-  cada lote é uma revisão completa com o mesmo template, catálogo de regras,
-  skills, política e contexto, com a evidência determinística dos seus
-  arquivos (os ids `E<n>` são os mesmos em todos os lotes). Os achados viram
-  um parecer e um gate só. O stderr diz `reviewed in N batches by directory`
-  e a auditoria (`--auditoria`) ganha o campo `batches` (arquivos e tamanho
-  estimado de cada lote). Um arquivo sem patch (binário) não decide a divisão
-  nem ocupa lote. Um lote que falha (provedor, resposta, limite de
-  deliberação) faz a revisão inteira falhar, como o prompt único.
+- **O modelo recusa o diff por ser longo demais.** O produto não põe teto no
+  prompt: a primeira tentativa manda o diff inteiro. Quando o provedor
+  responde que o pedido passa da janela de contexto do modelo (HTTP 400 ou
+  413 com a mensagem de contexto excedido, como `maximum context length is
+  128000 tokens` ou `prompt is too long`), a revisão aprende um teto da
+  própria recusa (a parte do prompt que cabe na janela, com folga de 10% para
+  a resposta; sem os números na mensagem, a metade) e refaz em **lotes**: os
+  arquivos são agrupados por diretório (um diretório fica inteiro num lote
+  quando cabe; senão completa o lote arquivo a arquivo), e cada lote é uma
+  revisão completa com o mesmo template, catálogo de regras, skills, política
+  e contexto, com a evidência determinística dos seus arquivos (os ids `E<n>`
+  são os mesmos em todos os lotes). Se o modelo ainda recusa, o teto cai de
+  novo, e assim até ele aceitar. Os achados viram um parecer e um gate só. O
+  stderr diz `the model refused a prompt of about N tokens as too long` a
+  cada recusa e `reviewed in N batches by directory` ao fim, e a auditoria
+  (`--auditoria`) ganha o campo `batches` (arquivos e tamanho estimado de cada
+  lote). Um arquivo sem patch (binário) não decide a divisão nem ocupa lote.
+  Se nem as instruções, a política, o contexto e a evidência de um arquivo
+  cabem na janela, a revisão falha dizendo isso (saída 1, nunca aprovada). Um
+  lote que falha por outro motivo (provedor, resposta, limite de
+  deliberação) faz a revisão inteira falhar, como o prompt único. Um modelo
+  que aceita o prompt inteiro é chamado uma vez, sem lote.
+
+Os tetos de lotes são **opcionais**, para quem quer limitar o custo de uma
+revisão dividida:
 
 ```yaml
 batches:
-  max_batches: 4           # padrão: 4 lotes
-  max_prompt_tokens: 480000 # padrão: soma estimada dos prompts de todos os lotes
+  max_batches: 20            # opcional: sem valor, todos os lotes
+  max_prompt_tokens: 2000000 # opcional: sem valor, sem teto na soma estimada dos prompts
 ```
 
-Os padrões vêm de `internal/prompt/templates/limits.yml` (`batch_max_count`,
-`batch_max_prompt_tokens`). Ao atingir um dos tetos, os lotes seguintes não
-são revisados: seus arquivos são listados no aviso de cobertura ("N file(s)
-were left out of the review by the token budget", um por linha) e em
-`coverage.omitted_files` da auditoria, a cobertura fica parcial e a aprovação
-é retida (`partial_coverage`; reprova sob `gate.inconclusive: block`). Um
-valor negativo é erro de configuração; zero usa o padrão. Sob política
-central, uma seção `batches` da política decide sozinha (a do repositório é
-ignorada com aviso). Os tetos de custo somam todos os lotes:
+Ao atingir um teto que você escreveu, os lotes seguintes não são revisados:
+seus arquivos são listados no aviso de cobertura ("N file(s) were left out of
+the review by the token budget", um por linha) e em `coverage.omitted_files`
+da auditoria, a cobertura fica parcial e a aprovação é retida
+(`partial_coverage`; reprova sob `gate.inconclusive: block`). Um valor
+negativo é erro de configuração; zero, ou a ausência da chave, não limita.
+Sob política central, uma seção `batches` da política decide sozinha (a do
+repositório é ignorada com aviso). Os tetos de custo somam todos os lotes:
 `max_prompt_tokens` é a soma estimada dos prompts, e `--limite` usa um só
-rastreador de custo para a revisão inteira; só `deliberation.max_cost_tokens`
-vale por lote. Um teto que não admite nenhum lote (um `max_prompt_tokens`
-menor que um prompt) é uma revisão de modelo que não rodou: não revisada
-(saída 1) sem gate e inconclusiva com gate, nunca aprovada. Tutorial: [Revisão, caso 5](tutorials/revisao.md).
+rastreador de custo para a revisão inteira. Um teto que não admite nenhum
+lote (um `max_prompt_tokens` menor que um prompt) é uma revisão de modelo que
+não rodou: não revisada (saída 1) sem gate e inconclusiva com gate, nunca
+aprovada. Tutorial: [Revisão, caso 5](tutorials/revisao.md).
 
 ## xBOM além do SBOM: Build BOM e CBOM (AUR-552)
 

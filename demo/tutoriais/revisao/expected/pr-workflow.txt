@@ -6,10 +6,12 @@ secret LLM_API_KEY: existe em review.yml
 secret LLM_BASE_URL: existe em review.yml
 permissao pull-requests: write: o chamador concede o que o reutilizavel declara
 aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout
+por ser longo demais (janela de 78000 tokens); revisando em partes menores
 aurumcode review: o diff não coube em um só prompt; revisado em 3 lotes por diretório (arquivos por lote: 2, 2, 2)
 parecer publicado na PR #7 como aprovação (sem comentários na linha).
 exit_code=0
-RESULTADO: 406: o diff veio do checkout verificado, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou
+RESULTADO: 406: o diff veio do checkout verificado, o modelo recusou o diff inteiro, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou
+por ser longo demais (janela de 78000 tokens); revisando em partes menores
 aurumcode review: o diff não coube em um só prompt; revisado em 1 lote por diretório (arquivos por lote: 2)
 aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
 parecer publicado na PR #7 como pedido de alteração (sem comentários na linha).

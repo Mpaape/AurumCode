@@ -40,6 +40,7 @@ func (p *prReview) generateReview() (int, bool) {
 	} else {
 		result, err = p.reviewer.GenerateReviewWithContext(p.ctx, p.diff, reviewCtx)
 		p.transcript = p.reviewer.Transcript()
+		p.noteRefusals(p.reviewer.PromptRefusals())
 		p.noteBatches(p.reviewer.Batches())
 	}
 	p.result = result

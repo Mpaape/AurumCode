@@ -13,13 +13,26 @@ import (
 )
 
 // configuredBatchLimits reads the batches section; an undeclared ceiling is
-// zero and the reviewer applies its embedded default.
+// zero and bounds nothing.
 func configuredBatchLimits(cfg *config.Config) review.BatchLimits {
 	if cfg == nil {
 		return review.BatchLimits{}
 	}
 	maxBatches, maxTokens := cfg.Batches.Limits()
 	return review.BatchLimits{MaxBatches: maxBatches, MaxPromptTokens: maxTokens}
+}
+
+// noteRefusals says on stderr, once per refusal, that the model refused the
+// prompt as longer than its context window and the review went on in smaller
+// parts (internal/review/split.go).
+func (s *reviewState) noteRefusals(refusals []review.PromptRefusal) {
+	for _, r := range refusals {
+		line := i18n.Format(s.reviewLanguage, "terminal.prompt_refused_unsized", r.EstimatedTokens)
+		if r.Limit > 0 {
+			line = i18n.Format(s.reviewLanguage, "terminal.prompt_refused", r.EstimatedTokens, r.Limit)
+		}
+		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
+	}
 }
 
 // noteBatches keeps the batches for the audit and says on stderr that the

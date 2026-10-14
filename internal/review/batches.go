@@ -2,6 +2,7 @@ package review
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"sort"
@@ -22,36 +23,18 @@ import (
 // reviewed in silence: they are counted and named as omitted, which keeps the
 // review partial and the approval withheld.
 
-// BatchLimits bounds a review in batches: how many prompts and their summed
-// estimated size. Zero means the embedded default.
+// BatchLimits optionally bounds a review in batches: how many prompts and
+// their summed estimated size. A zero ceiling bounds nothing, and none is the
+// default (issue #179): a review that has to be split reviews every file.
 type BatchLimits struct {
 	MaxBatches      int
 	MaxPromptTokens int
 }
 
-// DefaultBatchLimits returns the ceilings declared in
-// internal/prompt/templates/limits.yml.
-func DefaultBatchLimits() BatchLimits {
-	limits := prompt.DefaultLimits()
-	return BatchLimits{MaxBatches: limits.BatchMaxCount, MaxPromptTokens: limits.BatchMaxPromptTokens}
-}
-
-// withDefaults fills each zero ceiling from the embedded defaults.
-func (l BatchLimits) withDefaults() BatchLimits {
-	defaults := DefaultBatchLimits()
-	if l.MaxBatches <= 0 {
-		l.MaxBatches = defaults.MaxBatches
-	}
-	if l.MaxPromptTokens <= 0 {
-		l.MaxPromptTokens = defaults.MaxPromptTokens
-	}
-	return l
-}
-
-// SetBatchLimits installs the configured ceilings; a zero value keeps the
-// default.
+// SetBatchLimits installs the configured ceilings; a zero value bounds
+// nothing.
 func (r *Reviewer) SetBatchLimits(limits BatchLimits) {
-	r.cfg.Batches = limits.withDefaults()
+	r.cfg.Batches = limits
 }
 
 // Batch records one batch of a review: its files and its prompt's estimated
@@ -179,6 +162,12 @@ func (r *Reviewer) planBatches(diff *types.Diff, reviewContext ReviewContext) (b
 	}
 	measure := func(files []types.DiffFile) (bool, error) {
 		p, err := prepare(files)
+		var noRoom *prompt.NoRoomError
+		if errors.As(err, &noRoom) {
+			// What goes with these files alone fills the ceiling: they do
+			// not fit, and fewer files may.
+			return false, nil
+		}
 		if err != nil {
 			return false, err
 		}
@@ -203,7 +192,7 @@ func (r *Reviewer) planBatches(diff *types.Diff, reviewContext ReviewContext) (b
 			return batchPlan{}, err
 		}
 		tokens := metaCount(p.parts.Meta, "estimated_tokens")
-		stopped = stopped || len(plan.batches) >= r.cfg.Batches.MaxBatches || total+tokens > r.cfg.Batches.MaxPromptTokens
+		stopped = stopped || r.cfg.Batches.reached(len(plan.batches), total+tokens)
 		if stopped {
 			plan.outside = append(plan.outside, filePaths(files)...)
 			continue
@@ -212,6 +201,12 @@ func (r *Reviewer) planBatches(diff *types.Diff, reviewContext ReviewContext) (b
 		plan.batches = append(plan.batches, plannedBatch{files: files, prepared: p})
 	}
 	return plan, nil
+}
+
+// reached reports whether another batch, taking the summed size to
+// totalTokens, would cross a ceiling that is set.
+func (l BatchLimits) reached(batches, totalTokens int) bool {
+	return (l.MaxBatches > 0 && batches >= l.MaxBatches) || (l.MaxPromptTokens > 0 && totalTokens > l.MaxPromptTokens)
 }
 
 // measureFunc assembles the prompt of a candidate batch and reports whether
@@ -312,8 +307,9 @@ func singleFileUnits(files []types.DiffFile) [][]types.DiffFile {
 
 // batchContext is the review context of one batch: everything the single
 // prompt carries, with the evidence narrowed to the batch's files (and the
-// evidence tied to no file). Evidence ids are assigned once over the whole
-// review, so an id names the same finding in every batch.
+// evidence tied to no file) and the codebase context rendered for them.
+// Evidence ids are assigned once over the whole review, so an id names the
+// same finding in every batch.
 func batchContext(reviewContext ReviewContext, files []types.DiffFile) ReviewContext {
 	in := make(map[string]bool, len(files))
 	for _, f := range files {
@@ -326,6 +322,9 @@ func batchContext(reviewContext ReviewContext, files []types.DiffFile) ReviewCon
 		}
 	}
 	reviewContext.Evidence = evidence
+	if reviewContext.CodebaseContextFor != nil {
+		reviewContext.CodebaseContext = reviewContext.CodebaseContextFor(files)
+	}
 	return reviewContext
 }
 
