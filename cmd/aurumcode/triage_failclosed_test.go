@@ -42,8 +42,8 @@ const (
 
 // The fail-closed notice of AC-004, in pt-BR and in the default en-US.
 const (
-	aur608NoticePT = "gate.triage: a triagem pelo modelo não ocorreu — revisão por modelo não executada (sem provedor configurado) [quality_skipped]; a evidência determinística contou integralmente e o bloqueio foi mantido"
-	aur608NoticeEN = "gate.triage: the model's triage did not run (quality_skipped); the deterministic evidence counted in full and the block was kept"
+	aur608NoticePT = "gate.triage: achados determinísticos aguardando a avaliação do modelo: 1 — o modelo não deu uma resposta utilizável (revisão por modelo não executada (sem provedor configurado) [quality_skipped]); sem a decisão do modelo não há veredito"
+	aur608NoticeEN = "gate.triage: 1 deterministic finding(s) awaiting the model's assessment — the model gave no usable answer (quality_skipped); without the model's decision there is no verdict"
 )
 
 // aur608Config writes the fixture repository's own configuration.
@@ -113,8 +113,8 @@ func TestAUR608DisputeWithoutJustificationStillCounts(t *testing.T) {
 	}
 }
 
-// AC-004: without the model, with evidence and a declared gate, the block
-// is kept and a line (pt-BR under review.language pt-BR, en-US by default)
+// AC-004 (owner, 2026-10-14): without the model, with evidence and a
+// declared gate, the finding waits for the model (inconclusive) and a line (pt-BR under review.language pt-BR, en-US by default)
 // says the triage did not happen, in stderr and in the report.
 func TestAUR608WithoutModelKeepsDeterministicBlock(t *testing.T) {
 	for _, tc := range []struct{ lang, notice string }{
@@ -124,11 +124,11 @@ func TestAUR608WithoutModelKeepsDeterministicBlock(t *testing.T) {
 		aur579Repo(t)
 		aur608Config(t, tc.lang+"gate:\n  fail_on: [high]\n")
 		code, out, errOut := aur579Review(t, nil)
-		if code != exitFindings {
-			t.Fatalf("without the model the deterministic finding must keep blocking: exit=%d\nstderr=%s", code, errOut)
+		if code == 0 || code == exitFindings {
+			t.Fatalf("without the model the deterministic finding must wait for it (inconclusive): exit=%d\nstderr=%s", code, errOut)
 		}
-		if !strings.Contains(errOut, "aurumcode review: "+tc.notice) {
-			t.Errorf("stderr must say the triage did not happen (%q):\n%s", tc.notice, errOut)
+		if !strings.Contains(errOut, tc.notice) {
+			t.Errorf("stderr must say the finding awaits the model (%q):\n%s", tc.notice, errOut)
 		}
 		if strings.Contains(out, "contestado pelo modelo deixou de contar") {
 			t.Errorf("without the model nothing may be demoted:\n%s", out)
@@ -200,26 +200,23 @@ func TestAUR608TriageLinesReachTheParecer(t *testing.T) {
 
 	s, _ := newState(modelReviewed)
 	s.reportTriage([]gate.Demotion{{Source: config.GateSourceAnalysis, Issue: finding}})
-	s.reportTriageNotRun(&gateDecision{})
 	body := formatPublishedReviewBody(s.result, &types.Diff{}, "pt-BR", false, "")
 	if !strings.Contains(body, "gate.triage (analysis: model): app.go:4 analysis/hardcoded-secret contestado pelo modelo deixou de contar") {
 		t.Errorf("the parecer must name the triaged source:\n%s", body)
 	}
-	if strings.Contains(body, "a triagem pelo modelo não ocorreu") {
-		t.Errorf("the model answered: no notice:\n%s", body)
-	}
 
-	s, errOut := newState(modelSkipped)
-	s.reportTriageNotRun(&gateDecision{Fail: true})
-	body = formatPublishedReviewBody(s.result, &types.Diff{}, "pt-BR", false, "")
-	if !strings.Contains(body, aur608NoticePT) || !strings.Contains(errOut.String(), aur608NoticePT) {
-		t.Errorf("the parecer and stderr must say the triage did not happen:\n%s\nstderr=%s", body, errOut.String())
-	}
-
-	s, _ = newState(modelProviderFailed)
-	s.reportTriageNotRun(&gateDecision{})
-	if got := strings.Join(s.result.Limitations, "\n"); !strings.Contains(got, "o provedor de modelo não respondeu [provider_failure]; a evidência determinística contou integralmente") || strings.Contains(got, "bloqueio") {
-		t.Errorf("a passing gate states the evidence counted, never a kept block: %q", got)
+	// Without the model (none configured, or one that failed) the finding
+	// waits for it: one line, inconclusive and failing, never a breach.
+	for _, model := range []modelOutcome{modelSkipped, modelProviderFailed} {
+		s, _ = newState(model)
+		if tr := s.triage(); !tr.Awaiting || !tr.BySource[config.GateSourceAnalysis] {
+			t.Fatalf("model %v: the analysis evidence must await the model: %+v", model, tr)
+		}
+		res := &gateDecision{}
+		s.settleAwaiting([]gate.Demotion{{Source: config.GateSourceAnalysis, Issue: finding}}, res)
+		if !res.Inconclusive || !res.Fail || res.Breach || len(res.BlockingFindings) != 0 || !strings.Contains(strings.Join(res.Lines, "\n"), "aguardando a avaliação do modelo: 1") {
+			t.Errorf("model %v: the awaiting finding must leave the gate inconclusive, not breached: %+v", model, res)
+		}
 	}
 
 	for name, configure := range map[string]func(*reviewState){
@@ -231,9 +228,8 @@ func TestAUR608TriageLinesReachTheParecer(t *testing.T) {
 	} {
 		s, _ = newState(modelSkipped)
 		configure(s)
-		s.reportTriageNotRun(&gateDecision{Fail: true})
-		if len(s.result.Limitations) != 0 {
-			t.Errorf("%s: no triage could happen, nothing to announce: %v", name, s.result.Limitations)
+		if s.triage().BySource[config.GateSourceAnalysis] {
+			t.Errorf("%s: no triage could happen, the evidence counts", name)
 		}
 	}
 }
@@ -275,8 +271,14 @@ func TestAUR608DegradedModelNeverDemotes(t *testing.T) {
 	if strings.Contains(errOut, "deixou de contar") {
 		t.Errorf("a degraded answer must never demote:\n%s", errOut)
 	}
-	notice := "gate.triage: a triagem pelo modelo não ocorreu — a resposta do modelo só foi aproveitada como texto livre [degraded_parse]; a evidência determinística contou integralmente e o bloqueio foi mantido"
+	// The owner's rule (2026-10-14): the model decides. Without a usable
+	// answer the finding waits for it -- inconclusive, failing -- and never
+	// fails the gate as a static error.
+	notice := "gate.triage: achados determinísticos aguardando a avaliação do modelo: 1 — o modelo não deu uma resposta utilizável (a resposta do modelo só foi aproveitada como texto livre [degraded_parse]); sem a decisão do modelo não há veredito"
 	if !strings.Contains(errOut, notice) || !strings.Contains(strings.Join(s.result.Limitations, "\n"), notice) {
-		t.Errorf("stderr and the parecer must say the triage did not happen (%q):\nstderr=%s\nlimitations=%v", notice, errOut, s.result.Limitations)
+		t.Errorf("stderr and the parecer must say the finding awaits the model (%q):\nstderr=%s\nlimitations=%v", notice, errOut, s.result.Limitations)
+	}
+	if strings.Contains(errOut, "policy gate: analysis/hardcoded-secret") || s.gateRes == nil || len(s.gateRes.BlockingFindings) != 0 || !s.gateRes.Inconclusive {
+		t.Errorf("the awaiting finding must not block as a static error:\n%s", errOut)
 	}
 }

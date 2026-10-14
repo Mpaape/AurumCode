@@ -119,13 +119,15 @@ func TestAUR576SameInputsSameExitThroughTheSession(t *testing.T) {
 		}
 	}
 	// Declared divergence (session.Source data): a model failure always
-	// closes a local run; on a pull request the gate decides.
+	// closes a local run; on a pull request the gate decides. A finding the
+	// model was to decide waits for it: the run is inconclusive, never a
+	// failure by a static finding, whatever gate.inconclusive says.
 	divergent := []struct {
 		c          sessionCase
 		base, prEx int
 	}{
 		{sessionCase{name: "provider failure, warn", cfg: warnGate, model: modelProviderFailed}, exitQualityNotReviewed, 0},
-		{sessionCase{name: "provider failure, breach", cfg: warnGate, model: modelProviderFailed, security: []types.ReviewIssue{securityBreach}}, exitQualityNotReviewed, exitFindings},
+		{sessionCase{name: "provider failure, breach", cfg: warnGate, model: modelProviderFailed, security: []types.ReviewIssue{securityBreach}}, exitQualityNotReviewed, exitQualityNotReviewed},
 	}
 	for _, row := range divergent {
 		baseCode, _ := runSessionCase(t, session.LocalDiff, row.c)

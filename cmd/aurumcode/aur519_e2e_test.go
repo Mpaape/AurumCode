@@ -515,6 +515,9 @@ func runPRGateMockServer(t *testing.T, diffBody, repoConfig string, published *g
 
 func setPRGateEnv(t *testing.T, server *httptest.Server, fixturePath string) {
 	t.Helper()
+	if _, err := os.Stat(fixturePath); err == nil {
+		confirmTriage(t, fixturePath)
+	}
 	t.Setenv("AURUMCODE_LLM_FIXTURE", fixturePath)
 	t.Setenv("AURUMCODE_GITHUB_API_URL", server.URL)
 	t.Setenv("AURUMCODE_PR_PERMISSION_MODE", "endpoint")

@@ -82,10 +82,17 @@ func (f *FakeProvider) Complete(prompt string, opts llm.Options) (llm.Response, 
 // prompt, and what the verification sent stays observable beside it.
 const VerificationCaptureSuffix = ".verificacao"
 
+// TriageCaptureSuffix names the capture of a dedicated triage prompt
+// (evidence_triage.go), kept beside the review's own capture.
+const TriageCaptureSuffix = ".triagem"
+
 // capturePathFor is where prompt is captured.
 func (f *FakeProvider) capturePathFor(text string) string {
 	if strings.Contains(text, prompt.VerificationMarker) {
 		return f.CapturePath + VerificationCaptureSuffix
+	}
+	if strings.Contains(text, prompt.TriageMarker) {
+		return f.CapturePath + TriageCaptureSuffix
 	}
 	return f.CapturePath
 }

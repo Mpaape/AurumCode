@@ -80,7 +80,7 @@ func (r *Reviewer) needsBatches(diff *types.Diff, prepared preparedPrompt, revie
 	}
 	meta := prepared.parts.Meta
 	if len(withoutPatch) > 0 {
-		p, err := r.preparePrompt(&types.Diff{Files: withPatch}, batchContext(reviewContext, withPatch))
+		p, err := r.preparePrompt(&types.Diff{Files: withPatch}, batchContext(reviewContext, withPatch, diff.Files))
 		if err != nil {
 			return false, err
 		}
@@ -154,7 +154,7 @@ func (r *Reviewer) planBatches(diff *types.Diff, reviewContext ReviewContext) (b
 		if p, ok := assembled[key]; ok {
 			return p, nil
 		}
-		p, err := r.preparePrompt(&types.Diff{Files: files}, batchContext(reviewContext, files))
+		p, err := r.preparePrompt(&types.Diff{Files: files}, batchContext(reviewContext, files, diff.Files))
 		if err == nil {
 			assembled[key] = p
 		}
@@ -306,18 +306,24 @@ func singleFileUnits(files []types.DiffFile) [][]types.DiffFile {
 }
 
 // batchContext is the review context of one batch: everything the single
-// prompt carries, with the evidence narrowed to the batch's files (and the
-// evidence tied to no file) and the codebase context rendered for them.
-// Evidence ids are assigned once over the whole review, so an id names the
-// same finding in every batch.
-func batchContext(reviewContext ReviewContext, files []types.DiffFile) ReviewContext {
+// prompt carries, with the evidence narrowed to the batch's files and the
+// codebase context rendered for them. Evidence tied to no file, or to a file
+// outside the reviewed diff (a scanner reads the whole checkout), goes with
+// every batch: the single prompt offered it, and a batch must too, or the
+// model would never decide it. Evidence ids are assigned once over the
+// whole review, so an id names the same finding in every batch.
+func batchContext(reviewContext ReviewContext, files, diffFiles []types.DiffFile) ReviewContext {
 	in := make(map[string]bool, len(files))
 	for _, f := range files {
 		in[f.Path] = true
 	}
+	inDiff := make(map[string]bool, len(diffFiles))
+	for _, f := range diffFiles {
+		inDiff[f.Path] = true
+	}
 	var evidence []prompt.EvidenceItem
 	for _, item := range reviewContext.Evidence {
-		if item.File == "" || in[item.File] {
+		if item.File == "" || in[item.File] || !inDiff[item.File] {
 			evidence = append(evidence, item)
 		}
 	}

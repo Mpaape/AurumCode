@@ -68,6 +68,7 @@ func aur556SQLiFixture(t *testing.T, repoConfig string) string {
 	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
 		t.Fatal(err)
 	}
+	confirmTriage(t, fixture)
 	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
 	return dir
 }

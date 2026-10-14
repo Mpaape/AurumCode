@@ -22,3 +22,23 @@ func TestTriageMatchesTheDisputeByOrigin(t *testing.T) {
 		t.Fatal("the disputed security finding must be demoted under analysis: model")
 	}
 }
+
+// A model that did not answer leaves the unassessed findings of a triaged
+// source awaiting its decision, never counting as a static error; what the
+// model did assess keeps its effect, and a source without triage counts.
+func TestTriageAwaitingKeepsUnassessedOutOfTheCount(t *testing.T) {
+	waiting := types.ReviewIssue{RuleID: "gitleaks:generic-api-key", File: "f.json", Line: 17}
+	confirmed := types.ReviewIssue{RuleID: "gitleaks:generic-api-key", File: "f.json", Line: 50}
+	run := &Run{Triage: Triage{
+		Awaiting: true,
+		Assessed: map[string]bool{DisputeKey("gitleaks", confirmed.RuleID, confirmed.File, confirmed.Line): true},
+		BySource: map[string]bool{"secrets": true},
+	}}
+	kept := run.keep("secrets", "gitleaks", []types.ReviewIssue{waiting, confirmed})
+	if len(kept) != 1 || kept[0].Line != 50 || len(run.Awaiting) != 1 || run.Awaiting[0].Issue.Line != 17 {
+		t.Fatalf("kept %v, awaiting %v", kept, run.Awaiting)
+	}
+	if kept := run.keep("sast", "semgrep", []types.ReviewIssue{waiting}); len(kept) != 1 {
+		t.Fatal("a source the model may not triage keeps counting")
+	}
+}
