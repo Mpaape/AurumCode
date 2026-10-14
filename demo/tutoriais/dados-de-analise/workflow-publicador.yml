@@ -6,11 +6,25 @@ name: Analysis data artifact
 # tagged analysis-data/<UTC timestamp>. A failing build or test leaves the
 # previous release as the newest one. The runtime refuses data older than
 # analysis_data.max_age_days (default 7).
+# AUR-618: each copy is published as a pre-release (the product's releases
+# keep "Latest") and, right after publishing, the copies older than the
+# retention window are deleted, release and tag, keeping at least the newest
+# ones. Both numbers are inputs of the manual run; the schedule uses the
+# defaults, which match what the runtime accepts.
 
 on:
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
+    inputs:
+      retention_days:
+        description: 'Delete analysis-data copies published more than this many days ago'
+        type: string
+        default: '7'
+      keep_at_least:
+        description: 'Never delete the newest N analysis-data copies'
+        type: string
+        default: '3'
 
 concurrency:
   group: analysis-data
@@ -71,3 +85,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: bash scripts/artifacts/publish.sh dist
+
+      - name: Delete the copies the runtime no longer accepts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RETENTION_DAYS: ${{ inputs.retention_days || '7' }}
+          KEEP_AT_LEAST: ${{ inputs.keep_at_least || '3' }}
+        run: bash scripts/artifacts/retain.sh --days "$RETENTION_DAYS" --keep "$KEEP_AT_LEAST"

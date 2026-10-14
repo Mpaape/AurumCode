@@ -102,13 +102,14 @@ caso_cache() {
 caso_workflow_agendado() {
   local wf="$REPO_ROOT/.github/workflows/analysis-data.yml" copia="$HERE/workflow-publicador.yml" pub="$REPO_ROOT/scripts/artifacts/publish.sh"
   echo "NAO EXECUTADO: o workflow roda so no GitHub Actions; aqui so a conferencia estatica do arquivo."
-  diff -q "$wf" "$copia" >/dev/null && echo "workflow-publicador.yml: identico a .github/workflows/analysis-data.yml"
+  diff -q "$wf" "$copia" >/dev/null || { echo "DIVERGENCIA: workflow-publicador.yml difere de .github/workflows/analysis-data.yml"; return 1; }
+  echo "workflow-publicador.yml: identico a .github/workflows/analysis-data.yml"
   grep -qF "cron: '17 3 * * *'" "$copia" && echo "gatilho: schedule diario (cron 17 3 * * *)"
   grep -q '^  workflow_dispatch:' "$copia" && echo "gatilho: workflow_dispatch (disparo manual)"
   grep -qE '^    needs: build$' "$copia" && echo "publish depende de build: teste falhando nao publica"
   grep -qE '^      contents: write$' "$copia" && echo "so o job publish recebe contents: write"
   grep -q 'analysis-data/\*' "$pub" && echo "publish.sh: so aceita tag analysis-data/*"
-  grep -q -- '--draft --latest=false' "$pub" && grep -q -- '--draft=false --latest=false' "$pub" && echo "publish.sh: cria como rascunho e so depois publica (nunca fica visivel pela metade)"
+  grep -q -- '--draft --prerelease --latest=false' "$pub" && grep -q -- '--draft=false --prerelease --latest=false' "$pub" && echo "publish.sh: cria como rascunho e so depois publica (nunca fica visivel pela metade)"
   grep -q 'never touched' "$pub" && echo "publish.sh: tag existente nunca e tocada"
   echo "RESULTADO: o workflow tem o agendamento, o teste antes de publicar e a publicacao em duas etapas que o texto descreve (conferencia estatica; a imutabilidade do release depende de 'Immutable releases' no repositorio e NAO foi demonstrada)"
 }

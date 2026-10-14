@@ -17,7 +17,7 @@ aurumcode:xbom:llm=absent
 --- com --politica: o catalogo da politica vence e o do repositorio e ignorado com aviso
 $ aurumcode xbom --type build --repo . --politica /fixtures/politica --out politica.json
 aurumcode xbom: .aurumcode/xbom/build.yml do repositorio ignorado: a politica central decide sozinha
-aurumcode xbom: build: 3 componente(s), 0 descartado(s) sem evidencia
+aurumcode xbom: build: 3 componentes, 0 descartados sem evidência
 exit_code=0
 RESULTADO: catalogo da politica usado, o do repositorio ignorado
 $ jq .components[] | "\(.name) catalogo=\(.properties[]? | select(.name=="aurumcode:xbom:catalogo") | .value)" politica.json
