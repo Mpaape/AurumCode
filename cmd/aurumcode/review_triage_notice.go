@@ -19,7 +19,7 @@ import (
 // block.
 func (s *reviewState) reportTriageNotRun(res *gateDecision) {
 	reason := s.modelReason()
-	if reason == "" || !s.triageableEvidence(s.triageSources()) {
+	if reason == "" || s.awaitingReason() != "" || !s.triageableEvidence(s.triageSources()) {
 		return
 	}
 	key := "notice.triage_not_run_clear"

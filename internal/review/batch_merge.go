@@ -64,7 +64,7 @@ func mergeResults(results []*types.ReviewResult) *types.ReviewResult {
 		merged.Limitations = appendUnlike(merged.Limitations, res.Limitations...)
 		merged.LineComments = append(merged.LineComments, res.LineComments...)
 		merged.FileComments = append(merged.FileComments, res.FileComments...)
-		merged.EvidenceAssessments = append(merged.EvidenceAssessments, res.EvidenceAssessments...)
+		merged.EvidenceAssessments = mergeBatchAssessments(merged.EvidenceAssessments, res.EvidenceAssessments)
 		if merged.ISOScores == nil {
 			merged.ISOScores = res.ISOScores
 		}
@@ -145,4 +145,30 @@ func proseKey(text string) string {
 		words = words[:5]
 	}
 	return strings.Join(words, " ")
+}
+
+// assessmentWeight orders the statuses of one evidence item assessed by
+// several batches (evidence that goes with every batch): a confirmation
+// outweighs a request for context, which outweighs a dispute, so the
+// consolidated answer never demotes what one batch confirmed.
+var assessmentWeight = map[string]int{types.AssessmentDisputed: 1, types.AssessmentNeedsContext: 2, types.AssessmentConfirmed: 3}
+
+// mergeBatchAssessments adds next's assessments to merged, one per evidence
+// id: of two batches' assessments of the same item, the weightier stays.
+func mergeBatchAssessments(merged, next []types.EvidenceAssessment) []types.EvidenceAssessment {
+	at := make(map[string]int, len(merged))
+	for i, a := range merged {
+		at[a.EvidenceID] = i
+	}
+	for _, a := range next {
+		i, seen := at[a.EvidenceID]
+		switch {
+		case !seen:
+			at[a.EvidenceID] = len(merged)
+			merged = append(merged, a)
+		case assessmentWeight[a.Status] > assessmentWeight[merged[i].Status]:
+			merged[i] = a
+		}
+	}
+	return merged
 }

@@ -216,10 +216,13 @@ func TestAUR608TriageLinesReachTheParecer(t *testing.T) {
 		t.Errorf("the parecer and stderr must say the triage did not happen:\n%s\nstderr=%s", body, errOut.String())
 	}
 
+	// A configured model that failed leaves the evidence awaiting it
+	// (review_triage_awaiting.go): the evidence did not count in full, so
+	// this notice is not said.
 	s, _ = newState(modelProviderFailed)
 	s.reportTriageNotRun(&gateDecision{})
-	if got := strings.Join(s.result.Limitations, "\n"); !strings.Contains(got, "o provedor de modelo não respondeu [provider_failure]; a evidência determinística contou integralmente") || strings.Contains(got, "bloqueio") {
-		t.Errorf("a passing gate states the evidence counted, never a kept block: %q", got)
+	if got := strings.Join(s.result.Limitations, "\n"); strings.Contains(got, "contou integralmente") {
+		t.Errorf("a failed model leaves the evidence awaiting it, never counted in full: %q", got)
 	}
 
 	for name, configure := range map[string]func(*reviewState){
@@ -275,8 +278,14 @@ func TestAUR608DegradedModelNeverDemotes(t *testing.T) {
 	if strings.Contains(errOut, "deixou de contar") {
 		t.Errorf("a degraded answer must never demote:\n%s", errOut)
 	}
-	notice := "gate.triage: a triagem pelo modelo não ocorreu — a resposta do modelo só foi aproveitada como texto livre [degraded_parse]; a evidência determinística contou integralmente e o bloqueio foi mantido"
+	// The owner's rule (2026-10-14): the model decides. Without a usable
+	// answer the finding waits for it -- inconclusive, failing -- and never
+	// fails the gate as a static error.
+	notice := "gate.triage: achados determinísticos aguardando a avaliação do modelo: 1 — o modelo não deu uma resposta utilizável (a resposta do modelo só foi aproveitada como texto livre [degraded_parse]); sem a decisão do modelo não há veredito"
 	if !strings.Contains(errOut, notice) || !strings.Contains(strings.Join(s.result.Limitations, "\n"), notice) {
-		t.Errorf("stderr and the parecer must say the triage did not happen (%q):\nstderr=%s\nlimitations=%v", notice, errOut, s.result.Limitations)
+		t.Errorf("stderr and the parecer must say the finding awaits the model (%q):\nstderr=%s\nlimitations=%v", notice, errOut, s.result.Limitations)
+	}
+	if strings.Contains(errOut, "policy gate: analysis/hardcoded-secret") || s.gateRes == nil || len(s.gateRes.BlockingFindings) != 0 || !s.gateRes.Inconclusive {
+		t.Errorf("the awaiting finding must not block as a static error:\n%s", errOut)
 	}
 }

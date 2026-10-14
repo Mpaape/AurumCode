@@ -45,6 +45,7 @@ func (b *baseReview) collectEvidence() (int, bool) {
 func (b *baseReview) joinEvidence() (int, bool) {
 	b.settleDeferredScans()
 	b.attachAssessments()
+	b.triageUnassessed()
 	b.reportSecurityPass()
 	b.result.Issues = append(b.result.Issues, b.analysisIssues...)
 	b.snapshotAndApplyRules()

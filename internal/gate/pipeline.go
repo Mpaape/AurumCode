@@ -43,9 +43,11 @@ type Run struct {
 	Now func() time.Time
 
 	// Triage is what the model's assessment may change (triage.go);
-	// Demoted collects the findings it demoted in this run.
-	Triage  Triage
-	Demoted []Demotion
+	// Demoted collects the findings it demoted in this run; Awaiting the
+	// ones left for a model that did not answer (Triage.Awaiting).
+	Triage   Triage
+	Demoted  []Demotion
+	Awaiting []Demotion
 
 	flushers []func()
 }

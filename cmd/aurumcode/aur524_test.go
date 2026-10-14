@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"fmt"
 	igate "github.com/Mpaape/AurumCode/internal/gate"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -74,6 +75,13 @@ func aur524AlternatingLLMServer(t *testing.T, bodies []string) (*httptest.Server
 	t.Helper()
 	var calls int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The dedicated triage of the evidence the review left unassessed
+		// is answered apart (no assessment) and is not a review call.
+		if body, _ := io.ReadAll(r.Body); strings.Contains(string(body), prompt.TriageMarker) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"model":"m","choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"{\"evidence_assessments\":[]}"}}]}`)
+			return
+		}
 		n := int(atomic.AddInt32(&calls, 1))
 		idx := n - 1
 		if idx >= len(bodies) {
