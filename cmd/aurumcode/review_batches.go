@@ -102,14 +102,22 @@ func (s *reviewState) noteContextReduction(reduction review.ContextReduction, ok
 	if !ok || s.contextReduced != "" {
 		return
 	}
-	line := i18n.Format(s.reviewLanguage, "terminal.context_reduced", reduction.OriginalTokens, reduction.KeptTokens,
-		reduction.SnippetsKept, reduction.Snippets, reduction.ReferencesKept, reduction.References)
-	if reduction.Discarded {
-		line = i18n.Format(s.reviewLanguage, "terminal.context_discarded", reduction.OriginalTokens)
+	var lines []string
+	switch {
+	case reduction.Discarded:
+		lines = append(lines, i18n.Format(s.reviewLanguage, "terminal.context_discarded", reduction.OriginalTokens))
+	case reduction.Reduction.Reduced():
+		lines = append(lines, i18n.Format(s.reviewLanguage, "terminal.context_reduced", reduction.OriginalTokens, reduction.KeptTokens,
+			reduction.SnippetsKept, reduction.Snippets, reduction.ReferencesKept, reduction.References))
 	}
-	s.contextReduced = line
+	if reduction.EvidenceKept < reduction.Evidence {
+		lines = append(lines, i18n.Format(s.reviewLanguage, "terminal.evidence_reduced", reduction.Evidence-reduction.EvidenceKept, reduction.Evidence))
+	}
+	for _, line := range lines {
+		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
+	}
+	s.contextReduced = strings.Join(lines, "; ")
 	s.markContextReduced()
-	fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
 }
 
 // markContextReduced records the reduction in the result's metadata, which

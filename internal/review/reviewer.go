@@ -103,7 +103,10 @@ type ReviewContext struct {
 	// its own files, instead of the whole diff's, which can fill a window by
 	// itself.
 	CodebaseContextFor func(files []types.DiffFile) string
-	MemoryNotes        string // Untrusted, attributed observations from review memory
+	// evidenceMaxTokens is the evidence's share of a learned window, zero
+	// for no bound (context_fit.go).
+	evidenceMaxTokens int
+	MemoryNotes       string // Untrusted, attributed observations from review memory
 	// RepositoryContext is the rendered repository context block
 	// (config.BuildContextBlockWithWarnings). It travels in its own prompt
 	// slot, inside the budget, instead of being appended by a provider
@@ -228,7 +231,7 @@ type preparedPrompt struct {
 // Under a ceiling learned from a refusal, the codebase context is reduced
 // to fit (context_fit.go).
 func (r *Reviewer) preparePrompt(diff *types.Diff, reviewContext ReviewContext) (preparedPrompt, error) {
-	if r.learnedBudget > 0 && reviewContext.CodebaseContext != "" {
+	if r.learnedBudget > 0 && (reviewContext.CodebaseContext != "" || len(reviewContext.Evidence) > 0) {
 		return r.prepareWithinWindow(diff, reviewContext)
 	}
 	return r.assemblePrompt(diff, reviewContext)
@@ -261,6 +264,7 @@ func (r *Reviewer) assemblePrompt(diff *types.Diff, reviewContext ReviewContext)
 		Language:          reviewContext.Language,
 		RepositoryContext: r.filter.Redact(reviewContext.RepositoryContext),
 		Evidence:          redactEvidence(r.filter, reviewContext.Evidence),
+		EvidenceMaxTokens: reviewContext.evidenceMaxTokens,
 		Tools:             redactTools(r.filter, reviewContext.Tools),
 	}
 

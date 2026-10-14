@@ -29,6 +29,12 @@ type BuildOptions struct {
 	// Evidence is the deterministic, already-redacted findings offered to
 	// the model for assessment; empty renders no section.
 	Evidence []EvidenceItem
+	// EvidenceMaxTokens, when positive, bounds the evidence section of this
+	// prompt below the builder's own limit: the share the reviewer gives it
+	// under a window a provider's refusal taught (internal/review/
+	// context_fit.go). Omitted items are counted in the section and left out
+	// of EvidenceAdmittedMetaKey.
+	EvidenceMaxTokens int
 	// Tools are the tools the model may ask for, with declared cost;
 	// empty renders no section.
 	Tools []ToolOffer
