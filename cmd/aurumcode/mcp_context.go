@@ -53,7 +53,6 @@ func mcpContextProviders(sources []config.MCPContextSource, filter *redaction.Fi
 			Timeout:    timeout,
 			Dial:       dialMCPCommand(src.Command, src.Env),
 			Redact:     redact,
-			MaxBytes:   config.MaxProviderContributionBytes,
 		})
 	}
 	return out

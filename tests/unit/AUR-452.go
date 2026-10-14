@@ -39,7 +39,7 @@ func TestAUR452(t *testing.T) {
 	t.Run("HostilePromptTextCannotDisableRule", testAUR452HostilePromptTextCannotDisableRule)
 	t.Run("CostEstimateAccountsForBlock", testAUR452CostEstimateAccountsForBlock)
 	t.Run("ProviderTextIsRedactedBeforePrompt", testAUR452ProviderTextIsRedactedBeforePrompt)
-	t.Run("OversizedContributionRejected", testAUR452OversizedContributionRejected)
+	t.Run("OversizedContributionReachesModel", testAUR452OversizedContributionReachesModel)
 }
 
 func testAUR452ZeroConfigLoadIsEmpty(t *testing.T) {
@@ -214,8 +214,7 @@ func indexOf(haystack, needle string) int {
 
 
 // bigContentProvider contributes a fixed amount of filler text, used to
-// prove the cost-ceiling fix without depending on MaxProviderContribution
-// Bytes (a second, independent defense; this test isolates the first).
+// prove the cost-ceiling accounting on a large contribution.
 type bigContentProvider struct{ n int }
 
 func (bigContentProvider) Name() string { return "big-content-provider" }
@@ -236,12 +235,12 @@ func (b bigContentProvider) Provide(context.Context, []string) (string, error) {
 // after it). This test pins the fixed behavior: Reserve must refuse
 // BEFORE the underlying provider's Complete ever runs.
 func testAUR452CostEstimateAccountsForBlock(t *testing.T) {
-	big := strings.Repeat("x", 60000) // under MaxProviderContributionBytes on purpose
+	big := strings.Repeat("x", 60000)
 	base := &capturingProvider{resp: llm.Response{Text: `{"issues":[],"summary":"ok"}`}}
 	wrapped, err := config.WrapProvider(context.Background(), base,
 		[]config.ContextProvider{bigContentProvider{n: len(big)}}, []string{"a.go"}, nil)
 	if err != nil {
-		t.Fatalf("WrapProvider must not error for an under-ceiling contribution: %v", err)
+		t.Fatalf("WrapProvider must not error for a large contribution: %v", err)
 	}
 
 	tracker := cost.NewTracker(0.001, 0.001, map[string]cost.PriceMap{
@@ -294,16 +293,23 @@ func testAUR452ProviderTextIsRedactedBeforePrompt(t *testing.T) {
 	}
 }
 
-// testAUR452OversizedContributionRejected is the second, independent
-// defense for the cost ceiling: a provider that returns more than
-// MaxProviderContributionBytes is a loud error, never a silent
-// truncation.
-func testAUR452OversizedContributionRejected(t *testing.T) {
-	base := &capturingProvider{}
-	_, err := config.WrapProvider(context.Background(), base,
-		[]config.ContextProvider{bigContentProvider{n: config.MaxProviderContributionBytes + 1}},
+// testAUR452OversizedContributionReachesModel pins issue #179: a provider
+// that returns more than the old 64 KiB ceiling is neither refused nor
+// truncated -- the whole contribution reaches the outbound prompt (the
+// cost ceiling, when declared, still sees it through the estimate above).
+func testAUR452OversizedContributionReachesModel(t *testing.T) {
+	base := &capturingProvider{resp: llm.Response{Text: "{}"}}
+	n := 64*1024 + 1
+	wrapped, err := config.WrapProvider(context.Background(), base,
+		[]config.ContextProvider{bigContentProvider{n: n}},
 		[]string{"a.go"}, nil)
-	if err == nil {
-		t.Fatal("a contribution over MaxProviderContributionBytes must be a loud error, not silently accepted or truncated")
+	if err != nil {
+		t.Fatalf("a contribution past the old 64 KiB ceiling must reach the model whole, got %v", err)
+	}
+	if _, err := wrapped.Complete("BASE PROMPT", llm.Options{}); err != nil {
+		t.Fatalf("Complete must not error: %v", err)
+	}
+	if len(base.gotPrompt) < n {
+		t.Fatalf("the contribution was cut: the prompt has %d bytes, want at least %d", len(base.gotPrompt), n)
 	}
 }
