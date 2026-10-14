@@ -273,3 +273,62 @@ exit_code=1
 RESULTADO: cobertura perdida com zero achados: inconclusivo, nunca zero falso
 nenhum SARIF gravado: os alertas abertos ficam como estao
 ```
+
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/plugin-agendado/out/: o terminal de cada caso. Nenhum caso publica comentário de PR: o plugin agendado nunca roda em pull request. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### cobertura-perdida
+
+![Terminal do caso cobertura-perdida](../assets/capturas/plugin-agendado/cobertura-perdida-terminal.png)
+
+### degradado
+
+![Terminal do caso degradado](../assets/capturas/plugin-agendado/degradado-terminal.png)
+
+### fora-do-envio
+
+![Terminal do caso fora-do-envio](../assets/capturas/plugin-agendado/fora-do-envio-terminal.png)
+
+### ingest
+
+![Terminal do caso ingest](../assets/capturas/plugin-agendado/ingest-terminal.png)
+
+### nao-verificado
+
+![Terminal do caso nao-verificado](../assets/capturas/plugin-agendado/nao-verificado-terminal.png)
+
+### workflow
+
+![Terminal do caso workflow](../assets/capturas/plugin-agendado/workflow-terminal.png)
+
+<!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
+## Como fica
+
+Capturas geradas por scripts/docs/capturas.sh a partir das saídas gravadas em demo/tutoriais/plugin-agendado/out/: o terminal de cada caso e, quando o caso publica, o comentario do PR e os status checks. O manifesto docs/assets/capturas/capturas.json registra o digest de cada insumo.
+
+### cobertura-perdida
+
+![Terminal do caso cobertura-perdida](../assets/capturas/plugin-agendado/cobertura-perdida-terminal.png)
+
+### degradado
+
+![Terminal do caso degradado](../assets/capturas/plugin-agendado/degradado-terminal.png)
+
+### fora-do-envio
+
+![Terminal do caso fora-do-envio](../assets/capturas/plugin-agendado/fora-do-envio-terminal.png)
+
+### ingest
+
+![Terminal do caso ingest](../assets/capturas/plugin-agendado/ingest-terminal.png)
+
+### nao-verificado
+
+![Terminal do caso nao-verificado](../assets/capturas/plugin-agendado/nao-verificado-terminal.png)
+
+### workflow
+
+![Terminal do caso workflow](../assets/capturas/plugin-agendado/workflow-terminal.png)
+
+<!-- capturas:fim -->
