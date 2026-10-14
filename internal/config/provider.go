@@ -28,11 +28,12 @@ import (
 // Provide takes a ctx that BuildContextBlock bounds to ProviderTimeout: a
 // provider that hangs (an unreachable MCP server, a stalled RAG index)
 // must fail the review loudly within that bound, never hang it
-// indefinitely. A provider's returned text is also bounded to
-// MaxProviderContributionBytes; a provider that returns more is a loud
-// error, never a silent truncation (the same "fail high, never truncate
-// silently" rule internal/prompt.ValidateRuleCatalog already applies to
-// the rule catalog).
+// indefinitely. The text an external source returns (an MCP server, a
+// retrieval index) is also bounded to MaxProviderContributionBytes; a
+// provider that returns more is a loud error, never a silent truncation. A
+// CuratedProvider -- the repository's or the policy's own files -- is not
+// bounded that way (the rule catalog, in internal/prompt.ValidateRuleCatalog,
+// is likewise never truncated or refused by size).
 type ContextProvider interface {
 	// Name identifies this provider in the rendered prompt and in
 	// evidence/diagnostics. Stable across calls.
@@ -59,6 +60,20 @@ type ProviderWarning struct {
 	Reason   string
 }
 
+// CuratedProvider is implemented by a provider that reads the repository's
+// or the policy's own curated files: prompt, instructions, skills, docs.
+// How much of that to write is its owner's decision, so
+// MaxProviderContributionBytes -- the defense against an external source
+// flooding the prompt -- does not apply to it: a policy of any size reaches
+// the model whole (issue #179), and the prompt as a whole stays bounded by
+// the model's context window. The default stays bounded: a provider is
+// subject to the ceiling unless it declares itself curated.
+type CuratedProvider interface {
+	ContextProvider
+	// Curated marks the provider; it has no behavior of its own.
+	Curated()
+}
+
 type contributionLimitError struct {
 	provider string
 	size     int
@@ -76,8 +91,9 @@ func (e contributionLimitError) Error() string {
 // reason to raise this shared ceiling.
 const ProviderTimeout = 10 * time.Second
 
-// MaxProviderContributionBytes bounds one provider's contributed text.
-// This is also this card's second, independent defense for the cost
+// MaxProviderContributionBytes bounds the text one external provider
+// contributes (a CuratedProvider is exempt). This is also this card's
+// second, independent defense for the cost
 // ceiling (see contextInjectingProvider.Tokens in wrap.go, the primary
 // fix): even if a future provider's token accounting were ever wrong, no
 // single contribution can grow the outbound prompt by more than this many
@@ -116,7 +132,7 @@ func callProviderBounded(ctx context.Context, p ContextProvider, changedPaths []
 		if r.err != nil {
 			return "", fmt.Errorf("context provider %q: %w", p.Name(), r.err)
 		}
-		if len(r.text) > MaxProviderContributionBytes {
+		if _, curated := p.(CuratedProvider); !curated && len(r.text) > MaxProviderContributionBytes {
 			return "", contributionLimitError{provider: p.Name(), size: len(r.text)}
 		}
 		return r.text, nil

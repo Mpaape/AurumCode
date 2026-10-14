@@ -4,8 +4,6 @@
 # prompt_max_tokens: teto do prompt inteiro (system + user). Um diff que nao
 #   cabe e aparado por hunk inteiro e declarado na secao de cobertura; nunca
 #   cortado em silencio.
-# rule_catalog_max_tokens: teto da secao do catalogo de regras; acima dele a
-#   montagem falha alto em vez de truncar a lista.
 # evidence_max_tokens: teto da secao de evidencia deterministica; itens alem
 #   dele sao contados como "N omitidos".
 # tools_max_tokens: teto da secao de ferramentas disponiveis, mesma regra.
@@ -16,8 +14,12 @@
 # batch_max_prompt_tokens: teto da soma dos prompts de todos os lotes (o custo
 #   de entrada da revisao inteira), mesma regra. O padrao equivale a quatro
 #   prompts cheios: e o numero de lotes que limita, ate a configuracao baixar.
+#
+# O catalogo de regras e o texto das skills NAO tem teto: crescem com a
+#   politica e entram inteiros no prompt. Um teto ali derrubava a revisao na
+#   primeira politica maior que o previsto (issue #179); o limite real e a
+#   janela de contexto do modelo, e quem cuida dela e o teto acima.
 prompt_max_tokens: 120000
-rule_catalog_max_tokens: 512
 evidence_max_tokens: 4096
 tools_max_tokens: 1024
 batch_max_count: 4

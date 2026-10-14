@@ -28,7 +28,7 @@ func TestLoadSlotLimitsReturnsErrors(t *testing.T) {
 	cases := map[string]fstest.MapFS{
 		"missing":      {},
 		"malformed":    {limitsFile: {Data: []byte("prompt_max_tokens: [unclosed\n")}},
-		"non-positive": {limitsFile: {Data: []byte("prompt_max_tokens: 0\nrule_catalog_max_tokens: 1\nevidence_max_tokens: 1\ntools_max_tokens: 1\n")}},
+		"non-positive": {limitsFile: {Data: []byte("prompt_max_tokens: 0\nevidence_max_tokens: 1\ntools_max_tokens: 1\n")}},
 	}
 	for name, fsys := range cases {
 		t.Run(name, func(t *testing.T) {

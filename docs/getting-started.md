@@ -40,6 +40,18 @@ obrigatório, que julga todos os repositórios, fixe a SHA de 40 hex com a
 versão num comentário, como no [guia corporativo](gate-corporativo.md): uma
 tag pode ser apontada para outro commit, a SHA não.
 
+### Grupos de concorrência reservados
+
+O workflow reutilizável cancela a revisão anterior de uma PR quando chega uma
+rodada nova, com um grupo de concorrência próprio:
+`aurumcode/review/pr-<número da PR>` (e `aurumcode/dependencies/<repositório>`
+na varredura agendada de dependências). O prefixo `aurumcode/` é reservado:
+um `concurrency:` no topo do seu workflow chamador com um grupo de mesmo nome
+faz o GitHub cancelar a execução com `Canceling since a deadlock was
+detected for concurrency group`. Você não precisa declarar `concurrency:` no
+chamador para ter esse cancelamento; se quiser um grupo seu, escolha outro
+nome, por exemplo `minha-revisao-${{ github.event.pull_request.number }}`.
+
 ### Saber quando há versão nova
 
 Cada repositório roda exatamente a versão que fixou; nada muda sem uma PR

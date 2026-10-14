@@ -178,8 +178,12 @@ func (c *Catalog) Select(changed []string) Selection {
 // Name identifies the catalog in the rendered prompt and diagnostics.
 func (c *Catalog) Name() string { return "skills (.aurumcode/skills/*/SKILL.md)" }
 
-// Provide implements config.ContextProvider. A budget overflow is a loud
-// error naming what did not fit; it is never a silent truncation.
+// Curated marks the skills as the policy's own files, with no size ceiling
+// (see config.CuratedProvider).
+func (c *Catalog) Curated() {}
+
+// Provide implements config.ContextProvider. The selected skills enter whole,
+// whatever their size; they are never a silent truncation.
 func (c *Catalog) Provide(_ context.Context, changed []string) (string, error) {
 	sel := c.Select(changed)
 	warnings := renderWarnings(sel.Warnings)
@@ -196,4 +200,4 @@ func (c *Catalog) Provide(_ context.Context, changed []string) (string, error) {
 	return warnings + "\n\n" + res.Text, nil
 }
 
-var _ config.ContextProvider = (*Catalog)(nil)
+var _ config.CuratedProvider = (*Catalog)(nil)

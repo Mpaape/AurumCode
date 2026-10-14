@@ -487,6 +487,18 @@ de código (AC-007). Um achado que cita uma skill ou seção que não existe é
 descartado e contado como não vinculado, exatamente como hoje um `rule_id`
 desconhecido já é (o aviso de descarte do terminal/PR cobre os dois casos).
 
+A lista de ids e o texto das skills entram **inteiros** no prompt, sem teto de
+tamanho próprio: uma política de centenas de seções funciona. O único limite
+que ainda alcança a política é o do prompt inteiro (`prompt_max_tokens` em
+`limits.yml`, 120000 tokens estimados por padrão): o diff cede primeiro, e o
+que não cabe dele é declarado na seção de cobertura. A política nunca é
+cortada; só se ela sozinha não deixar espaço para nenhuma mudança de código a
+revisão é recusada, com uma mensagem que diz isso. O id carrega o título
+inteiro da seção
+(`seguranca#sec-001-um-segredo-nunca-volta-ao-agente`), então renomear um
+título muda o id, e é o id que `exceptions`, a auditoria e o SARIF guardam;
+`## SEC-001` dá o id curto `seguranca#sec-001`.
+
 A política (nunca o repositório sozinho, a menos que ele opte) declara o que
 reprova o check:
 
@@ -1002,15 +1014,23 @@ que só o seu workflow pode conceder). Acrescente um segundo job:
       actions: read
       security-events: write
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - id: sarif
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: aurumcode-sarif-${{ github.event.pull_request.number }}
           path: .
-      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+      - if: ${{ steps.sarif.outcome == 'success' }}
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: aurumcode-review.sarif
           category: aurumcode-policy-gate
 ```
+
+Uma revisão que para antes de escrever o SARIF (configuração recusada, modelo
+fora do ar) não anexa o artefato. Por isso o download tem `continue-on-error`
+e o upload só roda se ele deu certo: sem isso este job falhava com `Artifact
+not found` por cima do motivo real, que fica no job `review`.
 
 PR de fork não recebe essa permissão: a condição do `if` pula o upload e o
 SARIF fica só como artefato. Este repositório usa esse job no próprio
