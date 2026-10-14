@@ -157,7 +157,7 @@ for l in open(sys.argv[1]):
 
 # PR grande (parte do caso pr-workflow): o GitHub (falso, local) recusa o diff por tamanho (406 too_large). A revisao
 # le o mesmo intervalo main...feature do checkout verificado. O modelo do tutorial e simulado com uma
-# janela de 78000 tokens (AURUMCODE_LLM_FIXTURE_WINDOW): ele recusa o diff inteiro por ser longo demais
+# janela de 95000 tokens (AURUMCODE_LLM_FIXTURE_WINDOW): ele recusa o diff inteiro por ser longo demais
 # e a revisao aprende o teto da recusa e refaz em lotes por diretorio, com um parecer e um gate.
 pr_grande() {
   # carregado so aqui: o --check (e as copias que o aceite AUR-561 monta) so precisa de tutorial.sh
@@ -172,7 +172,7 @@ pr_grande() {
   tgit commit -q -m "feature: pr grande"
   tgit remote add origin https://github.com/OWNER/REPO.git
   TUT_FIXTURE=fixture-vazia.json
-  TUT_ENVS=(-e AURUMCODE_LLM_FIXTURE_WINDOW=78000)
+  TUT_ENVS=(-e AURUMCODE_LLM_FIXTURE_WINDOW=95000)
   TUT_POLICY=politica-lotes
   tut_pr_servidor_recusa pr-grande
   aurum_pr review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
