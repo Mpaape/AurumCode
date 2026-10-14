@@ -37,12 +37,8 @@ var noiseSubjectPrefixes = []string{"merge ", "fixup!", "squash!", "amend!", "re
 // SuggestFromCommits derives the entry deterministically from commit
 // subjects only. Bodies are never read: trailers and agent logs live there.
 func (r Requirement) SuggestFromCommits(commits []Commit) Suggestion {
-	n := len(commits)
-	if n > MaxCommits {
-		n = MaxCommits
-	}
-	candidates := make([]string, 0, n)
-	for _, c := range commits[:n] {
+	candidates := make([]string, 0, len(commits))
+	for _, c := range commits {
 		subject := strings.TrimSpace(firstLine(c.Subject))
 		if isNoiseSubject(subject) {
 			continue
@@ -71,9 +67,6 @@ func (r Requirement) SuggestFromModel(text string) (Suggestion, error) {
 	trimmed := strings.TrimSpace(text)
 	if err := json.Unmarshal([]byte(trimmed), &a); err != nil {
 		return Suggestion{}, fmt.Errorf("%w: %v", ErrUnusableModelAnswer, err)
-	}
-	if len(a.Entry) > MaxCommits {
-		a.Entry = a.Entry[:MaxCommits]
 	}
 	lines := r.suggestionLines(a.Entry)
 	if len(lines) == 0 {
