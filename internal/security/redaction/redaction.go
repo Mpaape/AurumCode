@@ -22,9 +22,8 @@ import (
 const (
 	// Marker is the stable replacement written in place of redacted content.
 	Marker = "[REDACTED]"
-	// MaxInputBytes bounds a single logical write (one line or one flush).
-	// The first value beyond this boundary fails with a typed *LimitError
-	// before any byte reaches the underlying sink.
+	// MaxInputBytes bounds one RedactBounded input: the first value beyond
+	// it fails with a typed *LimitError. Writer has no such bound.
 	MaxInputBytes = 65536
 	// CanaryEnv names the environment variable whose value, when present,
 	// is registered as a secret by FromEnv.
@@ -656,17 +655,12 @@ func (w *Writer) Effects() int {
 	return w.effects
 }
 
-// Write buffers p, redacts every completed line and forwards it. A line
-// beyond MaxInputBytes fails with a typed *LimitError before any byte of the
-// current buffer reaches the underlying sink.
+// Write buffers p, redacts every completed line and forwards it. A line of
+// any size is accumulated until its newline (or Flush) and redacted whole:
+// nothing is refused or dropped for its size (issue #179), so a secret
+// split across writes is always seen in one piece.
 func (w *Writer) Write(p []byte) (int, error) {
 	w.buf = append(w.buf, p...)
-	// The boundary is a property of the raw input, so it is enforced before
-	// any rule can shrink the buffer, and it refuses the whole buffer rather
-	// than emitting the lines that preceded the oversized one.
-	if err := w.checkLimit(); err != nil {
-		return 0, err
-	}
 	// A registered secret sliced by a line break is joined here, while both
 	// halves are still buffered, so no fragment of it can be forwarded.
 	if bytes.IndexByte(w.buf, '\n') >= 0 {
@@ -689,28 +683,6 @@ func (w *Writer) Write(p []byte) (int, error) {
 		}
 	}
 	return len(p), nil
-}
-
-// checkLimit refuses the first raw line, or the trailing raw fragment, beyond
-// MaxInputBytes with a typed *LimitError and drops the buffer.
-func (w *Writer) checkLimit() error {
-	rest := w.buf
-	for {
-		idx := bytes.IndexByte(rest, '\n')
-		if idx < 0 {
-			break
-		}
-		if idx > MaxInputBytes {
-			w.buf = nil
-			return &LimitError{Limit: MaxInputBytes}
-		}
-		rest = rest[idx+1:]
-	}
-	if len(rest) > MaxInputBytes {
-		w.buf = nil
-		return &LimitError{Limit: MaxInputBytes}
-	}
-	return nil
 }
 
 // emit redacts one line and forwards it unless it belongs to the body of a

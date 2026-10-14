@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Corrigido: sem teto de bytes nem de contagem na revisão e no gate. Fonte MCP, saída do scanner, manifestos, OSV, Dependency-Track, verificação, contexto de código e ferramentas vão inteiros, sem recusa nem inconclusivo (#179).
+- Corrigido: sem teto de bytes nem de contagem na revisão e no gate. Fonte MCP, scanner, manifestos, OSV, Dependency-Track, verificação, contexto, ferramentas e linha redigida vão inteiros, sem recusa nem inconclusivo (#179).
 - Tutoriais regravados com o produto atual; a cópia do workflow de dados de análise voltou a ser idêntica à original e o caso agora falha se as duas divergirem.
 - Corrigido: sem teto de token por padrão. Prompt, evidência, ferramentas, lotes e custo da deliberação não têm mais teto; um modelo que recusa o prompt por ser longo demais faz a revisão se dividir em lotes (#179).
 - Corrigido: uma política grande não derruba mais a revisão. Os tetos do catálogo de regras (512 tokens), do texto das skills (4000) e dos arquivos curados do repositório (64 KiB) saíram: tudo entra inteiro no prompt (#179).
