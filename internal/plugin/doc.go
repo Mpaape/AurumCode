@@ -1,5 +1,5 @@
-// Package plugin ingests the output of an external scheduled plugin
-// (AUR-622): a program the scheduled workflow runs in its own container,
+// Package plugin ingests the output of an external scheduled plugin:
+// a program the scheduled workflow runs in its own container,
 // never code compiled into AurumCode. Its output is untrusted data. The
 // package reads it through one adapter per format (adapter_sarif.go,
 // adapter_vvah.go), refuses every finding whose path leaves the scanned

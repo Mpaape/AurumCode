@@ -2620,6 +2620,45 @@ Guia de escrita, com exemplos de `Unreleased` e de release:
 [Changelog](changelog.md). Passo a passo executável:
 [tutorial de changelog](tutorials/changelog.md).
 
+## Plugins externos da validação agendada (`aurumcode plugin`)
+
+AUR-622. A seção `scheduled.plugins` declara programas externos que o job
+agendado `plugins` do workflow reutilizável roda, cada um no próprio
+container (o binário do AurumCode não embute nenhum). Contrato completo, o
+que fica público e o que não fica: [plugins-agendados.md](plugins-agendados.md).
+
+```yaml
+scheduled:
+  plugins:
+    - name: vvah                      # [a-z0-9][a-z0-9_-]*, único
+      dockerfile: demo/plugins/vvah/Dockerfile   # ou image: <ref>@sha256:<64 hex>
+      args: [scan, --repo, /alvo, --config, /cfg/descoberta.yaml, --stop-after, s9]
+      env: [ANTHROPIC_API_KEY, VVAH_MODEL]       # só NOMES; valores vêm dos secrets
+      output:
+        format: vvah-findings          # sarif | vvah-findings
+        path: security-scan/findings.json        # relativo à árvore varrida
+      timeout_minutes: 60              # padrão 60; sem teto
+      required: false                  # na política central: o repo não remove
+```
+
+Recusado na leitura: plugin sem `image` fixada por digest e sem
+`dockerfile` (ou com os dois), `env` com valor (`NOME=valor` ou mapa),
+`output.path` ou `dockerfile` absoluto ou com `..`, formato desconhecido e
+nome repetido. Sob política central, uma entrada `required: true` vence a do
+repositório de mesmo nome (aviso nomeado); uma não obrigatória cede.
+
+Comandos:
+
+- `aurumcode plugin list --json [--repo DIR] [--politica DIR]`: os plugins
+  efetivos (repositório + política) em JSON, como o workflow os lê.
+- `aurumcode plugin ingest --name N --format F --input P --repo DIR
+  --plugin-exit RC --sarif OUT [--harness-sarif S] [--harness-errors E]`:
+  exit 0 grava o SARIF e imprime só contagens; exit 1 é inconclusivo ou
+  caminho recusado, e NENHUM SARIF é gravado; exit 2 é uso inválido.
+- `aurumcode plugin destino --visibilidade V [--code-scanning]` imprime
+  `security` ou `issues`; com `--destino issues` num repositório público,
+  recusa (exit 1).
+
 ## Realimentação da política (AUR-532)
 
 `aurumcode realimentacao` transforma o uso real do gate em uma pull request no
