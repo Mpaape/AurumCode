@@ -2,20 +2,15 @@
 
 ## Unreleased
 
-- A triagem dedicada avisa o modelo de que `[REDACTED]` é a máscara do AurumCode, nunca motivo para contestar; bloco aplicável só quando o código atual bate com o diff e sem a máscara.
-- Corrigido: o modelo sempre decide a evidência determinística: achado sem avaliação vai a uma triagem dedicada (omitido, de novo); sem resposta ou sem provedor fica aguardando (inconclusivo), nunca reprova o gate nem o --fail-on.
-- Parecer enxuto: o mesmo problema de duas fontes vira um item e um comentário; a correção do bloqueante vai como sugestão aplicável; status curto ("Bloqueado: N problemas"); título de regra não é mais mascarado no SARIF.
-- Corrigido: achado determinístico que o modelo contestou e a triagem do gate deixou de contar vai ao SARIF como suprimido, com o motivo do modelo; a aba Security não mostra como erro o que o gate decidiu contra.
-- Tutorial plugin-agendado: o alvo de exemplo usa consulta parametrizada; os achados do plugin de exemplo são sintéticos e o tutorial demonstra o ingest, não a detecção.
-- Corrigido: SARIF e auditoria nunca saem como JSON inválido quando um texto citado tem segredo entre aspas escapadas; a redação refaz string por string quando a do documento inteiro quebraria o JSON.
-- Autorrevisão: exemplo vulnerável e canários do tutorial plugin-agendado no `ignore` do repositório; canário de teste em tempo de execução; teste de commits sem `sh -c`; evidência reduzida só quando ficou item de fora.
-
 ## 2.1.0 - 2026-10-14
 
 Nenhum limite de tamanho derruba a revisão, e um agente de scan de vulnerabilidade entra como plugin da validação agendada, com achados só na aba Security.
 
 ### Entregue
 
+- O modelo decide o veredito final: todo achado estático (segredo, análise, SAST, lint) sem avaliação vai a uma triagem dedicada; contestado não conta. Sem o modelo, os achados aguardam a avaliação e nunca reprovam o gate sozinhos.
+- Parecer enxuto: o mesmo problema de duas fontes vira um item; a correção de um bloqueante vem como sugestão aplicável; status curto; sem listas técnicas, sem texto cru de scanner em inglês e com acentos.
+- SARIF e auditoria sempre JSON válido, e o achado que o modelo contestou vai ao SARIF como dispensado, com o motivo do modelo.
 - Plugins externos na validação agendada (`scheduled.plugins`): o plugin roda em container próprio e os achados vão só para a aba Security, nunca para log, resumo ou artefato (#185).
 - Exemplo pronto do harness agêntico de vulnerabilidade da Visa, fixado por commit e só de descoberta; candidato que o verificador do plugin não decidiu vira alerta "não verificado" (#185).
 - Plugin degradado, sem análise ou com cobertura perdida é inconclusivo e não envia SARIF, para não fechar os alertas abertos; entrada da política exige imagem por digest (#185).
