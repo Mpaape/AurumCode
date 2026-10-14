@@ -78,6 +78,7 @@ nav:
     - Changelog: changelog.md
     - Releases: releases.md
     - Aurum no seu agente: agentes.md
+    - Plugins agendados: plugins-agendados.md
   - Como funciona:
     - Arquitetura: architecture.md
     - Estendendo o Aurum: extensao.md

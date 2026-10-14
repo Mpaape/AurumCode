@@ -28,6 +28,7 @@ fase, a saída da última execução real é versionada em `out/`, e
 | [extensao](../../docs/tutorials/extensao.md) | `extensao/` | engine-no-gate, skill-no-prompt, ferramenta-pedida, falha-binario-padrao (imagem com `TUT_BUILD_ARGS="GO_TAGS=aurum_exemplo"`; a falha usa a imagem padrao) |
 | [agente](../../docs/tutorials/agente.md) | `agente/` | gate-consultado, skill-do-repo, hook-pre-commit, gate-inconclusivo (cliente MCP de teste em `cliente-mcp.py`, python3 no host) |
 | [dados-de-analise](../../docs/tutorials/dados-de-analise.md) | `dados-de-analise/` | declarado-ou-nao, vencido, cache, workflow-agendado, adulterado, indisponivel |
+| [plugin-agendado](../../docs/tutorials/plugin-agendado.md) | `plugin-agendado/` | ingest, fora-do-envio, workflow, degradado, cobertura-perdida (plugin offline `plugin-exemplo/plugin.sh` no host, sem modelo e sem rede) |
 | [provedores](../../docs/tutorials/provedores.md) | `provedores/` | sem-perfil, azure-openai, anthropic, catalogo-do-operador, falha-fora-do-schema, falha-perfil-desconhecido (provedor falso dentro do container, rede none) |
 | [changelog](../../docs/tutorials/changelog.md) | `changelog/` | entrada-valida, consolidar-release, sugestao-separada, pr-desliga-o-modo, log-de-agente, falha-entrada-ausente |
 | [realimentacao](../../docs/tutorials/realimentacao.md) | `realimentacao/` | plano-sem-publicar, publica-uma-pr, rodada-sem-novidade, medir-melhora, medir-regressao, falha-sem-modelo (GitHub falso dentro do container, `dentro.sh` + `github-falso.py`, rede none) |

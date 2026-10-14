@@ -1,0 +1,10 @@
+== workflow
+gatilho: schedule, ou workflow_dispatch na branch padrao
+outro evento (pull_request incluso): o primeiro passo sai com exit 1
+sem upload-artifact e sem resumo do job
+saida do plugin: arquivo em RUNNER_TEMP, nunca impresso
+envio: upload-sarif fixado por SHA
+categoria: aurumcode/plugin/<nome>
+log: so a contagem de alertas
+RESULTADO: o job plugins so publica na aba Security
+NAO EXECUTADO AQUI: o envio ao code scanning (nao ha runner nem GitHub neste ambiente)
