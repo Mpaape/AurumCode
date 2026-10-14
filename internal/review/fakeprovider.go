@@ -45,6 +45,12 @@ type FakeProvider struct {
 	// case whose text occurs in the prompt answers, Response otherwise
 	// (NewFixtureProvider, fixture_cases.go).
 	Cases []FixtureCase
+	// Window, when positive, makes this provider stand in for a model whose
+	// context window is that many tokens: a prompt estimated longer is
+	// refused the way a real provider refuses it (llm.APIError, status 400,
+	// llm.PromptTooLong), which is what makes the reviewer split it
+	// (split.go). Offline runs set it with AURUMCODE_LLM_FIXTURE_WINDOW.
+	Window int
 }
 
 // Complete implements llm.Provider.
@@ -53,6 +59,13 @@ func (f *FakeProvider) Complete(prompt string, opts llm.Options) (llm.Response, 
 		path := f.capturePathFor(prompt)
 		if err := os.WriteFile(path, []byte(prompt), 0o600); err != nil {
 			return llm.Response{}, fmt.Errorf("writing prompt capture %s: %w", path, err)
+		}
+	}
+	if tokens := heuristicTokenCount(prompt); f.Window > 0 && tokens > f.Window {
+		return llm.Response{}, &llm.APIError{
+			Provider: f.Name(), Status: 400,
+			Message: fmt.Sprintf("prompt is too long: %d tokens > %d maximum", tokens, f.Window),
+			TooLong: &llm.PromptTooLong{Limit: f.Window, Requested: tokens},
 		}
 	}
 	answer := f.answerFor(prompt)

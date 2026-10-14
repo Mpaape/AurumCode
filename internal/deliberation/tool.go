@@ -33,16 +33,19 @@ type Caller interface {
 	CompleteWithTools(ctx context.Context, messages []llm.Message, tools []llm.ToolSpec, opts llm.Options) (llm.ToolResponse, error)
 }
 
-// Limits bound one deliberation. Every field must be positive; Validate
-// says which one is not.
+// Limits bound one deliberation. MaxRounds and PerToolTimeout must be
+// positive and MaxCostTokens must not be negative (0 sets no ceiling);
+// Validate says which one is not.
 type Limits struct {
 	// MaxRounds is how many model calls one deliberation may make, the
 	// final answer included.
 	MaxRounds int
 	// MaxCostTokens bounds the tokens (input plus output, as the provider
-	// reports them) summed over every round. It is counted in tokens so it
-	// holds without a price table; a USD ceiling (--limite) is enforced
-	// per round by the orchestrator's reservation as well.
+	// reports them) summed over every round. 0 means no ceiling: the
+	// deliberation is then bounded by MaxRounds and PerToolTimeout alone. It
+	// is counted in tokens so it holds without a price table; a USD ceiling
+	// (--limite) is enforced per round by the orchestrator's reservation as
+	// well.
 	MaxCostTokens int
 	// PerToolTimeout bounds one tool run.
 	PerToolTimeout time.Duration

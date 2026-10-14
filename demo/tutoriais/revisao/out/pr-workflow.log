@@ -13,6 +13,7 @@ permissao checks: read: o chamador concede o que o reutilizavel declara
 --- PR grande contra um GitHub falso local
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
 aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (bd5fac0f32df...7e5b2e3855c3, 6 file(s))
+aurumcode review: o modelo recusou um prompt de cerca de 201501 tokens por ser longo demais (janela de 95000 tokens); revisando em partes menores
 aurumcode review: o diff não coube em um só prompt; revisado em 3 lotes por diretório (arquivos por lote: 2, 2, 2)
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 parecer publicado na PR #7 como aprovação (sem comentários na linha).
@@ -38,10 +39,11 @@ Troca de mensagem sem risco.
 - testes afetados: 6 (pacotes: 3): TestCatalogo (package api), TestCatalogo (package banco), TestCatalogo (package web), TestTabela (package api), TestTabela (package banco), TestTabela (package web)
 
 </details>
-RESULTADO: 406: o diff veio do checkout verificado, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou
+RESULTADO: 406: o diff veio do checkout verificado, o modelo recusou o diff inteiro, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou
 --- teto de lotes (batches.max_batches: 1): os arquivos fora sao listados e a aprovacao e retida
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
 aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (bd5fac0f32df...7e5b2e3855c3, 6 file(s))
+aurumcode review: o modelo recusou um prompt de cerca de 201501 tokens por ser longo demais (janela de 95000 tokens); revisando em partes menores
 aurumcode review: o diff não coube em um só prompt; revisado em 1 lote por diretório (arquivos por lote: 2)
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]

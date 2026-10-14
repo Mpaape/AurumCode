@@ -1,7 +1,6 @@
 package prompt
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -60,32 +59,21 @@ func catalogIDs(load func() ([]string, error)) ([]string, error) {
 }
 
 // EmbeddedDefaultsErr reports whether the defaults compiled into the binary
-// (templates/limits.yml and the review rule catalog) loaded. A non-nil
-// value is a build defect; every prompt assembly returns it.
+// (the review rule catalog) loaded. A non-nil value is a build defect; every
+// prompt assembly returns it.
 func EmbeddedDefaultsErr() error {
-	return errors.Join(defaultSlotLimitsErr, defaultRuleCatalogErr)
+	return defaultRuleCatalogErr
 }
 
-// MaxRuleCatalogTokens is the default ceiling AC-002 puts on the rendered
-// catalog section, read from templates/limits.yml (rule_catalog_max_tokens).
-// Growing PAST it is a loud assembly failure and never a silent
-// truncation. That distinction is the whole point: a truncated list would
-// make the model cite a rule that exists but was cut, and the gate would
-// discard it. A builder may carry a different ceiling (SetSlotLimits).
-var MaxRuleCatalogTokens = defaultSlotLimits.RuleCatalogMaxTokens
-
-// ValidateRuleCatalog reports whether the rendered form of ids fits
-// MaxRuleCatalogTokens under est, and rejects an empty or unsorted
-// catalog. An empty catalog would render a section telling the model to
-// choose from nothing.
-func ValidateRuleCatalog(ids []string, est TokenEstimator) error {
-	if err := EmbeddedDefaultsErr(); err != nil {
-		return err
-	}
-	return validateRuleCatalogWithin(ids, est, MaxRuleCatalogTokens)
-}
-
-func validateRuleCatalogWithin(ids []string, est TokenEstimator, maxTokens int) error {
+// ValidateRuleCatalog rejects an empty or unsorted catalog and a blank id.
+// An empty catalog would render a section telling the model to choose from
+// nothing. Size is never a reason to refuse (issue #179): the list is
+// rendered whole, because a truncated one would make the model cite a rule
+// that exists but was cut, and the gate would discard the finding, while a
+// policy of hundreds of skill sections is an ordinary catalog. The prompt
+// as a whole is bounded by the model's context window, never by this
+// section.
+func ValidateRuleCatalog(ids []string) error {
 	if len(ids) == 0 {
 		return fmt.Errorf("review rule catalog is empty: the prompt would ask the model to choose a rule_id from an empty list")
 	}
@@ -96,14 +84,6 @@ func validateRuleCatalogWithin(ids []string, est TokenEstimator, maxTokens int) 
 		if strings.TrimSpace(id) == "" {
 			return fmt.Errorf("review rule catalog contains an empty id")
 		}
-	}
-	if est == nil {
-		est = NewHeuristicEstimator()
-	}
-	if got := est.Estimate(RenderRuleCatalog(ids)); got > maxTokens {
-		return fmt.Errorf(
-			"review rule catalog section needs %d tokens, over the %d-token budget for %d rules: refusing to truncate the list, because a model citing a rule that exists but was cut would have its finding discarded",
-			got, maxTokens, len(ids))
 	}
 	return nil
 }
@@ -136,12 +116,12 @@ func RenderRuleCatalog(ids []string) string {
 
 // SetRuleCatalog replaces the catalog this builder renders (the default
 // is DefaultRuleCatalog, read from the embedded rule files). It validates
-// eagerly so an over-budget or empty injected catalog is reported at the
-// seam that caused it rather than at some later prompt assembly.
+// eagerly so an empty injected catalog is reported at the seam that caused
+// it rather than at some later prompt assembly.
 func (b *PromptBuilder) SetRuleCatalog(ids []string) error {
 	catalog := append([]string(nil), ids...)
 	sort.Strings(catalog)
-	if err := validateRuleCatalogWithin(catalog, b.estimator, b.limits.RuleCatalogMaxTokens); err != nil {
+	if err := ValidateRuleCatalog(catalog); err != nil {
 		return err
 	}
 	b.ruleCatalog = catalog
@@ -154,24 +134,22 @@ func (b *PromptBuilder) RuleCatalog() []string {
 }
 
 // ruleCatalogSection renders this builder's catalog, or fails loudly. It
-// never returns a partial list: AC-002's requirement is that assembly
-// fails high rather than truncating.
+// never returns a partial list.
 func (b *PromptBuilder) ruleCatalogSection() (string, error) {
 	if b.defaultsErr != nil {
 		return "", b.defaultsErr
 	}
-	if err := validateRuleCatalogWithin(b.ruleCatalog, b.estimator, b.limits.RuleCatalogMaxTokens); err != nil {
+	if err := ValidateRuleCatalog(b.ruleCatalog); err != nil {
 		return "", err
 	}
 	return RenderRuleCatalog(b.ruleCatalog), nil
 }
 
-// SetSlotLimits replaces this builder's slot ceilings (the prompt-wide
-// default, the rule catalog, evidence and tools sections). Every ceiling
-// must be positive: a zero would silently disable the section's bound.
+// SetSlotLimits replaces this builder's optional slot ceilings. A zero
+// ceiling bounds nothing; a negative one is a caller's mistake.
 func (b *PromptBuilder) SetSlotLimits(limits SlotLimits) error {
-	if limits.PromptMaxTokens <= 0 || limits.RuleCatalogMaxTokens <= 0 || limits.EvidenceMaxTokens <= 0 || limits.ToolsMaxTokens <= 0 {
-		return fmt.Errorf("every slot ceiling must be a positive token count: %+v", limits)
+	if limits.EvidenceMaxTokens < 0 || limits.ToolsMaxTokens < 0 {
+		return fmt.Errorf("a slot ceiling must not be negative: %+v", limits)
 	}
 	b.limits = limits
 	return nil

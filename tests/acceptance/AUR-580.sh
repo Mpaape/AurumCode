@@ -132,8 +132,8 @@ run_mut001() {
   local root="$run_dir/root-mut1"
   stage "$root"
   replace_once "$root/internal/deliberation/session.go" \
-    'return s.stop(out, &LimitError{Limit: LimitMaxRounds' \
-    'return Outcome{Answer: last.Response, Transcript: out.Transcript}, nil /* MUT-001 */; _ = (&LimitError{Limit: LimitMaxRounds'
+    'if limit := ledger.exceeded(round, askedWithoutTools); limit != nil {' \
+    'if limit := ledger.exceeded(round, askedWithoutTools); limit != nil { return Outcome{Answer: last.Response, Transcript: out.Transcript}, nil /* MUT-001 */ }; if limit := ledger.exceeded(round, askedWithoutTools); limit != nil && false {'
   expect_red "$root" "$run_dir/mut1.log" "${ac002_tests[@]}"
   grep -Eq -- '^--- FAIL: TestAUR580MaxRoundsIsALimitErrorWithoutAnswer' "$run_dir/mut1.log" || fail mut001-wrong-test
   grep -Eq -- '^--- FAIL: TestAUR580RoundsExceededIsInconclusiveAndUnpublished' "$run_dir/mut1.log" || fail mut001-not-published

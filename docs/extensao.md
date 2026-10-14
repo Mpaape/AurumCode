@@ -134,7 +134,8 @@ nunca pede uma ferramenta sozinho; o modelo decide pelo que o prompt mostra.
 - `deliberation.Limits` limita a conversa: `deliberation.Limits.MaxRounds`,
   `deliberation.Limits.MaxCostTokens` e `deliberation.Limits.PerToolTimeout`
   (`deliberation.max_rounds`, `max_cost_tokens` e `per_tool_timeout_seconds`
-  na configuração). Estourar um limite é um `deliberation.LimitError`: a
+  na configuração); `MaxCostTokens` igual a `0` não impõe teto de tokens.
+  Estourar um limite é um `deliberation.LimitError`: a
   revisão é **inconclusiva** (`deliberation_limit:<limite>`), nunca um
   parecer.
 - `deliberation.Transcript` é o registro na auditoria (campo `deliberation`):
@@ -215,10 +216,15 @@ revisão: arquivos, skills e fontes MCP (`review.context.mcp`, AUR-469).
 - `config.ContextProvider.Name` identifica a fonte no prompt e nos avisos.
 - `config.ContextProvider.Provide` recebe os caminhos alterados e devolve
   texto livre; `""` significa "nada a contribuir".
-- Limites: cada chamada roda sob `config.ProviderTimeout` (10 s) e o texto é
-  limitado a `config.MaxProviderContributionBytes` (64 KiB). Passar do
-  tamanho é erro alto, nunca truncamento silencioso; uma fonte que falha ou
-  estoura o tempo vira `config.ProviderWarning` e a revisão segue sem ela.
+- Limites: cada chamada roda sob `config.ProviderTimeout` (10 s) e o texto de
+  uma fonte externa é limitado a `config.MaxProviderContributionBytes`
+  (64 KiB). Passar do tamanho é erro alto, nunca truncamento silencioso; uma
+  fonte que falha ou estoura o tempo vira `config.ProviderWarning` e a
+  revisão segue sem ela. O teto não vale para o conteúdo curado do próprio
+  repositório ou da política (prompt, instruções, skills e docs): quanto
+  escrever ali é decisão de quem mantém a política. Esses provedores se
+  declaram com `config.CuratedProvider`; uma fonte sua só deve fazê-lo se
+  ler arquivos que o dono do repositório controla, nunca texto de fora.
 - `config.BuildContextBlockWithWarnings` monta o bloco, redigindo segredos em
   cada contribuição e de novo no bloco inteiro.
 - O texto é **dado, nunca autoridade**: só entra no prompt como contexto.

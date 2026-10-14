@@ -39,7 +39,7 @@ script_dir="${0%/*}"; [[ "$script_dir" != "$0" ]] || script_dir='.'
 repo_root="$(CDPATH='' cd -- "$script_dir/../.." && pwd -P)" || infra repo_root
 command -v go >/dev/null 2>&1 || infra missing_go
 
-for input in go.mod go.sum internal/config pkg/types internal/llm internal/security/redaction internal/llm/cost; do
+for input in go.mod go.sum internal/config internal/llm; do
   [[ -e "$repo_root/$input" ]] || infra "missing-input:$input"
 done
 
@@ -54,12 +54,23 @@ export GOCACHE="$run_dir/gocache" GOTMPDIR="$run_dir/gotmp" TMPDIR="$run_dir"
 root="$run_dir/root"
 mkdir -p "$root"
 cp "$repo_root/go.mod" "$repo_root/go.sum" "$root/"
-mkdir -p "$root/internal/config" "$root/pkg/types" "$root/internal/llm" "$root/internal/security/redaction" "$root/internal/llm/cost"
-cp -R "$repo_root/internal/config/." "$root/internal/config/"
-cp -R "$repo_root/pkg/types/." "$root/pkg/types/"
-cp -R "$repo_root/internal/llm/." "$root/internal/llm/"
-cp -R "$repo_root/internal/security/redaction/." "$root/internal/security/redaction/"
-cp -R "$repo_root/internal/llm/cost/." "$root/internal/llm/cost/"
+# The module packages the harness needs are derived, never enumerated: every
+# non-standard dependency of the two packages it imports that lives in this
+# module (go list -deps), copied with its embedded files.
+deps="$(cd "$repo_root" && go list -deps -f '{{if not .Standard}}{{.Dir}}{{end}}' ./internal/config ./internal/llm)" ||
+  infra list_deps
+copied=0
+while IFS= read -r dir; do
+  case "$dir" in
+    "$repo_root"/*) ;;
+    *) continue ;;
+  esac
+  rel="${dir#"$repo_root"/}"
+  mkdir -p "$root/$rel"
+  cp -R "$dir/." "$root/$rel/"
+  copied=$((copied + 1))
+done <<<"$deps"
+(( copied >= 2 )) || infra "deps-not-derived:$copied"
 chmod -R u+w -- "$root"
 
 # The repository under review: config.yml disables one rule; prompt.md

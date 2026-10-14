@@ -52,6 +52,11 @@ type Reviewer struct {
 	// batches records the batches of the last review, nil when the diff
 	// fit one prompt.
 	batches []Batch
+	// learnedBudget is the prompt ceiling learned from a provider's
+	// refusal during the current review, zero while none refused; refusals
+	// records each refused prompt (split.go). Both are per review.
+	learnedBudget int
+	refusals      []PromptRefusal
 }
 
 // Completer is what the Reviewer needs from the model side: one call that
@@ -70,10 +75,12 @@ type Config struct {
 	Temperature float64
 	// ReserveReply is subtracted from MaxTokens for the reply.
 	ReserveReply int
-	// PromptTokenBudget bounds the assembled prompt when MaxTokens is zero.
-	// It never caps the reply.
+	// PromptTokenBudget, when positive and MaxTokens is zero, bounds the
+	// assembled prompt. Zero (the default) bounds nothing: the whole diff is
+	// sent, and a provider that refuses it as too long makes the reviewer
+	// split it (split.go). It never caps the reply.
 	PromptTokenBudget int
-	// Batches bounds a review split in batches (batches.go).
+	// Batches optionally bounds a review split in batches (batches.go).
 	Batches BatchLimits
 }
 
@@ -85,7 +92,13 @@ type ReviewContext struct {
 	Language        string
 	History         string // Attributed PR observations, not review instructions
 	CodebaseContext string // Untrusted, bounded, heuristic codebase dependency context
-	MemoryNotes     string // Untrusted, attributed observations from review memory
+	// CodebaseContextFor, when set, renders the codebase context of just the
+	// given files. A review split into batches (split.go, batches.go) gives
+	// each batch the context of its own files, as it gives it the evidence of
+	// its own files, instead of the whole diff's, which can fill a window by
+	// itself.
+	CodebaseContextFor func(files []types.DiffFile) string
+	MemoryNotes        string // Untrusted, attributed observations from review memory
 	// RepositoryContext is the rendered repository context block
 	// (config.BuildContextBlockWithWarnings). It travels in its own prompt
 	// slot, inside the budget, instead of being appended by a provider
@@ -112,11 +125,11 @@ func DefaultConfig() Config {
 		// owns its supported response limit.
 		MaxTokens:    0,
 		ReserveReply: 0,
-		// The prompt itself is bounded by the default ceiling declared in
-		// internal/prompt/templates/limits.yml: a diff that does not fit is
-		// trimmed by whole hunks and declared in the coverage section.
-		PromptTokenBudget: prompt.DefaultLimits().PromptMaxTokens,
-		Batches:           DefaultBatchLimits(),
+		// Nor does the prompt have one (issue #179): the whole diff is sent.
+		// The only bound is the model's own context window, and a refusal
+		// from the provider makes the reviewer split the prompt (split.go).
+		PromptTokenBudget: 0,
+		Batches:           BatchLimits{},
 	}
 }
 
@@ -125,11 +138,6 @@ func DefaultConfig() Config {
 // fakeprovider.go) in a test or an offline CLI invocation; the Reviewer
 // itself never knows the difference.
 func NewReviewer(completer Completer, cfg Config) *Reviewer {
-	if cfg.MaxTokens == 0 && cfg.PromptTokenBudget == 0 {
-		defaults := DefaultConfig()
-		cfg.PromptTokenBudget = defaults.PromptTokenBudget
-	}
-	cfg.Batches = cfg.Batches.withDefaults()
 	return &Reviewer{
 		completer:     completer,
 		diffAnalyzer:  analyzer.NewDiffAnalyzer(),
@@ -156,9 +164,9 @@ func (r *Reviewer) SetDynamicRules(rules map[string]Rule) {
 // SetRuleCatalog passes an expanded rule_id list down to the prompt
 // builder, so the model is taught exactly the ids SetDynamicRules will
 // accept -- the embedded catalog's ids plus AUR-519's dynamic skill-section
-// ids. It validates eagerly (the same token-budget and non-empty/sorted
-// checks prompt.ValidateRuleCatalog already applies) and never truncates: a
-// catalog that no longer fits the prompt budget is a loud error here.
+// ids. It validates eagerly (the non-empty/sorted checks
+// prompt.ValidateRuleCatalog applies) and never truncates or refuses by
+// size: the catalog grows with the policy and enters the prompt whole.
 func (r *Reviewer) SetRuleCatalog(ids []string) error {
 	return r.promptBuilder.SetRuleCatalog(ids)
 }
@@ -168,39 +176,16 @@ func (r *Reviewer) GenerateReview(ctx context.Context, diff *types.Diff) (*types
 	return r.GenerateReviewWithContext(ctx, diff, ReviewContext{})
 }
 
-// GenerateReviewWithContext generates a review using the diff and optional
-// external evidence such as completed CI check statuses. It runs four
-// stages: assemble the redacted prompt, ask the model, parse its reply, and
-// pass the parsed findings through the engine's gates.
-//
-// A diff that does not fit one prompt is reviewed in batches (batches.go):
-// the same four stages per batch, one consolidated result.
-func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Diff, reviewContext ReviewContext) (*types.ReviewResult, error) {
-	r.batches = nil
-	prepared, err := r.preparePrompt(diff, reviewContext)
-	if err != nil {
-		return nil, err
-	}
-	split, err := r.needsBatches(diff, prepared, reviewContext)
-	if err != nil {
-		return nil, err
-	}
-	if split {
-		return r.reviewInBatches(ctx, diff, reviewContext)
-	}
-	return r.reviewPrepared(ctx, prepared)
-}
-
 // reviewPrepared asks the model about one assembled prompt and passes the
 // answer through the parser and the engine's gates.
 func (r *Reviewer) reviewPrepared(ctx context.Context, prepared preparedPrompt) (*types.ReviewResult, error) {
 	resp, err := r.answer(ctx, prepared.parts)
 	if err != nil {
-		return nil, err
+		return nil, refuse(err, prepared)
 	}
 	result, err := r.parse(resp)
 	if err != nil {
-		return nil, err
+		return nil, refuseCutReply(err, prepared)
 	}
 	weighAssessments(result, admittedEvidence(prepared.parts))
 	outcome, err := r.applyGates(prepared.diff, result)
@@ -270,13 +255,19 @@ func (r *Reviewer) preparePrompt(diff *types.Diff, reviewContext ReviewContext) 
 	return preparedPrompt{diff: diff, metrics: metrics, parts: parts, language: reviewContext.Language}, nil
 }
 
-// promptBudget is the explicit MaxTokens when set, else the default prompt
-// ceiling.
+// promptBudget is the ceiling of the prompt being assembled: the explicit
+// MaxTokens when set, else the explicit PromptTokenBudget, lowered to the
+// ceiling learned from a provider's refusal (split.go) when there is one.
+// Zero bounds nothing.
 func (r *Reviewer) promptBudget() int {
+	budget := r.cfg.PromptTokenBudget
 	if r.cfg.MaxTokens > 0 {
-		return r.cfg.MaxTokens
+		budget = r.cfg.MaxTokens
 	}
-	return r.cfg.PromptTokenBudget
+	if r.learnedBudget > 0 && (budget == 0 || r.learnedBudget < budget) {
+		return r.learnedBudget
+	}
+	return budget
 }
 
 // complete sends the prompt as separate system and user messages. The

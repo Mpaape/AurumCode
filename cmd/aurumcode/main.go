@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/apply"
@@ -232,6 +233,23 @@ func selectProviderForModel(model string) (llm.Provider, string, error) {
 	return nil, "", errors.New("no LLM provider is configured to serve it")
 }
 
+// fixtureWindow reads AURUMCODE_LLM_FIXTURE_WINDOW: the context window, in
+// tokens, of the model the offline fixture stands in for. Unset or empty
+// means no window. A prompt longer than it is refused the way a real
+// provider refuses one, so an offline run can show the review splitting a
+// diff the model cannot take whole (review.FakeProvider.Window).
+func fixtureWindow() (int, error) {
+	raw := strings.TrimSpace(os.Getenv("AURUMCODE_LLM_FIXTURE_WINDOW"))
+	if raw == "" {
+		return 0, nil
+	}
+	window, err := strconv.Atoi(raw)
+	if err != nil || window <= 0 {
+		return 0, fmt.Errorf("AURUMCODE_LLM_FIXTURE_WINDOW=%q: want a positive number of tokens", raw)
+	}
+	return window, nil
+}
+
 // providerFromEnv is the one reader of the provider environment. The offline
 // fixture (AURUMCODE_LLM_FIXTURE) answers as fixtureModel; a live
 // OpenAI-compatible endpoint (LLM_API_KEY and LLM_BASE_URL) serves liveModel
@@ -244,7 +262,11 @@ func providerFromEnv(fixtureModel, liveModel string) (llm.Provider, string, erro
 		if err != nil {
 			return nil, "", fmt.Errorf("reading AURUMCODE_LLM_FIXTURE=%s: %w", fixturePath, err)
 		}
-		return review.NewOfflineProvider(string(content), fixtureModel, os.Getenv("AURUMCODE_PROMPT_CAPTURE")), "offline fixture provider", nil
+		window, err := fixtureWindow()
+		if err != nil {
+			return nil, "", err
+		}
+		return review.NewOfflineProvider(string(content), fixtureModel, os.Getenv("AURUMCODE_PROMPT_CAPTURE"), window), "offline fixture provider", nil
 	}
 	// LLM_PROVIDER selects a catalog profile (internal/llm/provider/profiles);
 	// set but unusable is an error, never a silent fallback.

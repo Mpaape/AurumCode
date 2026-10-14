@@ -18,8 +18,8 @@ type Budget struct {
 
 // NewBudget is the review's budget under limits: MaxRounds less the answer
 // round a single pass keeps for itself is the number of rounds that may ask
-// for a tool, and MaxCostTokens is the deliberation cost the review may add
-// beyond its base prompts.
+// for a tool, and MaxCostTokens, when positive, is the deliberation cost the
+// review may add beyond its base prompts; 0 leaves the cost unbounded.
 func NewBudget(limits Limits) *Budget {
 	return &Budget{maxToolRounds: limits.MaxRounds - 1, maxCostTokens: limits.MaxCostTokens}
 }
@@ -47,10 +47,10 @@ func (b *Budget) useToolRound() {
 }
 
 // addCost books n cost tokens and reports the total and whether it is past
-// the ceiling.
+// the ceiling; a budget without one (maxCostTokens 0) is never past it.
 func (b *Budget) addCost(n int) (total int, exceeded bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.costTokens += n
-	return b.costTokens, b.costTokens > b.maxCostTokens
+	return b.costTokens, b.maxCostTokens > 0 && b.costTokens > b.maxCostTokens
 }

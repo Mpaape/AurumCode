@@ -12,7 +12,7 @@ func TestAUR580DeliberationParsesWithDefaultsAndRefusesBadValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	rounds, cost, perTool := cfg.Deliberation.EffectiveLimits()
-	if !cfg.Deliberation.Active() || rounds != 2 || cost != DefaultDeliberationMaxCostTokens || perTool != DefaultDeliberationToolTimeoutSecond*time.Second {
+	if !cfg.Deliberation.Active() || rounds != 2 || cost != 0 || perTool != DefaultDeliberationToolTimeoutSecond*time.Second {
 		t.Fatalf("limits = %d %d %s", rounds, cost, perTool)
 	}
 	for body, want := range map[string]string{
@@ -47,5 +47,71 @@ func TestAUR580PolicyDeliberationDecidesAlone(t *testing.T) {
 	silent, _ := Parse([]byte("gate:\n  fail_on: [error]\n"), "policy.yml")
 	if eff, _ := ApplyCentralPolicy(repo, silent); eff.Deliberation.MaxRounds != 9 {
 		t.Fatal("a policy silent on deliberation must leave the repository's")
+	}
+}
+
+// max_cost_tokens is optional: an absent section, an absent key and an
+// explicit 0 all mean no ceiling. A positive value is an explicit ceiling,
+// handed on as written; a negative one is refused by name.
+func TestMaxCostTokensIsOptionalAndZeroMeansNoCeiling(t *testing.T) {
+	var absent *DeliberationConfig
+	if rounds, cost, perTool := absent.EffectiveLimits(); cost != 0 || rounds != DefaultDeliberationMaxRounds || perTool != DefaultDeliberationToolTimeoutSecond*time.Second {
+		t.Fatalf("absent section: limits = %d %d %s, want the guard defaults and no cost ceiling", rounds, cost, perTool)
+	}
+	for name, body := range map[string]string{
+		"key absent":    "deliberation:\n  enabled: true\n",
+		"explicit zero": "deliberation:\n  enabled: true\n  max_cost_tokens: 0\n",
+	} {
+		cfg, err := Parse([]byte(body), "c.yml")
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if _, cost, _ := cfg.Deliberation.EffectiveLimits(); cost != 0 {
+			t.Errorf("%s: cost = %d, want 0 (no ceiling)", name, cost)
+		}
+	}
+	cfg, err := Parse([]byte("deliberation:\n  enabled: true\n  max_cost_tokens: 12345\n"), "c.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, cost, _ := cfg.Deliberation.EffectiveLimits(); cost != 12345 {
+		t.Fatalf("cost = %d, want the explicit ceiling 12345", cost)
+	}
+	if _, err := Parse([]byte("deliberation:\n  max_cost_tokens: -1\n"), "c.yml"); err == nil || !strings.Contains(err.Error(), "deliberation.max_cost_tokens") {
+		t.Fatalf("err = %v, want a negative max_cost_tokens refused by name", err)
+	}
+}
+
+// max_read_bytes and max_cache_bytes are optional too: an absent section, an
+// absent key and an explicit 0 all mean no ceiling. A positive value is an
+// explicit ceiling, handed on as written; a negative one is refused by name.
+func TestByteLimitsAreOptionalAndZeroMeansNoCeiling(t *testing.T) {
+	var absent *DeliberationConfig
+	if absent.EffectiveMaxReadBytes() != 0 || absent.EffectiveMaxCacheBytes() != 0 {
+		t.Fatalf("absent section: read=%d cache=%d, want no ceiling", absent.EffectiveMaxReadBytes(), absent.EffectiveMaxCacheBytes())
+	}
+	for name, body := range map[string]string{
+		"key absent":    "deliberation:\n  enabled: true\n",
+		"explicit zero": "deliberation:\n  enabled: true\n  max_read_bytes: 0\n  max_cache_bytes: 0\n",
+	} {
+		cfg, err := Parse([]byte(body), "c.yml")
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if read, cache := cfg.Deliberation.EffectiveMaxReadBytes(), cfg.Deliberation.EffectiveMaxCacheBytes(); read != 0 || cache != 0 {
+			t.Errorf("%s: read=%d cache=%d, want no ceiling", name, read, cache)
+		}
+	}
+	cfg, err := Parse([]byte("deliberation:\n  enabled: true\n  max_read_bytes: 4096\n  max_cache_bytes: 8192\n"), "c.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if read, cache := cfg.Deliberation.EffectiveMaxReadBytes(), cfg.Deliberation.EffectiveMaxCacheBytes(); read != 4096 || cache != 8192 {
+		t.Fatalf("read=%d cache=%d, want the explicit ceilings 4096 and 8192", read, cache)
+	}
+	for _, key := range []string{"max_read_bytes", "max_cache_bytes"} {
+		if _, err := Parse([]byte("deliberation:\n  "+key+": -1\n"), "c.yml"); err == nil || !strings.Contains(err.Error(), "deliberation."+key) {
+			t.Errorf("a negative %s: err = %v, want it refused by name", key, err)
+		}
 	}
 }

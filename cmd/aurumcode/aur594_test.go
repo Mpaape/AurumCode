@@ -175,21 +175,29 @@ func aur594LargeTree() map[string][]byte {
 	return files
 }
 
+// aur594Window is the context window, in tokens, of the model the fixture
+// stands in for: the whole large change (about 149000 estimated tokens)
+// does not fit it, directories a/ and b/ together (about 101000) do.
+const aur594Window = "125000"
+
 // aur594BaseReview runs --base over the large change with configYAML and
-// returns the exit code, the output and the audit record.
+// returns the exit code, the output and the audit record. The model refuses
+// the whole change as too long, which is what makes the review split it.
 func aur594BaseReview(t *testing.T, configYAML string) (int, string, string) {
 	t.Helper()
 	base := map[string][]byte{"README.txt": []byte("base\n")}
 	aur522Repo(t, base, mergeFiles(base, aur594LargeTree()), configYAML)
 	aur522Fixture(t, cleanApproval)
+	t.Setenv("AURUMCODE_LLM_FIXTURE_WINDOW", aur594Window)
 	audit := filepath.Join(t.TempDir(), "audit.json")
 	code, out := aur522Review(t, "--auditoria", audit)
 	data, _ := os.ReadFile(audit)
 	return code, out, string(data)
 }
 
-// AC-002: a change above one prompt is reviewed in batches by directory;
-// every file is covered, one gate decides, and the audit lists the batches.
+// AC-002: a change the model refuses as too long for one prompt is reviewed
+// in batches by directory; every file is covered, one gate decides, and the
+// audit lists the batches.
 func TestDiffAboveTheBudgetIsReviewedInBatches(t *testing.T) {
 	code, out, audit := aur594BaseReview(t, "gate:\n  fail_on: [error]\n  inconclusive: block\n")
 	if code != 0 || strings.Contains(out, "partial_coverage") {

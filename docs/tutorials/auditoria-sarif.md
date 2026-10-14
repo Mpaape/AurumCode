@@ -169,15 +169,23 @@ jobs:
       actions: read
       security-events: write
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - id: sarif
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: aurumcode-sarif-${{ github.event.pull_request.number }}
           path: .
-      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2
+      - if: ${{ steps.sarif.outcome == 'success' }}
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2
         with:
           sarif_file: aurumcode-review.sarif
           category: aurumcode-policy-gate
 ```
+
+Uma revisão que para antes de escrever o SARIF (configuração recusada, modelo
+fora do ar) não anexa o artefato. Por isso o download tem `continue-on-error`
+e o upload só roda se ele deu certo: sem isso este job falhava com `Artifact
+not found` por cima do motivo real, que fica no job `review`.
 
 <!-- saida: upload-workflow -->
 ```text

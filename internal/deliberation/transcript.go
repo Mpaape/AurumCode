@@ -29,7 +29,7 @@ type Transcript struct {
 	// budget already bounds it.
 	BaseTokens int `json:"base_tokens"`
 	// CostTokens is what the deliberation added beyond the base prompt, the
-	// figure max_cost_tokens bounds: every round's output plus each round's
+	// figure max_cost_tokens bounds when one is declared: every round's output plus each round's
 	// input above BaseTokens (the tool calls and results carried forward).
 	CostTokens int    `json:"cost_tokens"`
 	Calls      []Call `json:"calls"`

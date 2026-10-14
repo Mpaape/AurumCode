@@ -73,10 +73,9 @@ func TestEvidenceSlotRendersRedactsAndDeclaresOmissions(t *testing.T) {
 
 	// Over the evidence ceiling: the section names how many were left out,
 	// and the assembled prompt stays within the prompt budget.
-	limits := prompt.DefaultLimits()
 	// The section's fixed instructions take part of the ceiling; 400 leaves
 	// room for some, never all, of the 40 items.
-	limits.EvidenceMaxTokens = 400
+	limits := prompt.SlotLimits{EvidenceMaxTokens: 400}
 	if err := reviewer.promptBuilder.SetSlotLimits(limits); err != nil {
 		t.Fatal(err)
 	}
@@ -188,8 +187,7 @@ func TestRepositoryContextSlotMatchesLegacyDecoratorBytes(t *testing.T) {
 // ceiling kept out of the prompt text, which only the evidence digest sees.
 func TestRequestCacheKeyCoversEvidence(t *testing.T) {
 	reviewer := NewReviewer(llm.NewOrchestrator(&FakeProvider{Response: approveResponse}, nil, nil), DefaultConfig())
-	limits := prompt.DefaultLimits()
-	limits.EvidenceMaxTokens = 220
+	limits := prompt.SlotLimits{EvidenceMaxTokens: 220}
 	if err := reviewer.promptBuilder.SetSlotLimits(limits); err != nil {
 		t.Fatal(err)
 	}

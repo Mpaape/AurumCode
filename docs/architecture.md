@@ -195,12 +195,16 @@ disponíveis (com custo declarado); cobertura da revisão; contexto do
 repositório. Um slot cuja entrada está vazia não renderiza nada, de modo que
 uma revisão sem essa entrada mantém seus bytes anteriores.
 
-Os orçamentos vêm de `internal/prompt/templates/limits.yml`: o teto do prompt
-usado quando quem chama não define nenhum, o teto do catálogo de regras e os
-tetos de evidências e ferramentas. Um slot de lista acima do teto admite itens
-inteiros e informa quantos omitiu; trechos de código que não cabem são
-declarados no slot de cobertura. Todo slot, inclusive o contexto do
-repositório, é contado dentro do orçamento.
+O produto não põe teto em nenhum prompt: o diff inteiro, o catálogo de regras,
+o texto das skills, a evidência e a lista de ferramentas entram inteiros, e o
+único limite é a janela de contexto do modelo. Um teto só existe quando quem
+chama o escolhe (`Config.PromptTokenBudget`, `SetSlotLimits`): então um slot
+de lista acima do teto admite itens inteiros e informa quantos omitiu, e
+trechos de código que não cabem são declarados no slot de cobertura. Todo
+slot, inclusive o contexto do repositório, é contado dentro do orçamento
+quando há um. O catálogo de regras e o texto das skills nunca são cortados
+nem recusados por tamanho: cortar a lista faria o modelo citar uma regra que
+existe mas foi cortada.
 
 O `Reviewer` depende de um `Completer` (`CompleteMessages`), implementado por
 `llm.Orchestrator`. O prompt viaja como uma mensagem de sistema e uma de
@@ -211,15 +215,22 @@ de provedor que apenas repassam requisições implementam `llm.Unwrapper`, de
 modo que `llm.As` encontre uma capacidade atrás deles; um decorador que altera
 a requisição não deve implementá-lo.
 
-Um diff que não cabe num prompt (algum arquivo com patch omitido ou parcial)
-é revisado em lotes (`internal/review/batches.go`): os arquivos são empacotados
-por diretório em prompts que cabem, cada lote passa pelas mesmas quatro etapas
-do prompt único (com a evidência dos seus arquivos) e os resultados são
-consolidados num só (`batch_merge.go`). Os tetos de lotes e da soma dos
-prompts vêm de `limits.yml` e da seção `batches`; os arquivos além deles são
-contados e nomeados como omitidos (`code_files_omitted_paths`), de modo que a
-cobertura fica parcial. `Reviewer.Batches` alimenta o campo `batches` da
-auditoria.
+Um prompt que o provedor recusa por ser maior que a janela de contexto do
+modelo (`llm.APIError` com `llm.PromptTooLong`, lido da resposta 400/413 do
+provedor) é dividido, não abandonado (`internal/review/split.go`): a revisão
+aprende um teto da recusa (a parte do prompt que cabe na janela, com folga
+para a resposta; sem os números, a metade) e refaz com o mecanismo de lotes
+(`internal/review/batches.go`): os arquivos são empacotados por diretório em
+prompts que cabem nesse teto, cada lote passa pelas mesmas quatro etapas do
+prompt único (com a evidência dos seus arquivos) e os resultados são
+consolidados num só (`batch_merge.go`). Cada nova recusa baixa o teto; o laço
+acaba quando o modelo aceita, ou quando o que acompanha todo lote (instruções,
+política, contexto e evidência) já não deixa espaço para uma mudança de
+código (`prompt.NoRoomError`), e a revisão falha dizendo isso. A seção
+opcional `batches` limita quantos lotes e quantos tokens; os arquivos além
+dela são contados e nomeados como omitidos (`code_files_omitted_paths`), de
+modo que a cobertura fica parcial. `Reviewer.Batches` alimenta o campo
+`batches` da auditoria e `Reviewer.PromptRefusals` as linhas do terminal.
 
 `Reviewer.PromptDigest` é o digest das mensagens exatas enviadas.
 `Reviewer.RequestCacheKey` o combina com digests das evidências e dos
@@ -243,7 +254,7 @@ ferramentas (`internal/deliberation.Session`) em vez de uma única chamada:
   `changed_file_diff`), que leem só a revisão revisada
   (`internal/review/tools.Revision`: caminho da árvore do commit, bytes com o
   mesmo id de blob, sem link simbólico, `ignore` nem arquivo de segredo) e
-  dividem o teto `max_read_bytes`. O manifesto vai para o slot de ferramentas do prompt com o
+  dividem o teto `max_read_bytes`, quando declarado. O manifesto vai para o slot de ferramentas do prompt com o
   custo declarado e o tamanho de resultado de cada ferramenta. O modelo decide;
   o código nunca pede uma ferramenta por conta própria.
 - Cada rodada é uma chamada a `Orchestrator.CompleteWithTools`: seu custo é
@@ -258,8 +269,9 @@ ferramentas (`internal/deliberation.Session`) em vez de uma única chamada:
   evidências e entra nas varreduras da sessão: seus achados contam no gate com
   a sua origem, e um binário ausente ou uma varredura que falhou é o motivo
   inconclusivo da varredura.
-- Exceder `max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds` ou
-  `max_read_bytes` é o
+- Exceder `max_rounds`, `per_tool_timeout_seconds` ou um teto declarado em
+  `max_cost_tokens`, `max_read_bytes` ou `max_cache_bytes` (ausente ou `0` não
+  impõe teto) é o
   resultado de modelo `gate.ModelDeliberationLimit`, nunca revisado em nenhuma
   das fontes (saída 1); o gate ainda roda com o motivo inconclusivo
   `deliberation_limit:<limit>` (`gate.RankReason`, classificado em primeiro),

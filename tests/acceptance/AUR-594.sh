@@ -154,7 +154,7 @@ run_mut001() {
   local root="$run_dir/root-mut1"
   stage "$root"
   replace_once "$root/internal/git/githubclient/client.go" \
-    'return nil, fmt.Errorf("HTTP %d: %s: %w", resp.StatusCode, string(body), ErrDiffTooLarge)' \
+    'return nil, fmt.Errorf("%w: %w", apiError(resp.StatusCode, body), ErrDiffTooLarge)' \
     'return &Diff{}, nil /* MUT-001 */'
   expect_red "$root" "$run_dir/mut1.log" ./cmd/aurumcode/ TestTooLargeDiffIsReadFromObjectCheckout
   printf '%s/MUT-001/rejected\n' "$card"

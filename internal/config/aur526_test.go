@@ -63,8 +63,8 @@ func TestAUR526SecretAndIgnoredPaths(t *testing.T) {
 	if !cfg.IgnoresPath("vendor/lib/a.go") || cfg.IgnoresPath("src/a.go") {
 		t.Fatal("IgnoresPath does not follow the ignore globs")
 	}
-	if cfg.Deliberation.EffectiveMaxReadBytes() != 1024 || (&DeliberationConfig{}).EffectiveMaxReadBytes() != DefaultDeliberationMaxReadBytes {
-		t.Fatal("max_read_bytes not applied or not defaulted")
+	if cfg.Deliberation.EffectiveMaxReadBytes() != 1024 || (&DeliberationConfig{}).EffectiveMaxReadBytes() != 0 {
+		t.Fatal("max_read_bytes not applied, or an absent one sets a ceiling")
 	}
 	if _, err := Parse([]byte("deliberation:\n  max_read_bytes: -1\n"), "test"); err == nil || !strings.Contains(err.Error(), "max_read_bytes") {
 		t.Fatalf("a negative max_read_bytes was accepted: %v", err)

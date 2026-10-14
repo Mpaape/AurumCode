@@ -2,6 +2,7 @@ package skills
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -96,6 +97,28 @@ func TestAssemblyDeclaresEnteredSkills(t *testing.T) {
 	for _, want := range []string{"entered: [docs-only go-style]", "#### go-style (v2)", "Go body.", "Docs body."} {
 		if !strings.Contains(res.Text, want) {
 			t.Fatalf("assembled text missing %q:\n%s", want, res.Text)
+		}
+	}
+}
+
+// The zero Budget bounds nothing (issue #179): a policy of any size enters
+// the prompt whole, instead of every skill being dropped once the total
+// outgrew a fixed ceiling.
+func TestZeroBudgetAssemblesEverySelectedSkillWhole(t *testing.T) {
+	var selected []Skill
+	for i := 0; i < 50; i++ {
+		selected = append(selected, Skill{Name: fmt.Sprintf("policy-%02d", i), Dir: "d", Version: "1", Instructions: strings.Repeat("x", 4000)})
+	}
+	res, err := Assemble(selected, Budget{})
+	if err != nil {
+		t.Fatalf("a large policy was refused: %v", err)
+	}
+	if len(res.Entered) != len(selected) {
+		t.Fatalf("%d of %d skills entered", len(res.Entered), len(selected))
+	}
+	for _, sk := range selected {
+		if !strings.Contains(res.Text, "#### "+sk.Name+" ") {
+			t.Fatalf("skill %q is missing from the assembled text", sk.Name)
 		}
 	}
 }

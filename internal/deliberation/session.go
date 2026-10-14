@@ -45,7 +45,8 @@ type Outcome struct {
 // Run converses until the model answers without asking for a tool, or a
 // limit is exceeded. Exceeding MaxRounds, MaxCostTokens or PerToolTimeout
 // returns a *LimitError and no answer. MaxCostTokens bounds the
-// deliberation's own cost (Transcript.CostTokens), never the base prompt.
+// deliberation's own cost (Transcript.CostTokens), never the base prompt; a
+// MaxCostTokens of 0 sets no ceiling.
 // With Shared set, the rounds that ask for a tool and the cost are the
 // review's (ledger.go): the session answers when the budget is spent.
 func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, error) {

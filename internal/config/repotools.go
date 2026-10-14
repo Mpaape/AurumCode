@@ -8,10 +8,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DefaultDeliberationMaxReadBytes is the default ceiling of bytes the
-// repository tools return to the model over one review (AUR-526).
-const DefaultDeliberationMaxReadBytes = 256 * 1024
-
 //go:embed secret_paths.yml
 var secretPathsYAML []byte
 
@@ -35,24 +31,24 @@ func defaultSecretPaths() ([]string, error) {
 	return secretPaths, secretPathsErr
 }
 
-// DefaultDeliberationMaxCacheBytes is the default ceiling of file bytes the
-// repository tools keep in memory over one review.
-const DefaultDeliberationMaxCacheBytes = 64 << 20
-
-// EffectiveMaxCacheBytes is max_cache_bytes, defaulted.
+// EffectiveMaxCacheBytes is max_cache_bytes: the ceiling of file bytes the
+// repository tools keep in memory over one review. Absent or 0 means no
+// ceiling.
 func (d *DeliberationConfig) EffectiveMaxCacheBytes() int {
-	if d != nil && d.MaxCacheBytes != 0 {
-		return d.MaxCacheBytes
+	if d == nil {
+		return 0
 	}
-	return DefaultDeliberationMaxCacheBytes
+	return d.MaxCacheBytes
 }
 
-// EffectiveMaxReadBytes is max_read_bytes, defaulted.
+// EffectiveMaxReadBytes is max_read_bytes: the ceiling of bytes the
+// repository tools return to the model over one review (AUR-526). Absent or
+// 0 means no ceiling.
 func (d *DeliberationConfig) EffectiveMaxReadBytes() int {
-	if d != nil && d.MaxReadBytes != 0 {
-		return d.MaxReadBytes
+	if d == nil {
+		return 0
 	}
-	return DefaultDeliberationMaxReadBytes
+	return d.MaxReadBytes
 }
 
 // IsSecretPath reports a path the repository tools must never read: one

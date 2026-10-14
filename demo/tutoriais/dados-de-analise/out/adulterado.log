@@ -2,6 +2,7 @@
 --- A. scanners.yml servido diferente do digest do manifesto
 $ aurumcode review --base main
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: analysis_data: revisão inconclusiva (os dados de análise não conferem com o artefato declarado [analysis_data_digest_mismatch]): scanners.yml: expected sha256:fd430ae5426ecd17bf13c1eeb8921762667931bf0b22e388118766633420c393 (29 bytes), got sha256:2b58c9cd04047f8c9951f562d7926a8e13b01775ce2469bdecbec1be8b801fba (28 bytes): digest mismatch
 ## AurumCode revisão de código
 
 > [!WARNING]
@@ -10,7 +11,6 @@ aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_
 
 gate da política: reprovou · 2 arquivos revisados
 Sem achados nas fontes concluídas; inconclusivo: os dados de análise não conferem com o artefato declarado [analysis_data_digest_mismatch]
-aurumcode review: policy gate: analysis_data: revisão inconclusiva (os dados de análise não conferem com o artefato declarado [analysis_data_digest_mismatch]): scanners.yml: expected sha256:fd430ae5426ecd17bf13c1eeb8921762667931bf0b22e388118766633420c393 (29 bytes), got sha256:2b58c9cd04047f8c9951f562d7926a8e13b01775ce2469bdecbec1be8b801fba (28 bytes): digest mismatch
 --- requisicoes recebidas pelo servidor local (modo adulterado-arquivo): 3
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200

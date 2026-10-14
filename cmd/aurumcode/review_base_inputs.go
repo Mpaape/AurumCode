@@ -11,6 +11,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review/session"
 	"github.com/Mpaape/AurumCode/internal/reviewprofile"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // resolveInputs validates usage, computes the diff, loads the effective
@@ -185,6 +186,9 @@ func (b *baseReview) resolveProfiles() (int, bool) {
 // limitation and never crashes the review.
 func (b *baseReview) gatherContext() (int, bool) {
 	b.codebaseText = resolveCodebaseContext(b.diff, codebaseExclude(b.cfg))
+	b.codebaseFor = func(files []types.DiffFile) string {
+		return resolveCodebaseContext(&types.Diff{Files: files}, codebaseExclude(b.cfg))
+	}
 	b.memoryStore, b.memoryNotes, b.memoryNotesText = openReviewMemory(b.cfg.Review.Memory, "", "", b.stderr, b.filter)
 	changelogOn := b.f.changelog
 	if !changelogOn {

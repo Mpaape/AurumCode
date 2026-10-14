@@ -376,9 +376,10 @@ func TestAUR519DegradedParseNeverCached(t *testing.T) {
 // concern directly: configuring review.context.skills WITHOUT any `gate:`
 // key must behave exactly like today -- the prompt catalog grows (the
 // skill's sections become citable, per AC-007/AC-002) but nothing about
-// the exit code changes, and in particular SetRuleCatalog's own token-
-// budget validation must not turn a configured skill into a surprise exit
-// 2 for a repository that never asked for a gate at all.
+// the exit code changes, and in particular the rule catalog must never
+// turn a configured skill into a surprise exit 2 for a repository that
+// never asked for a gate at all (TestLargePolicyNeverAbortsTheReview
+// covers the policy that is large).
 func TestAUR519SkillsConfiguredNoGateStaysSafe(t *testing.T) {
 	dir := coverageFixture(t, "review:\n  context:\n    skills:\n      - skills/security.md\n")
 	if err := os.MkdirAll(filepath.Join(dir, "skills"), 0700); err != nil {

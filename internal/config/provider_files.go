@@ -10,6 +10,14 @@ import (
 	"strings"
 )
 
+// The repository's own files are curated by its owner (see CuratedProvider).
+var (
+	_ CuratedProvider = (*RepoPromptProvider)(nil)
+	_ CuratedProvider = (*FileContextProvider)(nil)
+	_ CuratedProvider = (*TextContextProvider)(nil)
+	_ CuratedProvider = (*PathInstructionsProvider)(nil)
+)
+
 // RepoPromptProvider reads one repository-wide instructions file
 // (.aurumcode/prompt.md by default) and contributes its content, verbatim
 // and untrusted, to every review -- the "prompt do repositorio sobrepondo
@@ -25,6 +33,9 @@ func NewRepoPromptProvider(root string) *RepoPromptProvider {
 }
 
 func (p *RepoPromptProvider) Name() string { return "repository prompt (.aurumcode/prompt.md)" }
+
+// Curated marks the repository's own prompt file (see CuratedProvider).
+func (p *RepoPromptProvider) Curated() {}
 
 func (p *RepoPromptProvider) Provide(_ context.Context, _ []string) (string, error) {
 	data, err := os.ReadFile(p.Path)
@@ -53,6 +64,9 @@ func NewFileContextProvider(root string, file ContextFile) *FileContextProvider 
 func (p *FileContextProvider) Name() string {
 	return fmt.Sprintf("review %s (%s)", p.File.Kind, p.File.Path)
 }
+
+// Curated marks a file the repository's config names (see CuratedProvider).
+func (p *FileContextProvider) Curated() {}
 
 func (p *FileContextProvider) Provide(_ context.Context, _ []string) (string, error) {
 	if err := validateContextPath(p.File.Path); err != nil {
@@ -84,6 +98,9 @@ func (p *TextContextProvider) Name() string {
 	return fmt.Sprintf("review %s (%s)", p.Kind, p.Path)
 }
 
+// Curated marks a file the repository's config names (see CuratedProvider).
+func (p *TextContextProvider) Curated() {}
+
 func (p *TextContextProvider) Provide(_ context.Context, _ []string) (string, error) {
 	return p.Text, nil
 }
@@ -107,6 +124,10 @@ func NewPathInstructionsProvider(root string) *PathInstructionsProvider {
 func (p *PathInstructionsProvider) Name() string {
 	return "path-scoped instructions (.aurumcode/instructions/*.md)"
 }
+
+// Curated marks the repository's own instruction files (see
+// CuratedProvider).
+func (p *PathInstructionsProvider) Curated() {}
 
 func (p *PathInstructionsProvider) Provide(_ context.Context, changedPaths []string) (string, error) {
 	entries, err := os.ReadDir(p.Dir)
