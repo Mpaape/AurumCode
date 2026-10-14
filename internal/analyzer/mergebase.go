@@ -83,8 +83,8 @@ func (r *Repo) ancestors(starts []string) (map[string][]string, error) {
 
 // RangeDiffFromObjects is RangeDiff without a git binary: the diff of
 // baseRef...headRef (from their merge base) read from the object database,
-// with the same windowed hunks. A binary file, or one past the size limits,
-// is listed without hunks, as a forge lists a file it does not render.
+// with the same windowed hunks. A binary or generated file is listed without
+// hunks, as a forge lists a file it does not render; size never is a reason.
 func (r *Repo) RangeDiffFromObjects(baseRef, headRef string) (*types.Diff, error) {
 	baseSHA, err := r.ResolveRef(baseRef)
 	if err != nil {

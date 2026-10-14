@@ -1,7 +1,6 @@
 package analyzer
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 
@@ -17,18 +16,19 @@ import (
 // already owns "what does a diff mean" -- rather than being invented inline
 // in cmd/aurumcode.
 
-// Input limits. A changed file is line-diffed only if BOTH sides fit inside
-// all of them; otherwise the file is reported to the user and skipped, and
-// no model call is made for it. See docs/specs/AUR-430.md ("Limits on what
-// gets diffed") for the rationale and the exact user-visible messages.
+// Search budgets. No changed text file is ever left out of the review for
+// its size (the owner's rule: no limit may drop code from the review); what
+// is budgeted is the minimal-edit-script search, never the file. Past either
+// budget the diff falls back to replaceAll, a correct whole-file replacement
+// that costs O(N+M), so a huge file is reviewed with a coarser diff instead
+// of being skipped, and memory stays bounded. See docs/specs/AUR-430.md.
 const (
-	// maxDiffLines caps lines per side.
-	maxDiffLines = 10000
-
-	// maxDiffBytes caps bytes per side. Minified or generated single-line
-	// files pass the line cap trivially while still being huge, so size is
-	// capped independently of line count.
-	maxDiffBytes = 1 << 20 // 1 MiB
+	// maxSearchSteps bounds the search's work (diagonal visits plus
+	// snake comparisons), so time is bounded the same way memory is. An
+	// ordinary change costs about N+M steps (edit distance times the file),
+	// so 128Mi steps keeps every realistic diff exact; only a search that
+	// would grind for seconds falls back.
+	maxSearchSteps = 1 << 27
 
 	// binarySniffLen is how much of a blob is inspected for a NUL byte.
 	// This is git's own heuristic and its own window (FIRST_FEW_BYTES).
@@ -57,7 +57,7 @@ const (
 type DiffNotice struct {
 	Path    string
 	Message string
-	// Reason is the short, stable cause: "binary", "generated" or "too large".
+	// Reason is the short, stable cause: "binary", "generated" or "no patch".
 	// A file with a Reason was NOT reviewed; it must never count as approved.
 	Reason string
 	// DeclaredFormat: the binary content is a format the catalog declares
@@ -67,10 +67,18 @@ type DiffNotice struct {
 	DeclaredFormat bool
 }
 
+// ClassifyInspectBytes is how much of a file's start the content check
+// reads: the binary sniff window, the generated-marker header and every
+// catalog signature sit inside it. A caller that only classifies (the --pr
+// path) reads this prefix, never the whole file. A signature past it can
+// only fail to match, which keeps the file unreviewed (fail closed).
+const ClassifyInspectBytes = 64 << 10
+
 // classifyBlob reports why the changed file at path must not be line-diffed,
 // or "" when it can be. It works on the raw bytes and never converts them to
-// a string, so an oversized or binary blob is rejected before splitLines and
-// myersDiff ever materialize per-line copies of it.
+// a string, so a binary blob is rejected before splitLines and myersDiff ever
+// materialize per-line copies of it. Size is never a reason: a large text
+// file is diffed (see maxSearchSteps and maxTraceCells).
 func classifyBlob(path string, content []byte) string {
 	window := content
 	if len(window) > binarySniffLen {
@@ -86,12 +94,6 @@ func classifyBlob(path string, content []byte) string {
 	if grammar.LooksGenerated(content) {
 		return fmt.Sprintf("generated file, skipped: %s", path)
 	}
-	if len(content) > maxDiffBytes {
-		return fmt.Sprintf("diff too large: %s (%d bytes > limit %d)", path, len(content), maxDiffBytes)
-	}
-	if n := countLines(content); n > maxDiffLines {
-		return fmt.Sprintf("diff too large: %s (%d lines > limit %d)", path, n, maxDiffLines)
-	}
 	return ""
 }
 
@@ -105,8 +107,8 @@ const NoticeReasonNoPatch = "no patch"
 const NoticeReasonBinary = "binary"
 
 // ClassifyBlob is the one content check both review paths share: it returns a
-// notice when the file must not be line-diffed or reviewed (binary, generated,
-// too large), or nil when its content is reviewable text.
+// notice when the file must not be line-diffed or reviewed (binary or
+// generated), or nil when its content is reviewable text, whatever its size.
 func ClassifyBlob(path string, content []byte) *DiffNotice {
 	msg := classifyBlob(path, content)
 	if msg == "" {
@@ -118,30 +120,14 @@ func ClassifyBlob(path string, content []byte) *DiffNotice {
 // noticeReasonGenerated is the Reason of a file that says it was generated.
 const noticeReasonGenerated = "generated"
 
-// noticeReason maps a classifyBlob message to the stable reason token.
+// noticeReason maps a classifyBlob message to the stable reason token. Only
+// a binary message is "binary"; anything else is "generated", which is never
+// declared ignored, so an unexpected message fails closed (withholds).
 func noticeReason(message string) string {
-	switch {
-	case strings.HasPrefix(message, "binary file"):
+	if strings.HasPrefix(message, "binary file") {
 		return NoticeReasonBinary
-	case strings.HasPrefix(message, "generated file"):
-		return noticeReasonGenerated
-	default:
-		return "too large"
 	}
-}
-
-// countLines counts the lines in content the same way splitLines splits
-// them -- one trailing newline is a terminator, not an empty final line --
-// but without allocating the lines themselves.
-func countLines(content []byte) int {
-	if len(content) == 0 {
-		return 0
-	}
-	body := content
-	if body[len(body)-1] == '\n' {
-		body = body[:len(body)-1]
-	}
-	return bytes.Count(body, []byte{'\n'}) + 1
+	return noticeReasonGenerated
 }
 
 // diffKind classifies one line of a computed line-diff.
@@ -270,6 +256,17 @@ func replaceAll(a, b []string) []diffEdit {
 	return edits
 }
 
+// searchDistanceLimit is the largest edit distance myersDiff can reach
+// before it gives up: maxD itself, or the last distance whose trace still
+// fits maxTraceCells (the trace through distance d holds d(d+1)/2 cells).
+func searchDistanceLimit(maxD int) int {
+	d := 0
+	for d < maxD && (d+1)*(d+2)/2 <= maxTraceCells {
+		d++
+	}
+	return d
+}
+
 // myersDiff returns the minimal edit script transforming a into b using
 // Myers' 1986 O(ND) shortest-edit-script algorithm: a forward pass records,
 // for every distance d, the furthest-reaching x on each diagonal k; a
@@ -297,6 +294,15 @@ func replaceAll(a, b []string) []diffEdit {
 //   - the accumulated trace is capped at maxTraceCells, past which the
 //     search is abandoned for replaceAll's O(N+M) fallback.
 //
+// With the input cap gone (no file is skipped for size), two more bounds
+// keep a huge file safe without changing any output inside the old cap:
+//
+//   - the furthest-reaching vector v is only as wide as the distances the
+//     trace budget admits (searchDistanceLimit), not 2*(N+M)+1, so the
+//     search's own memory is a constant independent of the file length;
+//   - the search's work is capped at maxSearchSteps, past which it also
+//     falls back to replaceAll, so a pathological file cannot stall it.
+//
 // Note that Myers 1986's section 4b describes a further refinement -- a
 // divide-and-conquer middle-snake search with a strict O(N+M) bound. This
 // function deliberately does not implement it: 4b picks a different
@@ -304,16 +310,24 @@ func replaceAll(a, b []string) []diffEdit {
 // the bounds above already remove the unbounded growth without perturbing
 // any existing output.
 func myersDiff(a, b []string) []diffEdit {
+	return myersSearch(a, b, maxSearchSteps)
+}
+
+// myersSearch is myersDiff with the work budget as a parameter, so a test can
+// prove the fallback with a small budget instead of a slow input.
+func myersSearch(a, b []string, stepBudget int) []diffEdit {
 	n, m := len(a), len(b)
 	maxD := n + m
 	if maxD == 0 {
 		return nil
 	}
 
-	offset := maxD
-	v := make([]int, 2*maxD+1)
+	limitD := searchDistanceLimit(maxD)
+	// Diagonals k-1..k+1 with |k| <= limitD are read, hence the +1 margin.
+	offset := limitD + 1
+	v := make([]int, 2*offset+1)
 	trace := make([]traceLevel, 0, 64)
-	cells := 0
+	cells, steps := 0, 0
 
 	dFound := -1
 searchLoop:
@@ -335,9 +349,14 @@ searchLoop:
 			}
 			y := x - k
 
+			steps++
 			for x < n && y < m && a[x] == b[y] {
 				x++
 				y++
+				steps++
+			}
+			if steps > stepBudget {
+				return replaceAll(a, b)
 			}
 
 			v[offset+k] = x

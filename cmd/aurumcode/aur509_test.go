@@ -70,8 +70,8 @@ func TestAUR509AC003CheckFailsClosed(t *testing.T) {
 	if code, _, errOut := aur509Run(t, root, aur509Differ(nil, nil, errors.New("object not found"))); code != 1 || !strings.Contains(errOut, "indeterminado") {
 		t.Errorf("diff error: exit %d stderr %q", code, errOut)
 	}
-	tooBig := []analyzer.DiffNotice{{Path: "CHANGELOG.md", Reason: "too large"}}
-	if code, out, _ := aur509Run(t, root, aur509Differ(nil, tooBig, nil)); code != 1 || !strings.Contains(out, "indeterminado") {
+	unreadable := []analyzer.DiffNotice{{Path: "CHANGELOG.md", Reason: analyzer.NoticeReasonBinary}}
+	if code, out, _ := aur509Run(t, root, aur509Differ(nil, unreadable, nil)); code != 1 || !strings.Contains(out, "indeterminado") {
 		t.Errorf("unreadable changelog: exit %d out %q", code, out)
 	}
 	broken := aur509Repo(t, "changelog_check:\n  mode: talvez\n")
