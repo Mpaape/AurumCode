@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Corrigido: achado determinístico que o modelo contestou e a triagem do gate deixou de contar vai ao SARIF como suprimido, com o motivo do modelo; a aba Security não mostra como erro o que o gate decidiu contra.
 - Tutorial plugin-agendado: o alvo de exemplo usa consulta parametrizada; os achados do plugin de exemplo são sintéticos e o tutorial demonstra o ingest, não a detecção.
 - Corrigido: SARIF e auditoria nunca saem como JSON inválido quando um texto citado tem segredo entre aspas escapadas; a redação refaz string por string quando a do documento inteiro quebraria o JSON.
 - Autorrevisão: exemplo vulnerável e canários do tutorial plugin-agendado no `ignore` do repositório; canário de teste em tempo de execução; teste de commits sem `sh -c`; evidência reduzida só quando ficou item de fora.

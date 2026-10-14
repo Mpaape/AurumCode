@@ -238,6 +238,9 @@ func (s *reviewState) triageSources() map[string]bool {
 func (s *reviewState) reportTriage(demoted []gate.Demotion) {
 	s.triageDemoted = len(demoted)
 	for _, d := range demoted {
+		s.triageDemotions = append(s.triageDemotions, d.Issue)
+	}
+	for _, d := range demoted {
 		line := fmt.Sprintf("gate.triage (%s: model): %s:%d %s contestado pelo modelo deixou de contar", d.Source, d.Issue.File, d.Issue.Line, d.Issue.RuleID)
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
 		s.result.Limitations = append(s.result.Limitations, line)
