@@ -17,9 +17,9 @@ import (
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-// triagePrefix starts the id of a finding the review never offered (a
+// triageIDPrefix starts the id of a finding the review never offered (a
 // scanner that settled after the prompt was assembled).
-const triagePrefix = "T"
+const triageIDPrefix = "T"
 
 // triageUnassessed runs the dedicated triage over the unassessed evidence
 // and attaches the model's assessments to the findings the gate reads. It
@@ -83,7 +83,7 @@ func (s *reviewState) unassessedEvidence(sources map[string]bool) ([]prompt.Evid
 			seen[key] = true
 			id := s.evidenceIDs[key]
 			if id == "" {
-				id = fmt.Sprintf("%s%d", triagePrefix, len(items)+1)
+				id = fmt.Sprintf("%s%d", triageIDPrefix, len(items)+1)
 			}
 			keys[id] = key
 			items = append(items, prompt.EvidenceItem{
