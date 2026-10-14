@@ -189,6 +189,7 @@ type reviewState struct {
 	repositoryContext  string
 	proposedExceptions string
 	triageDemoted      int                 // findings the model's dispute demoted (gate.triage)
+	triageDemotions    []types.ReviewIssue // those findings, for the SARIF
 	rawIssues          []types.ReviewIssue // verdict-reuse snapshot, before rule config
 	scans              []gateScan
 	coverage           reviewCoverageBreakdown

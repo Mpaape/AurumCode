@@ -35,6 +35,10 @@ type complianceArtifactInputs struct {
 	// contextReduced declares the codebase context was reduced to fit the
 	// model's window, "" when it went whole.
 	contextReduced string
+	// demoted are the deterministic findings the model disputed and the
+	// gate's triage stopped counting: the SARIF carries them suppressed, so
+	// code scanning never shows as an error what the gate decided against.
+	demoted []types.ReviewIssue
 
 	// policyDir/centralCfg feed render.PolicyDigest (AC-001); centralCfg nil
 	// means no policy was declared this run, exactly as elsewhere.
@@ -204,6 +208,9 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 		if exc, ok := suppressed[[2]string{issue.RuleID, issue.File}]; ok {
 			finding.Suppressed = true
 			finding.Justification = exc.Justification
+		} else if why, ok := disputedByModel(in.demoted, issue); ok {
+			finding.Suppressed = true
+			finding.Justification = why
 		}
 		finding.Assessment = render.AssessmentOf(issue)
 		findings = append(findings, finding)
@@ -263,4 +270,21 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// disputedByModel reports whether the gate's triage demoted issue because
+// the model disputed it, with the justification the SARIF suppression
+// carries.
+func disputedByModel(demoted []types.ReviewIssue, issue types.ReviewIssue) (string, bool) {
+	for _, d := range demoted {
+		if d.RuleID != issue.RuleID || d.File != issue.File || d.Line != issue.Line {
+			continue
+		}
+		why := "contestado pelo modelo na triagem do gate (gate.triage); deixou de contar"
+		if a := d.Assessment; a != nil && strings.TrimSpace(a.Justification) != "" {
+			why += ": " + strings.TrimSpace(a.Justification)
+		}
+		return why, true
+	}
+	return "", false
 }
