@@ -2,13 +2,13 @@ package skills
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 )
 
 // Catalog is the skills the review resolves for one run: the central
@@ -26,8 +26,11 @@ type Catalog struct {
 	set      *Set
 	langs    *Languages
 	budget   Budget
-	dropped  []string
+	dropped  []override
 	loadWarn []string
+	// language is the review's language of the override notices; empty
+	// keeps English.
+	language string
 	// policyDirs is the Dir of every skill the central policy contributed,
 	// so each selected skill keeps its trust layer after the merge.
 	policyDirs map[string]bool
@@ -108,9 +111,26 @@ func (c *Catalog) Docs(changed []string) []Doc {
 	return out
 }
 
+// override is a repository skill dropped because a policy skill declares
+// the same selector.
+type override struct {
+	winner, winnerDir, loser, loserDir string
+}
+
+// notice is the override as a declared warning in language.
+func (o override) notice(language string) string {
+	return i18n.Format(language, "skills.policy_overrides", o.winner, o.winnerDir, o.loser, o.loserDir)
+}
+
+// InLanguage sets the language of the catalog's override notices.
+func (c *Catalog) InLanguage(language string) *Catalog {
+	c.language = language
+	return c
+}
+
 // layer merges the two sets, dropping every repository skill whose selector a
 // policy skill already declares.
-func layer(policy, repo *Set, langs *Languages) (*Set, []string) {
+func layer(policy, repo *Set, langs *Languages) (*Set, []override) {
 	out := &Set{}
 	taken := map[string]Skill{}
 	if policy != nil {
@@ -121,18 +141,17 @@ func layer(policy, repo *Set, langs *Languages) (*Set, []string) {
 			}
 		}
 	}
-	var dropped []string
+	var dropped []override
 	if repo != nil {
 		for _, sk := range repo.Skills {
 			if winner, ok := taken[selectorKey(sk.Selector, langs)]; ok && sk.Selector.Declared() {
-				dropped = append(dropped, fmt.Sprintf("policy skill %q (%s) overrides repository skill %q (%s): same selector, the repository skill is not sent to the model",
-					winner.Name, winner.Dir, sk.Name, sk.Dir))
+				dropped = append(dropped, override{winner.Name, winner.Dir, sk.Name, sk.Dir})
 				continue
 			}
 			out.Skills = append(out.Skills, sk)
 		}
 	}
-	sort.Strings(dropped)
+	sort.Slice(dropped, func(i, j int) bool { return dropped[i].notice("") < dropped[j].notice("") })
 	return out, dropped
 }
 
@@ -170,7 +189,9 @@ func (c *Catalog) withBudget(b Budget) *Catalog {
 func (c *Catalog) Select(changed []string) Selection {
 	sel := c.set.SelectWith(changed, c.langs)
 	warnings := append([]string(nil), c.loadWarn...)
-	warnings = append(warnings, c.dropped...)
+	for _, o := range c.dropped {
+		warnings = append(warnings, o.notice(c.language))
+	}
 	warnings = append(warnings, sel.Warnings...)
 	return Selection{Skills: sel.Skills, Warnings: warnings}
 }

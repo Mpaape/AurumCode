@@ -53,7 +53,7 @@ func resolveSkillCatalog(src skillSources, policyCfg, repoCfg *config.Config, la
 	protected := skillDirNames(sets[config.LayerStandards])
 	res.shadowed = shadowSameNames(sets, language)
 	warnings = append(warnings, res.shadowed...)
-	res.catalog = skills.NewCatalog(sets[config.LayerPolicy], belowPolicy(sets), nil, warnings)
+	res.catalog = skills.NewCatalog(sets[config.LayerPolicy], belowPolicy(sets), nil, warnings).InLanguage(language)
 	excludeListedSkills(res.catalog, policyCfg, repoCfg, protected)
 	return res, nil
 }
