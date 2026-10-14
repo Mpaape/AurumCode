@@ -4,4 +4,5 @@
 # toolchain for -race.
 set -euo pipefail
 export GOFLAGS=-buildvcs=false CGO_ENABLED=1
-go test ./... -race -count=1
+# No per-package test timeout: the job's timeout-minutes bounds the run.
+go test ./... -race -count=1 -timeout 0
