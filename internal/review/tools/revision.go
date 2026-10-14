@@ -31,7 +31,8 @@ type RevisionOptions struct {
 	Ignored func(string) bool
 	// Secret is the secret-file catalog; nil refuses every path (fail closed).
 	Secret func(string) bool
-	// MaxFileBytes bounds one file read; 0 means grammarMaxFileBytes.
+	// MaxFileBytes bounds one file read; 0 means no ceiling (the default):
+	// a file of any size is read whole.
 	MaxFileBytes int64
 	// Budget bounds the bytes returned to the model over the review; nil
 	// means a budget without a ceiling.
@@ -41,9 +42,6 @@ type RevisionOptions struct {
 	// the review is partial.
 	MaxCacheBytes int
 }
-
-// grammarMaxFileBytes is the default per-file read bound.
-const grammarMaxFileBytes = 1 << 20
 
 // Revision reads files of the reviewed revision and nothing else: a path
 // outside its tree, a symbolic link (in the tree or on disk), a path whose
@@ -66,9 +64,6 @@ func NewRevision(opts RevisionOptions) (*Revision, error) {
 	real, err := filepath.EvalSymlinks(opts.Root)
 	if err != nil {
 		return nil, fmt.Errorf("raiz da revisão ilegível: %w", err)
-	}
-	if opts.MaxFileBytes <= 0 {
-		opts.MaxFileBytes = grammarMaxFileBytes
 	}
 	if opts.Budget == nil {
 		opts.Budget = NewByteBudget(0)
@@ -138,7 +133,7 @@ func (r *Revision) Read(rel string) ([]byte, error) {
 	if err := r.contained(full); err != nil {
 		return nil, err
 	}
-	if info.Size() > r.opts.MaxFileBytes {
+	if r.opts.MaxFileBytes > 0 && info.Size() > r.opts.MaxFileBytes {
 		return nil, fmt.Errorf("%q excede %d bytes", rel, r.opts.MaxFileBytes)
 	}
 	data, err := os.ReadFile(full)

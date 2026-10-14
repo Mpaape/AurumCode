@@ -35,7 +35,7 @@ type reviewCoverageBreakdown struct {
 	// its scope by construction: paths the repository's `ignore` hides and
 	// binary files (nothing in them is reviewable by reading). They are
 	// listed, never counted as partial coverage. FilteredPaths is what the
-	// review wanted to read and could not (generated, too large, no patch):
+	// review wanted to read and could not (generated, no patch):
 	// those keep the review partial. Budget omissions are named by the
 	// prompt builder inside the model input; only their count reaches cmd
 	// through result.Metadata.
@@ -109,7 +109,7 @@ func mergeReviewCoverage(promptMeta map[string]string, notices []analyzer.DiffNo
 		if n.Reason != "" {
 			label = n.Path + " (" + n.Reason + ")"
 		}
-		if declaredBinary(n) {
+		if declaredIgnored(n) {
 			ignored = append(ignored, label)
 			continue
 		}

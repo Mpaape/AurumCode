@@ -202,21 +202,28 @@ func TestAUR009(t *testing.T) {
 		t.Fatal("SinkError rendering leaked the canary")
 	}
 
-	// The first value beyond the boundary is refused with a typed error
-	// before any byte reaches the underlying sink.
+	// Issue #179: a line past the old 64 KiB boundary is neither refused nor
+	// dropped; it is accumulated and redacted whole, so a secret split across
+	// two writes at the old boundary never reaches the sink.
 	var limitBuf bytes.Buffer
 	lw, err := f.NewWriter(redaction.SinkCache, &limitBuf)
 	if err != nil {
 		t.Fatalf("NewWriter(cache) refused a canonical sink: %v", err)
 	}
-	_, err = lw.Write(bytes.Repeat([]byte("B"), redaction.MaxInputBytes+1))
+	head := strings.Repeat("B", redaction.MaxInputBytes) + canary[:len(canary)/2]
+	if _, err := lw.Write([]byte(head)); err != nil {
+		t.Fatalf("a write past the old boundary was refused: %v", err)
+	}
+	if _, err := lw.Write([]byte(canary[len(canary)/2:] + " tail\n")); err != nil {
+		t.Fatalf("the rest of the long line was refused: %v", err)
+	}
+	if err := lw.Flush(); err != nil {
+		t.Fatalf("flush of the long line failed: %v", err)
+	}
+	if strings.Contains(limitBuf.String(), canary) || !strings.Contains(limitBuf.String(), redaction.Marker) || !strings.HasPrefix(limitBuf.String(), strings.Repeat("B", redaction.MaxInputBytes)) {
+		t.Fatalf("long line not redacted whole: %d bytes, leaked=%v", limitBuf.Len(), strings.Contains(limitBuf.String(), canary))
+	}
 	var limitErr *redaction.LimitError
-	if !errors.As(err, &limitErr) {
-		t.Fatal("input beyond the boundary was not refused with a typed *LimitError")
-	}
-	if limitBuf.Len() != 0 || lw.Effects() != 0 {
-		t.Fatalf("boundary refusal happened after a forbidden effect (bytes %d, effects %d)", limitBuf.Len(), lw.Effects())
-	}
 
 	// The exact boundary value passes untouched when it carries no secret.
 	var okBuf bytes.Buffer

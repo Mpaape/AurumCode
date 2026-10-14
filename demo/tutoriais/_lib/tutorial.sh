@@ -101,25 +101,27 @@ tut_grava_imagem() {
   printf 'tree=%s\ndockerfile=%s\nbuild_args=%s\nimage=%s\n' "$TUT_TREE" "$TUT_DOCKERFILE" "$TUT_BUILD_ARGS" "$(docker image inspect --format '{{.Id}}' "$TUT_IMAGE")" > "$IMAGEM_REG"
 }
 
-# Confere out/.imagem: ausente ou de outra arvore reprova. Com docker e a imagem
-# local, o digest tambem precisa bater; sem eles, so a arvore e conferida e a
-# saida diz "imagem nao conferida (sem docker)".
+# Confere out/.imagem: ausente reprova. De outra arvore (ou outro Dockerfile) e
+# aviso, nao divergencia: o produto mudou desde a gravacao, mas a saida
+# continua conferida contra expected/, e so o tutorial cuja saida muda e
+# regravado. Com a mesma arvore, docker e a imagem local, o digest tambem
+# precisa bater; sem eles a saida diz "imagem nao conferida (sem docker)".
 tut_check_imagem() {
   local tree img atual dfile bargs
   [ -f "$IMAGEM_REG" ] || { echo "DIVERGENCIA: out/.imagem ausente: out/ nao foi gravado por run.sh all com a imagem desta arvore (rode run.sh all)"; return 1; }
   tree="$(sed -n 's/^tree=//p' "$IMAGEM_REG")"; img="$(sed -n 's/^image=//p' "$IMAGEM_REG")"
   dfile="$(sed -n 's/^dockerfile=//p' "$IMAGEM_REG")"; bargs="$(sed -n 's/^build_args=//p' "$IMAGEM_REG")"
-  if [ "$tree" != "$TUT_TREE" ]; then
-    echo "DIVERGENCIA: out/ foi gravado por uma imagem de outra arvore (gravada ${tree:0:12}, atual ${TUT_TREE:0:12}); rode run.sh all"
-    return 1
-  fi
-  if [ -n "$TUT_DOCKERFILE" ] && [ "$dfile" != "$TUT_DOCKERFILE" ]; then
-    echo "DIVERGENCIA: out/ foi gravado com outro Dockerfile (gravado ${dfile:0:12}, atual ${TUT_DOCKERFILE:0:12}); rode run.sh all"
-    return 1
-  fi
   if [ "$bargs" != "$TUT_BUILD_ARGS" ]; then
     echo "DIVERGENCIA: out/ foi gravado com outros build args (gravados '$bargs', atuais '$TUT_BUILD_ARGS'); rode run.sh all"
     return 1
+  fi
+  if [ "$tree" != "$TUT_TREE" ]; then
+    echo "AVISO: out/ foi gravado por uma imagem de outra arvore (gravada ${tree:0:12}, atual ${TUT_TREE:0:12}); a saida foi conferida contra expected/"
+    return 0
+  fi
+  if [ -n "$TUT_DOCKERFILE" ] && [ "$dfile" != "$TUT_DOCKERFILE" ]; then
+    echo "AVISO: out/ foi gravado com outro Dockerfile (gravado ${dfile:0:12}, atual ${TUT_DOCKERFILE:0:12}); a saida foi conferida contra expected/"
+    return 0
   fi
   if command -v docker >/dev/null 2>&1 && atual="$(docker image inspect --format '{{.Id}}' "$TUT_IMAGE" 2>/dev/null)"; then
     if [ "$atual" != "$img" ]; then

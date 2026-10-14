@@ -111,10 +111,11 @@ func TestAUR470ExcludedFilesAndSymlinksNeverEnter(t *testing.T) {
 }
 
 // AC-003: the same revision yields the same excerpts in the same order;
-// the excerpt ceiling is declared.
+// past the old 24-excerpt ceiling every reference is still excerpted
+// (issue #179).
 func TestAUR470StableOrderAndDeclaredOmissions(t *testing.T) {
 	extra := map[string]string{}
-	for i := 0; i < DefaultMaxSnippets+3; i++ {
+	for i := 0; i < 24+3; i++ {
 		extra[filepath.ToSlash(filepath.Join("src", "use", "U"+string(rune('a'+i%26))+string(rune('a'+i/26))+".java"))] = "class U { long v = Contract.priceOf(\"x\"); }\n"
 	}
 	root := aur470Tree(t, extra)
@@ -126,8 +127,8 @@ func TestAUR470StableOrderAndDeclaredOmissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(first.Snippets, second.Snippets) || len(first.Snippets) != DefaultMaxSnippets {
-		t.Fatalf("snippets not stable or not bounded: %d vs %d", len(first.Snippets), len(second.Snippets))
+	if !reflect.DeepEqual(first.Snippets, second.Snippets) || len(first.Snippets) < 24+3 {
+		t.Fatalf("snippets not stable or cut: %d vs %d, want at least %d", len(first.Snippets), len(second.Snippets), 24+3)
 	}
 	for i := 1; i < len(first.Snippets); i++ {
 		a, b := first.Snippets[i-1], first.Snippets[i]
@@ -135,8 +136,8 @@ func TestAUR470StableOrderAndDeclaredOmissions(t *testing.T) {
 			t.Fatalf("snippets out of order: %+v before %+v", a, b)
 		}
 	}
-	if !strings.Contains(strings.Join(first.Dropped, "\n"), "snippets truncated at") {
-		t.Fatalf("the ceiling was not declared: %v", first.Dropped)
+	if strings.Contains(strings.Join(first.Dropped, "\n"), "snippets truncated at") {
+		t.Fatalf("a ceiling nobody declared cut the excerpts: %v", first.Dropped)
 	}
 }
 

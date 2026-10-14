@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -28,12 +27,11 @@ import (
 // Provide takes a ctx that BuildContextBlock bounds to ProviderTimeout: a
 // provider that hangs (an unreachable MCP server, a stalled RAG index)
 // must fail the review loudly within that bound, never hang it
-// indefinitely. The text an external source returns (an MCP server, a
-// retrieval index) is also bounded to MaxProviderContributionBytes; a
-// provider that returns more is a loud error, never a silent truncation. A
-// CuratedProvider -- the repository's or the policy's own files -- is not
-// bounded that way (the rule catalog, in internal/prompt.ValidateRuleCatalog,
-// is likewise never truncated or refused by size).
+// indefinitely. The text a provider returns has no size ceiling, whether
+// it comes from an external source (an MCP server, a retrieval index) or
+// from a CuratedProvider: it reaches the model whole, never truncated nor
+// refused by size (issue #179; the rule catalog, in
+// internal/prompt.ValidateRuleCatalog, is likewise never cut).
 type ContextProvider interface {
 	// Name identifies this provider in the rendered prompt and in
 	// evidence/diagnostics. Stable across calls.
@@ -62,25 +60,13 @@ type ProviderWarning struct {
 
 // CuratedProvider is implemented by a provider that reads the repository's
 // or the policy's own curated files: prompt, instructions, skills, docs.
-// How much of that to write is its owner's decision, so
-// MaxProviderContributionBytes -- the defense against an external source
-// flooding the prompt -- does not apply to it: a policy of any size reaches
-// the model whole (issue #179), and the prompt as a whole stays bounded by
-// the model's context window. The default stays bounded: a provider is
-// subject to the ceiling unless it declares itself curated.
+// It marks where the contribution comes from; like every provider, it
+// reaches the model whole (issue #179), and a prompt too long for the
+// model makes the review split, never refuse a source.
 type CuratedProvider interface {
 	ContextProvider
 	// Curated marks the provider; it has no behavior of its own.
 	Curated()
-}
-
-type contributionLimitError struct {
-	provider string
-	size     int
-}
-
-func (e contributionLimitError) Error() string {
-	return fmt.Sprintf("context provider %q contributed %d bytes, over the %d-byte ceiling: refusing rather than silently truncating", e.provider, e.size, MaxProviderContributionBytes)
 }
 
 // ProviderTimeout bounds a single ContextProvider.Provide call.
@@ -91,25 +77,13 @@ func (e contributionLimitError) Error() string {
 // reason to raise this shared ceiling.
 const ProviderTimeout = 10 * time.Second
 
-// MaxProviderContributionBytes bounds the text one external provider
-// contributes (a CuratedProvider is exempt). This is also this card's
-// second, independent defense for the cost
-// ceiling (see contextInjectingProvider.Tokens in wrap.go, the primary
-// fix): even if a future provider's token accounting were ever wrong, no
-// single contribution can grow the outbound prompt by more than this many
-// bytes. Exceeding it is a loud error, never a silent truncation -- a
-// truncated contribution could cut a sentence into something that reads
-// as the opposite of what it said.
-const MaxProviderContributionBytes = 64 * 1024
-
 // The rendered block's header -- this material is informational, and the
 // five decisions it names are made elsewhere -- and its source/contribution
 // layout live in the review prompt template (internal/prompt's
 // repository_context slot), the single source of every prompt section.
 
-// callProviderBounded runs p.Provide under ProviderTimeout and
-// MaxProviderContributionBytes. A provider that does not answer in time,
-// errors, or exceeds the size ceiling is a loud error identifying which
+// callProviderBounded runs p.Provide under ProviderTimeout. A provider
+// that does not answer in time or errors is a loud error identifying which
 // provider caused it -- never a silent empty contribution, because that
 // would be indistinguishable from "this provider legitimately had
 // nothing to say" (the zero-config signal every other caller relies on).
@@ -132,9 +106,6 @@ func callProviderBounded(ctx context.Context, p ContextProvider, changedPaths []
 		if r.err != nil {
 			return "", fmt.Errorf("context provider %q: %w", p.Name(), r.err)
 		}
-		if _, curated := p.(CuratedProvider); !curated && len(r.text) > MaxProviderContributionBytes {
-			return "", contributionLimitError{provider: p.Name(), size: len(r.text)}
-		}
 		return r.text, nil
 	case <-cctx.Done():
 		return "", fmt.Errorf("context provider %q did not answer within %s: %w", p.Name(), ProviderTimeout, cctx.Err())
@@ -144,7 +115,7 @@ func callProviderBounded(ctx context.Context, p ContextProvider, changedPaths []
 // BuildContextBlock queries every provider in order (each bounded by
 // callProviderBounded) and renders their non-empty contributions into one
 // block. Provider failures are returned as warnings and do not discard the
-// rest of the review; contribution-size violations remain hard errors.
+// rest of the review; no contribution is refused by its size.
 //
 // Redaction runs twice. Each non-empty contribution is passed through the
 // same AUR-009 filter before it is placed in the block, and the concatenated
@@ -177,9 +148,6 @@ func BuildContextBlockWithWarnings(ctx context.Context, providers []ContextProvi
 	for _, p := range providers {
 		text, err := callProviderBounded(ctx, p, changedPaths)
 		if err != nil {
-			if isContributionLimitError(err) {
-				return "", warnings, err
-			}
 			warning := ProviderWarning{Provider: p.Name(), Reason: err.Error()}
 			if filter != nil {
 				warning.Provider = filter.Redact(warning.Provider)
@@ -208,9 +176,4 @@ func BuildContextBlockWithWarnings(ctx context.Context, providers []ContextProvi
 	}
 
 	return prompt.RenderRepositoryContext(names, assembled), warnings, nil
-}
-
-func isContributionLimitError(err error) bool {
-	var limitErr contributionLimitError
-	return errors.As(err, &limitErr)
 }

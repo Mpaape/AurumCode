@@ -205,10 +205,34 @@ func TestAUR580LimitsMustBePositive(t *testing.T) {
 	}
 }
 
-func TestAUR580ToolMessageIsCappedOnARuneBoundary(t *testing.T) {
-	long := strings.Repeat("é", maxToolMessageBytes)
-	got := capContent(long)
-	if len(got) > maxToolMessageBytes || !strings.HasSuffix(got, truncationNote) || !utf8.ValidString(got) {
-		t.Fatalf("capped message: %d bytes, valid=%v", len(got), utf8.ValidString(got))
+// bigTool returns a fixed content, past the old 8 KiB tool message cap.
+type bigTool struct{ content string }
+
+func (bigTool) Spec() llm.ToolSpec {
+	return llm.ToolSpec{Name: "read", Description: "test tool", Parameters: llm.SchemaOf(pathArgs{})}
+}
+
+func (t bigTool) Run(context.Context, json.RawMessage) (Result, error) {
+	return Result{Content: t.content, Summary: "1 item"}, nil
+}
+
+// Issue #179: a tool result past the old 8 KiB message cap reaches the
+// model whole, never cut with a truncation note.
+func TestAUR580ToolMessageReachesTheModelWhole(t *testing.T) {
+	long := strings.Repeat("é", 64*1024)
+	caller := &scriptedCaller{rounds: []llm.ToolResponse{
+		{Response: llm.Response{TokensIn: 10, TokensOut: 2}, ToolCalls: []llm.ToolCall{call("c1", "read", `{"path":"a.go"}`)}},
+		answer(`{"summary":"ok"}`, 20, 5),
+	}}
+	if _, err := (Session{Caller: caller, Tools: []Tool{bigTool{content: long}}, Limits: limits()}).Run(context.Background(), llm.SystemUserMessages("s", "u")); err != nil {
+		t.Fatal(err)
+	}
+	if len(caller.seen) < 2 {
+		t.Fatalf("the model was called %d times", len(caller.seen))
+	}
+	msgs := caller.seen[1]
+	got := msgs[len(msgs)-1]
+	if got.Role != llm.RoleTool || got.Content != long || !utf8.ValidString(got.Content) {
+		t.Fatalf("tool message: role=%q %d bytes, want the whole %d", got.Role, len(got.Content), len(long))
 	}
 }

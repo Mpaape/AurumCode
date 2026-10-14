@@ -98,7 +98,6 @@ cases:
   - name: "input-beyond-limit"
     kind: boundary
     channel: limit
-    expect: typed-error
-    error: input-too-large
+    expect: identity
     repeat_unit: "A"
     repeat_count: 65537

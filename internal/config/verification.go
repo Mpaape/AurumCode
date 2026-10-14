@@ -2,10 +2,6 @@ package config
 
 import "fmt"
 
-// DefaultVerificationMaxCalls is how many verification calls one review may
-// make when review.verification.max_calls is absent.
-const DefaultVerificationMaxCalls = 8
-
 // ReviewVerificationConfig is review.verification: the adversarial check
 // every model finding that would block the gate goes through before the
 // gate counts it. Only a refutation backed by a literal quote of the
@@ -13,8 +9,9 @@ const DefaultVerificationMaxCalls = 8
 type ReviewVerificationConfig struct {
 	// Enabled switches the verification; absent means on.
 	Enabled *bool `yaml:"enabled"`
-	// MaxCalls bounds the verification calls of one review; zero means
-	// DefaultVerificationMaxCalls. A finding beyond the ceiling keeps
+	// MaxCalls bounds the verification calls of one review; absent or zero
+	// means no ceiling (issue #179): every blocking finding is verified. A
+	// positive value is an explicit ceiling, and a finding beyond it keeps
 	// blocking.
 	MaxCalls int `yaml:"max_calls"`
 }
@@ -22,15 +19,10 @@ type ReviewVerificationConfig struct {
 // Active reports whether the verification runs (the default).
 func (v ReviewVerificationConfig) Active() bool { return v.Enabled == nil || *v.Enabled }
 
-// EffectiveMaxCalls is the declared ceiling or the default.
-func (v ReviewVerificationConfig) EffectiveMaxCalls() int {
-	if v.MaxCalls > 0 {
-		return v.MaxCalls
-	}
-	return DefaultVerificationMaxCalls
-}
+// EffectiveMaxCalls is the declared ceiling; 0 means none.
+func (v ReviewVerificationConfig) EffectiveMaxCalls() int { return v.MaxCalls }
 
-// Validate refuses a negative ceiling (zero means the default).
+// Validate refuses a negative ceiling (zero means no ceiling).
 func (v ReviewVerificationConfig) Validate() error {
 	if v.MaxCalls < 0 {
 		return fmt.Errorf("review.verification.max_calls: must be positive (got %d)", v.MaxCalls)

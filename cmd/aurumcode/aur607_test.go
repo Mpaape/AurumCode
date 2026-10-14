@@ -192,15 +192,15 @@ func TestAUR607SkippedFileNoticeFollowsTheLanguage(t *testing.T) {
 	notices := []analyzer.DiffNotice{
 		{Path: "logo.png", Reason: analyzer.NoticeReasonBinary, Message: "binary file, skipped: logo.png"},
 		{Path: "gerado.go", Reason: "generated", Message: "generated file, skipped: gerado.go"},
-		{Path: "big.txt", Reason: "too large", Message: "diff too large: big.txt (9 lines > limit 8)"},
+		{Path: "big.txt", Reason: analyzer.NoticeReasonNoPatch, Message: "not reviewed, no patch (binary or large): big.txt"},
 	}
 	var en, pt bytes.Buffer
 	printNotices(&en, redaction.NewFilter(), notices, "en-US")
 	printNotices(&pt, redaction.NewFilter(), notices, "pt-BR")
-	if want := "binary file, skipped: logo.png\ngenerated file, skipped: gerado.go\ndiff too large: big.txt (9 lines > limit 8)\n"; en.String() != want {
+	if want := "binary file, skipped: logo.png\ngenerated file, skipped: gerado.go\nnot reviewed, no patch (binary or large): big.txt\n"; en.String() != want {
 		t.Errorf("en notices = %q, want %q", en.String(), want)
 	}
-	if want := "arquivo binário, não revisado: logo.png\narquivo gerado, não revisado: gerado.go\ndiff too large: big.txt (9 lines > limit 8)\n"; pt.String() != want {
+	if want := "arquivo binário, não revisado: logo.png\narquivo gerado, não revisado: gerado.go\nnot reviewed, no patch (binary or large): big.txt\n"; pt.String() != want {
 		t.Errorf("pt-BR notices = %q, want %q", pt.String(), want)
 	}
 }

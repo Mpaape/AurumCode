@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/render"
@@ -217,9 +218,15 @@ func (p *prReview) resolveCheckout() (int, bool) {
 // declareBinaries takes the binary files out of the diff before the model
 // sees it, as --base does: nothing in them is reviewable by reading, so the
 // prompt never counts them as omitted by the budget, and the coverage pass
-// declares them ignored (binaryNotices) instead of partial.
+// declares them ignored (binaryNotices) instead of partial. A file the API
+// diff carried without any line first has its diff recomputed from the
+// verified checkout (recoverMissingPatches); one with no content change is
+// declared with the binaries, never counted as reviewed.
 func (p *prReview) declareBinaries() (int, bool) {
+	var unchanged []analyzer.DiffNotice
+	p.diff, unchanged = recoverMissingPatches(p.diff, p.checkoutPatchSource())
 	p.binaryNotices, p.diff = splitBinaryFiles(p.diff, p.verifiedDir)
+	p.binaryNotices = append(p.binaryNotices, unchanged...)
 	return 0, false
 }
 

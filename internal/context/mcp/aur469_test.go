@@ -148,3 +148,18 @@ func TestAUR469AbsentSlowAndMalformedServersAreErrors(t *testing.T) {
 		})
 	}
 }
+
+// Issue #179: an answer past the old 1 MiB message ceiling (and the old
+// 64 KiB contribution ceiling) arrives whole, never refused nor cut.
+func TestLargeAnswerPastTheOldCeilingsArrivesWhole(t *testing.T) {
+	big := strings.Repeat("x", 2<<20)
+	srv := &fakeServer{reply: textReply(big)}
+	src := &Source{SourceName: "adr", Tool: "lookup", Timeout: 10 * time.Second, Dial: srv.dial, Redact: redactCanary}
+	text, err := src.Provide(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("an answer of %d bytes was refused: %v", len(big), err)
+	}
+	if text != big {
+		t.Fatalf("the answer was cut: got %d bytes, want %d", len(text), len(big))
+	}
+}

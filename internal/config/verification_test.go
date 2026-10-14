@@ -4,8 +4,8 @@ import "testing"
 
 func TestReviewVerificationDefaultsAndValidation(t *testing.T) {
 	var absent ReviewVerificationConfig
-	if !absent.Active() || absent.EffectiveMaxCalls() != DefaultVerificationMaxCalls || absent.Validate() != nil {
-		t.Fatal("absent review.verification is on with the default ceiling")
+	if !absent.Active() || absent.EffectiveMaxCalls() != 0 || absent.Validate() != nil {
+		t.Fatal("absent review.verification is on without a call ceiling (issue #179)")
 	}
 	off := false
 	if (ReviewVerificationConfig{Enabled: &off}).Active() {
