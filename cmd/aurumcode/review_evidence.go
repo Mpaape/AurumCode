@@ -117,5 +117,6 @@ func (s *reviewState) writeArtifacts() []artifactFailure {
 		verification:           s.verification,
 		deliberation:           s.offeredTranscript(),
 		batches:                auditBatches(s.batches),
+		contextReduced:         s.contextReduced,
 	}, s.run, res, s.filter, s.stderr)
 }

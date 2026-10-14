@@ -109,6 +109,9 @@ func runProfilePasses(ctx context.Context, passes analystPasses, diff *types.Dif
 		if passes.refused != nil {
 			passes.refused(reviewer.PromptRefusals())
 		}
+		if passes.reduced != nil {
+			passes.reduced(reviewer.ContextReduction())
+		}
 		transcripts = append(transcripts, transcriptOf(reviewer, p))
 		if err != nil {
 			return nil, deliberation.Merge(transcripts...), err

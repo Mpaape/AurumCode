@@ -169,6 +169,8 @@ func TestLearnedCeiling(t *testing.T) {
 		{"never keeps the whole prompt", PromptRefusal{EstimatedTokens: 1000, Limit: 128000, Requested: 128001}, 0, 899},
 		{"goes below the previous ceiling", PromptRefusal{EstimatedTokens: 28000, Limit: 128000, Requested: 128001}, 25000, 12500},
 		{"nothing left", PromptRefusal{EstimatedTokens: 1}, 0, 0},
+		{"only the window said: its share", PromptRefusal{EstimatedTokens: 3900000, Limit: 2000000}, 0, 1800000},
+		{"only the window said, larger than the prompt", PromptRefusal{EstimatedTokens: 1000, Limit: 2000000}, 0, 999},
 	}
 	for _, c := range cases {
 		if got := learnedCeiling(c.refusal, c.previous); got != c.want {

@@ -211,6 +211,9 @@ type reviewState struct {
 	// batches are the batches of a review whose diff did not fit one
 	// prompt, nil otherwise.
 	batches []review.Batch
+	// contextReduced is the line that declares the codebase context was
+	// reduced to fit the model's window, "" when it went whole.
+	contextReduced string
 
 	gateRes *gateDecision
 

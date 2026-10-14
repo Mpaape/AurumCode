@@ -33,6 +33,9 @@ type analystPasses struct {
 	// refused is told, after a pass, which prompts the model refused as too
 	// long during it (review.Reviewer.PromptRefusals).
 	refused func(refusals []review.PromptRefusal)
+	// reduced is told, after a pass, whether the codebase context was
+	// reduced to fit the model's window (review.Reviewer.ContextReduction).
+	reduced func(reduction review.ContextReduction, ok bool)
 }
 
 // analystsOf is the analysts a resolved selection applies, none when the
@@ -58,6 +61,7 @@ func (s *reviewState) analystPasses(profiles []reviewprofile.Profile) analystPas
 			fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.deliberation_rounds_spent", analyst))
 		},
 		refused: s.noteRefusals,
+		reduced: s.noteContextReduction,
 	}
 }
 

@@ -32,6 +32,9 @@ type complianceArtifactInputs struct {
 	deliberation *deliberation.Transcript
 	// batches are the batches of a review in batches, nil otherwise.
 	batches []render.AuditBatch
+	// contextReduced declares the codebase context was reduced to fit the
+	// model's window, "" when it went whole.
+	contextReduced string
 
 	// policyDir/centralCfg feed render.PolicyDigest (AC-001); centralCfg nil
 	// means no policy was declared this run, exactly as elsewhere.
@@ -164,6 +167,7 @@ func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	rec.ProposedExceptions = in.proposedExceptions
 	rec.Deliberation = in.deliberation
 	rec.Batches = in.batches
+	rec.ContextReduced = in.contextReduced
 	rec.Standards = in.standards
 	rec.StampToolVersion(toolVersion())
 	if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); err != nil {

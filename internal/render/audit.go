@@ -67,6 +67,10 @@ type AuditRecord struct {
 	// prompt: each batch's files and estimated prompt size. Absent when the
 	// review was a single prompt.
 	Batches []AuditBatch `json:"batches,omitempty"`
+	// ContextReduced declares that the codebase context, support for the
+	// review and not the code under review, was reduced to fit the model's
+	// window, with what it kept. Absent when it went whole.
+	ContextReduced string `json:"context_reduced,omitempty"`
 	// ToolVersion (AUR-611) is the AurumCode that wrote this record: the
 	// version stamped at build time (the tool's exact tag or short SHA in
 	// the review workflow). Absent for a dev build, so the record of a

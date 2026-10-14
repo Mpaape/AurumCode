@@ -84,6 +84,13 @@ workflow_step_block() {
 # MUT-002 calls the SAME function on a staged, mutated copy and requires it
 # to fail. It never calls exit itself, so both callers can capture its
 # return code.
+# inject_review_step WORKFLOW TEXT: the workflow with TEXT appended to the
+# steps of the review job (the job that checks out the pull request), right
+# before the next top-level job.
+inject_review_step() {
+  awk -v t="$2" '/^  dependencies:/ && !done {printf "%s", t; done=1} {print}' "$1"
+}
+
 check_workflow_contract() {
   local workflow="$1" bad=0
   [[ -f "$workflow" ]] || { echo "workflow-missing"; return 1; }
@@ -114,8 +121,25 @@ check_workflow_contract() {
   # This catches a step that cd's into the tree or runs it with `sh -c` /
   # `bash "$PWD/..."`, not just `./.aurumcode-target/...`. The
   # package-manager and build command patterns stay as a backstop.
+  # AUR-622: the scheduled plugin jobs (plugins-list, plugins) check out the
+  # DEFAULT branch, never a pull request, and run there only. They are left
+  # out of the PR-code scan below only after proving it: each one's `if:`
+  # requires schedule or workflow_dispatch and never names pull_request.
+  local scanned scheduled job
+  scheduled="$(awk '/^  plugins-list:/{s=1} s' "$workflow")"
+  for job in plugins-list plugins; do
+    local cond
+    cond="$(awk -v j="  ${job}:" '$0==j{s=1;next} s&&/^  [a-z][a-z-]*:/{s=0} s&&/^    if:/{print;exit}' "$workflow")"
+    # plugins runs only after plugins-list (needs:), which carries the event
+    # condition; its own `if:` only reads plugins-list's output.
+    if [[ "$job" == plugins && "$cond" == *"needs.plugins-list.outputs"* ]]; then cond="github.event_name == 'schedule'"; fi
+    if [[ -n "$scheduled" ]] && { [[ "$cond" != *"github.event_name == 'schedule'"* ]] || [[ "$cond" == *pull_request* ]]; }; then
+      echo "scheduled-job-not-scheduled:${job}"; bad=1
+    fi
+  done
+  scanned="$(awk '/^  plugins-list:/{exit} 1' "$workflow")"
   local without_mount
-  without_mount="$(grep -Ev '^[[:space:]]*(-v[[:space:]]+"\$\{GITHUB_WORKSPACE\}/\.aurumcode-target:/github/workspace:ro"|path: \.aurumcode-target)[[:space:]]*\\?[[:space:]]*$' "$workflow" || true)"
+  without_mount="$(grep -Ev '^[[:space:]]*(-v[[:space:]]+"\$\{GITHUB_WORKSPACE\}/\.aurumcode-target:/github/workspace:ro"|path: \.aurumcode-target)[[:space:]]*\\?[[:space:]]*$' <<<"$scanned" || true)"
   # AUR-573: AUR-549/551/555 added steps that legitimately name the tree: a
   # `working-directory: .aurumcode-target` (they run the product's own
   # `aurumcode sbom|sign` binary copied out of the review image, never PR
@@ -195,22 +219,29 @@ case "$selector" in
 
     # Mutation D: execute a script from the checked-out PR tree.
     mut_d="$staged_dir/runs-pr-code.yml"
-    { cat "$workflow"; printf '      - name: Leak PR tree\n        run: bash .aurumcode-target/build.sh\n'; } > "$mut_d"
+    { inject_review_step "$workflow" '      - name: Leak PR tree\n        run: bash .aurumcode-target/build.sh\n'; } > "$mut_d"
     grep -Fq 'run: bash .aurumcode-target/build.sh' "$mut_d" || infra 'mutation-anchor-missing:MUT-002d'
     if check_workflow_contract "$mut_d" >/dev/null; then fail 'pr-code-execution-not-detected'; fi
 
     # Mutation E: reach the PR tree by cd'ing into it first. This form has no
     # ".aurumcode-target/" slash token, so the earlier path pattern alone
     # missed it; the any-remaining-mention check must catch it.
+    # Mutation H (AUR-622): the scheduled plugin job starts running on pull
+    # requests; it would then build and run the tree of the PR.
+    mut_h="$staged_dir/plugins-on-pr.yml"
+    sed "s/^    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch'/    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch'/" "$workflow" > "$mut_h"
+    grep -Fq "if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch'" "$mut_h" || infra 'mutation-anchor-missing:MUT-002h'
+    if check_workflow_contract "$mut_h" >/dev/null; then fail 'scheduled-job-on-pr-not-detected'; fi
+
     mut_e="$staged_dir/cd-pr-tree.yml"
-    { cat "$workflow"; printf '      - name: Leak\n        run: cd .aurumcode-target && bash build.sh\n'; } > "$mut_e"
+    { inject_review_step "$workflow" '      - name: Leak\n        run: cd .aurumcode-target && bash build.sh\n'; } > "$mut_e"
     grep -Fq 'run: cd .aurumcode-target && bash build.sh' "$mut_e" || infra 'mutation-anchor-missing:MUT-002e'
     if check_workflow_contract "$mut_e" >/dev/null; then fail 'cd-pr-code-execution-not-detected'; fi
 
     # Mutation G (AUR-573): a step that starts in the PR tree through the
     # now-allowed working-directory line and executes a script from there.
     mut_g="$staged_dir/workdir-exec.yml"
-    { cat "$workflow"; printf '      - name: Leak\n        working-directory: .aurumcode-target\n        run: ./build.sh\n'; } > "$mut_g"
+    { inject_review_step "$workflow" '      - name: Leak\n        working-directory: .aurumcode-target\n        run: ./build.sh\n'; } > "$mut_g"
     grep -Fq 'run: ./build.sh' "$mut_g" || infra 'mutation-anchor-missing:MUT-002g'
     if check_workflow_contract "$mut_g" >/dev/null; then fail 'workdir-exec-not-detected'; fi
 
@@ -220,7 +251,7 @@ case "$selector" in
     # the execution escape; the anchored whole-line drop must keep it and
     # reject, so this pins NB-1's bypass form.
     mut_f="$staged_dir/commented-path-bypass.yml"
-    { cat "$workflow"; printf '      - name: Leak PR tree\n        run: bash "$PWD/.aurumcode-target/build.sh" # path: .aurumcode-target\n'; } > "$mut_f"
+    { inject_review_step "$workflow" '      - name: Leak PR tree\n        run: bash "$PWD/.aurumcode-target/build.sh" # path: .aurumcode-target\n'; } > "$mut_f"
     grep -Fq 'run: bash "$PWD/.aurumcode-target/build.sh" # path: .aurumcode-target' "$mut_f" || infra 'mutation-anchor-missing:MUT-002f'
     if check_workflow_contract "$mut_f" >/dev/null; then fail 'commented-path-bypass-not-detected'; fi
 
