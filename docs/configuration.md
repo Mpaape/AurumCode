@@ -1746,7 +1746,7 @@ modelo, num manifesto com custo e tamanho estimados de cada uma:
   `rule_id` que o catálogo de regras já lista.
 - Ferramentas do repositório, em qualquer linguagem: `read_file` (linhas
   numeradas de um arquivo, até 200 por chamada), `search_text` (texto
-  literal, até 50 ocorrências com `arquivo:linha`), `find_symbol` (onde um
+  literal, todas as ocorrências com `arquivo:linha`), `find_symbol` (onde um
   símbolo é definido, pela gramática tree-sitter do arquivo, e onde é usado
   fora de comentário) e `changed_file_diff` (o diff revisado de outro arquivo
   alterado).
