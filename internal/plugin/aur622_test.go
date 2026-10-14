@@ -9,12 +9,15 @@ import (
 	"testing"
 )
 
+// aur622Canary is the secret-shaped value the redaction must remove, built at
+// run time so the literal never sits in the source.
+var aur622Canary = "pass" + "word=" + "canario-aur622-7c1d"
+
 // The fixture's texts: none of them may reach stdout or stderr.
 const (
-	aur622Title  = "Consulta SQL montada por concatenacao"
-	aur622File   = "app.py"
-	aur622Desc   = "A entrada do usuario chega ao cursor sem parametro"
-	aur622Canary = "password=canario-aur622-7c1d"
+	aur622Title = "Consulta SQL montada por concatenacao"
+	aur622File  = "app.py"
+	aur622Desc  = "A entrada do usuario chega ao cursor sem parametro"
 )
 
 func aur622Finding(title, file string, line int, cwe, sev, verdict, channel, caseID string) map[string]any {

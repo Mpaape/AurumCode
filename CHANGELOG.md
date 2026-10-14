@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Corrigido: SARIF e auditoria nunca saem como JSON inválido quando um texto citado tem segredo entre aspas escapadas; a redação refaz string por string quando a do documento inteiro quebraria o JSON.
+- Autorrevisão: exemplo vulnerável e canários do tutorial plugin-agendado no `ignore` do repositório; canário de teste em tempo de execução; teste de commits sem `sh -c`; evidência reduzida só quando ficou item de fora.
+
 ## 2.1.0 - 2026-10-14
 
 Nenhum limite de tamanho derruba a revisão, e um agente de scan de vulnerabilidade entra como plugin da validação agendada, com achados só na aba Security.
