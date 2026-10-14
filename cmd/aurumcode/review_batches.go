@@ -89,3 +89,37 @@ func batchesKey(n int) string {
 	}
 	return "terminal.batches"
 }
+
+// metaContextReduced is the metadata key that says the codebase context was
+// reduced to fit the model's window (internal/review/context_fit.go): the
+// terminal line, set only when it was.
+const metaContextReduced = "codebase_context_reduced"
+
+// noteContextReduction says on stderr, once per review, that the codebase
+// context was reduced (or left out) to fit the model's window, and keeps
+// the line for the result and the audit (internal/review/context_fit.go).
+func (s *reviewState) noteContextReduction(reduction review.ContextReduction, ok bool) {
+	if !ok || s.contextReduced != "" {
+		return
+	}
+	line := i18n.Format(s.reviewLanguage, "terminal.context_reduced", reduction.OriginalTokens, reduction.KeptTokens,
+		reduction.SnippetsKept, reduction.Snippets, reduction.ReferencesKept, reduction.References)
+	if reduction.Discarded {
+		line = i18n.Format(s.reviewLanguage, "terminal.context_discarded", reduction.OriginalTokens)
+	}
+	s.contextReduced = line
+	s.markContextReduced()
+	fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
+}
+
+// markContextReduced records the reduction in the result's metadata, which
+// the published summary reads; a no-op without a result or a reduction.
+func (s *reviewState) markContextReduced() {
+	if s.result == nil || s.contextReduced == "" {
+		return
+	}
+	if s.result.Metadata == nil {
+		s.result.Metadata = map[string]string{}
+	}
+	s.result.Metadata[metaContextReduced] = s.contextReduced
+}

@@ -64,6 +64,7 @@ func (e *promptRefused) Unwrap() error { return e.err }
 // consolidated result.
 func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Diff, reviewContext ReviewContext) (*types.ReviewResult, error) {
 	r.learnedBudget, r.refusals = 0, nil
+	r.contextFits, r.contextReduction = nil, nil
 	for {
 		result, err := r.reviewOnce(ctx, diff, reviewContext)
 		var refused *promptRefused

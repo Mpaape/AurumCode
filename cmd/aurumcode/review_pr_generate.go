@@ -41,9 +41,11 @@ func (p *prReview) generateReview() (int, bool) {
 		result, err = p.reviewer.GenerateReviewWithContext(p.ctx, p.diff, reviewCtx)
 		p.transcript = p.reviewer.Transcript()
 		p.noteRefusals(p.reviewer.PromptRefusals())
+		p.noteContextReduction(p.reviewer.ContextReduction())
 		p.noteBatches(p.reviewer.Batches())
 	}
 	p.result = result
+	p.markContextReduced()
 	if err == nil {
 		return 0, false
 	}

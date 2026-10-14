@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/prompt"
@@ -203,33 +202,6 @@ func alertBlock(kind, headline, second string) string {
 		fmt.Fprintf(&b, "\n> %s", strings.TrimSpace(second))
 	}
 	return b.String()
-}
-
-// factsLine is the line under the headline: the gate, how many files were
-// reviewed and in how many parts.
-func factsLine(result *types.ReviewResult, diff *types.Diff, copy reviewCopy, rule blocking.Rule) string {
-	gate := copy.factsNoGate
-	if rule.Gated() {
-		gate = copy.factsGatePassed
-		if rule.Fails() {
-			gate = copy.factsGateFailed
-		}
-	}
-	parts := []string{gate}
-	files := 0
-	if diff != nil {
-		files = len(diff.Files)
-	} else if n, err := strconv.Atoi(result.Metadata["total_files"]); err == nil {
-		files = n
-	}
-	if files > 0 {
-		filesText := countText(files, copy.factsFilesOne, copy.factsFiles)
-		if n, err := strconv.Atoi(result.Metadata[metaReviewParts]); err == nil && n > 1 {
-			filesText += " " + fmt.Sprintf(copy.factsParts, n)
-		}
-		parts = append(parts, filesText)
-	}
-	return strings.Join(parts, " · ")
 }
 
 // splitFindings separates what blocks from what is only noted, both sorted.

@@ -58,6 +58,9 @@ type Pack struct {
 	// Dropped records bounded omissions: missing files, skipped symlinks,
 	// truncated files, and limit overflows. Omissions are never fatal.
 	Dropped []string `json:"dropped"`
+	// Reduced, when set, declares that the pack was reduced to fit the
+	// model's context window and what it kept (fit.go).
+	Reduced string `json:"reduced,omitempty"`
 }
 
 // Resolver resolves codebase context for a change set.

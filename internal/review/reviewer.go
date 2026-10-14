@@ -57,6 +57,11 @@ type Reviewer struct {
 	// records each refused prompt (split.go). Both are per review.
 	learnedBudget int
 	refusals      []PromptRefusal
+	// contextFits caches the reductions of the codebase context under the
+	// learned ceiling; contextReduction is the largest one, nil while the
+	// context went whole (context_fit.go). Both are per review.
+	contextFits      map[contextFitKey]contextFit
+	contextReduction *ContextReduction
 }
 
 // Completer is what the Reviewer needs from the model side: one call that
@@ -219,7 +224,18 @@ type preparedPrompt struct {
 
 // preparePrompt redacts every untrusted input and assembles the budgeted
 // prompt from the review template's slots.
+//
+// Under a ceiling learned from a refusal, the codebase context is reduced
+// to fit (context_fit.go).
 func (r *Reviewer) preparePrompt(diff *types.Diff, reviewContext ReviewContext) (preparedPrompt, error) {
+	if r.learnedBudget > 0 && reviewContext.CodebaseContext != "" {
+		return r.prepareWithinWindow(diff, reviewContext)
+	}
+	return r.assemblePrompt(diff, reviewContext)
+}
+
+// assemblePrompt is preparePrompt with the codebase context as given.
+func (r *Reviewer) assemblePrompt(diff *types.Diff, reviewContext ReviewContext) (preparedPrompt, error) {
 	// Analyze diff (counts only; metrics carry no content into the prompt)
 	metrics := r.diffAnalyzer.AnalyzeDiff(diff)
 

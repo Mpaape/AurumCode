@@ -39,7 +39,7 @@ type reviewCopy struct {
 	// section names below head what to fix, what only to note, and the
 	// collapsed details.
 	headlineBlocked, headlineInconclusive, headlineObservations, headlineApproved, headlineApprovedUnproven string
-	factsGatePassed, factsGateFailed, factsNoGate, factsFiles, factsParts                                   string
+	factsGatePassed, factsGateFailed, factsNoGate, factsFiles, factsParts, factsContextReduced              string
 	fixBeforeMerge, observations, outsideDiffLabel, details, affectedTests                                  string
 	// The *One texts are the singular forms of the counted headline and
 	// facts texts.
@@ -131,6 +131,7 @@ func reviewCopyFor(language string) reviewCopy {
 		coverageFilteredOne:      i18n.Text(language, "review.coverage_filtered_one"),
 		coverageNoStructureOne:   i18n.Text(language, "review.coverage_no_structure_one"),
 		factsParts:               i18n.Text(language, "review.facts_parts"),
+		factsContextReduced:      i18n.Text(language, "review.facts_context_reduced"),
 		fixBeforeMerge:           i18n.Text(language, "review.fix_before_merge"),
 		observations:             i18n.Text(language, "review.observations"),
 		outsideDiffLabel:         i18n.Text(language, "review.outside_diff_label"),
