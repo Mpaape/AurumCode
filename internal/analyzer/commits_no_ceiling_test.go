@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -17,11 +18,20 @@ func TestCommitsPastTheOldWalkBoundAreReadWhole(t *testing.T) {
 	dir := t.TempDir()
 	twoCommitRepo(t, dir)
 	const n = 530
-	cmd := exec.Command("sh", "-c", `git config gc.auto 0 && git config maintenance.auto false && git config gc.autoDetach false || exit 1; i=0; while [ $i -lt 530 ]; do git commit -q --allow-empty -m "c$i" || exit 1; i=$((i+1)); done`)
-	cmd.Dir = dir
-	cmd.Env = gittest.HermeticEnv(t.TempDir())
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("creating %d commits: %v\n%s", n, err, out)
+	env := gittest.HermeticEnv(t.TempDir())
+	git := func(args ...string) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = env
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	for _, kv := range [][2]string{{"gc.auto", "0"}, {"maintenance.auto", "false"}, {"gc.autoDetach", "false"}} {
+		git("config", kv[0], kv[1])
+	}
+	for i := 0; i < n; i++ {
+		git("commit", "-q", "--allow-empty", "-m", fmt.Sprintf("c%d", i))
 	}
 	viaGit, err := OpenRepo(dir)
 	if err != nil {

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Autorrevisão: exemplo vulnerável e canários do tutorial plugin-agendado no `ignore` do próprio repositório; canário de teste montado em tempo de execução; teste de commits sem `sh -c`; evidência só conta como reduzida quando ficou item de fora.
 ## 2.1.0 - 2026-10-14
 
 Nenhum limite de tamanho derruba a revisão, e um agente de scan de vulnerabilidade entra como plugin da validação agendada, com achados só na aba Security.

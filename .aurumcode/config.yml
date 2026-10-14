@@ -29,6 +29,8 @@ ignore:
   - "demo/tutoriais/camadas/servico/**"
   - "demo/tutoriais/camadas/servico-mudanca/**"            # a mudanca com defeito encenada no tutorial
   - "demo/tutoriais/camadas/servico-mesmo-nome-mudanca/**"
+  - "demo/tutoriais/plugin-agendado/repo-exemplo/**"       # app vulneravel de proposito: o alvo do plugin no tutorial
+  - "demo/tutoriais/plugin-agendado/plugin-exemplo/fixtures/**"   # saidas sinteticas do plugin com canarios de redacao
   - ".board/**"             # estado do board: validado por .board/pipeline.sh, nao e produto
   - "docs/specs/**"          # historico de cada card, por desenho
   - "docs/site/**"          # pagina estatica antiga com saidas embutidas; nao e codigo

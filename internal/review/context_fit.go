@@ -185,9 +185,12 @@ const charsPerEstimatedToken = 4
 // of the whole diff's context when the batches carry smaller ones.
 func (r *Reviewer) noteContextReduction(reviewContext ReviewContext, kept string, reduction codebasectx.Reduction, prepared preparedPrompt) {
 	next := ContextReduction{Reduction: reduction, OriginalTokens: tokens.Estimate(reviewContext.CodebaseContext), KeptTokens: tokens.Estimate(kept)}
+	// The evidence counts only as reduced when the learned window left an
+	// item out: fewer admitted than the review carried.
 	if reviewContext.evidenceMaxTokens > 0 {
-		next.Evidence = len(reviewContext.Evidence)
-		next.EvidenceKept = admittedCount(prepared.parts.Meta[prompt.EvidenceAdmittedMetaKey])
+		if kept := admittedCount(prepared.parts.Meta[prompt.EvidenceAdmittedMetaKey]); kept < len(reviewContext.Evidence) {
+			next.Evidence, next.EvidenceKept = len(reviewContext.Evidence), kept
+		}
 	}
 	if !next.Reduced() {
 		return
