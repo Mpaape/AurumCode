@@ -52,9 +52,6 @@ const (
 	DefaultDirName = ".aurumcode/skills"
 	// DocName is the instructions document inside each skill directory.
 	DocName = "SKILL.md"
-	// DefaultMaxTokens is the prompt-token budget Assemble uses when a
-	// Budget does not declare one.
-	DefaultMaxTokens = 4000
 )
 
 // Selector declares when a skill applies. Both fields are optional; an empty
@@ -162,10 +159,14 @@ func (s Skill) matches(cp string, langs *Languages) bool {
 	return true
 }
 
-// Budget bounds the assembled skills text by prompt tokens.
+// Budget optionally bounds the assembled skills text by prompt tokens. The
+// zero Budget bounds nothing, and no production caller sets one: a policy of
+// any size reaches the model whole (issue #179), because a ceiling here used
+// to drop the entire skills text from the prompt on the first policy that
+// outgrew it.
 type Budget struct {
-	// MaxTokens is the token ceiling for the assembled skills block. A
-	// non-positive value selects DefaultMaxTokens.
+	// MaxTokens, when positive, is the token ceiling for the assembled
+	// skills block; zero or negative means no ceiling.
 	MaxTokens int
 }
 
@@ -181,16 +182,14 @@ type Result struct {
 	Oversize []string
 }
 
-// Assemble renders the selected skills into one bounded, deterministic block.
+// Assemble renders the selected skills into one deterministic block.
 //
-// FAIL HIGH, NEVER TRUNCATE: when the selected skills exceed budget.MaxTokens,
+// FAIL HIGH, NEVER TRUNCATE: when a positive budget.MaxTokens is exceeded,
 // Assemble returns a non-nil error that names every skill that did not fit,
-// and Text is empty. It never emits a partial or truncated block.
+// and Text is empty. It never emits a partial or truncated block. With the
+// zero Budget every selected skill enters whole.
 func Assemble(selected []Skill, budget Budget) (*Result, error) {
 	maxTokens := budget.MaxTokens
-	if maxTokens <= 0 {
-		maxTokens = DefaultMaxTokens
-	}
 
 	res := &Result{}
 	used := 0
@@ -198,7 +197,7 @@ func Assemble(selected []Skill, budget Budget) (*Result, error) {
 	for _, sk := range selected {
 		block := fmt.Sprintf("#### %s (v%s)\n%s", sk.Name, versionLabel(sk.Version), strings.TrimSpace(sk.Instructions))
 		tokens := EstimateTokens(block)
-		if used+tokens > maxTokens {
+		if maxTokens > 0 && used+tokens > maxTokens {
 			res.Oversize = append(res.Oversize, sk.Name)
 			continue
 		}
@@ -266,8 +265,13 @@ func NewProvider(root string) *Provider {
 // Name identifies the provider in the rendered prompt and diagnostics.
 func (p *Provider) Name() string { return "skills (.aurumcode/skills/*/SKILL.md)" }
 
-// Provide implements config.ContextProvider. A budget overflow is a loud error
-// naming what did not fit; it is never a silent truncation.
+// Curated marks the skills as the policy's own files, with no size ceiling
+// (see config.CuratedProvider).
+func (p *Provider) Curated() {}
+
+// Provide implements config.ContextProvider. With the zero Budget the selected
+// skills enter whole; an explicit Budget overflow is a loud error naming what
+// did not fit, never a silent truncation.
 func (p *Provider) Provide(ctx context.Context, changedPaths []string) (string, error) {
 	var set *Set
 	var err error
@@ -297,7 +301,7 @@ func Providers(root string) []config.ContextProvider {
 }
 
 // Compile-time proof that Provider satisfies the AUR-452 seam.
-var _ config.ContextProvider = (*Provider)(nil)
+var _ config.CuratedProvider = (*Provider)(nil)
 
 // parseSkill splits one SKILL.md into front matter and body. No front matter
 // means no selector (skill OFF) and the whole content is the body; an opened

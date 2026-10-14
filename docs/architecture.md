@@ -196,11 +196,14 @@ repositório. Um slot cuja entrada está vazia não renderiza nada, de modo que
 uma revisão sem essa entrada mantém seus bytes anteriores.
 
 Os orçamentos vêm de `internal/prompt/templates/limits.yml`: o teto do prompt
-usado quando quem chama não define nenhum, o teto do catálogo de regras e os
-tetos de evidências e ferramentas. Um slot de lista acima do teto admite itens
-inteiros e informa quantos omitiu; trechos de código que não cabem são
-declarados no slot de cobertura. Todo slot, inclusive o contexto do
-repositório, é contado dentro do orçamento.
+usado quando quem chama não define nenhum e os tetos de evidências e
+ferramentas. Um slot de lista acima do teto admite itens inteiros e informa
+quantos omitiu; trechos de código que não cabem são declarados no slot de
+cobertura. Todo slot, inclusive o contexto do repositório, é contado dentro do
+orçamento. O catálogo de regras e o texto das skills não têm teto próprio:
+crescem com a política e entram inteiros, porque cortar a lista faria o modelo
+citar uma regra que existe mas foi cortada, e recusá-la derrubava a revisão da
+primeira política maior que o previsto.
 
 O `Reviewer` depende de um `Completer` (`CompleteMessages`), implementado por
 `llm.Orchestrator`. O prompt viaja como uma mensagem de sistema e uma de

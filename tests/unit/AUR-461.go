@@ -1,6 +1,7 @@
 package unit
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -32,7 +33,7 @@ import (
 func TestAUR461(t *testing.T) {
 	t.Run("RenderedListEqualsEmbeddedCatalog", testAUR461RenderedListEqualsCatalog)
 	t.Run("TemplateCitesOnlyRealRules", testAUR461TemplateCitesOnlyRealRules)
-	t.Run("OverBudgetCatalogFailsHigh", testAUR461OverBudgetCatalogFailsHigh)
+	t.Run("LargeCatalogIsRenderedWhole", testAUR461LargeCatalogIsRenderedWhole)
 }
 
 // catalogIDs loads the embedded catalog through the same loader the rule
@@ -172,45 +173,45 @@ func testAUR461TemplateCitesOnlyRealRules(t *testing.T) {
 	}
 }
 
-// testAUR461OverBudgetCatalogFailsHigh is AC-002: a catalog too large for
-// the prompt budget is an error, never a quietly shortened list. A
-// truncated list would make the model cite a rule that exists but was cut
-// -- this card's own defect, back by another road.
-func testAUR461OverBudgetCatalogFailsHigh(t *testing.T) {
-	est := prompt.NewHeuristicEstimator()
-
-	if err := prompt.ValidateRuleCatalog(prompt.DefaultRuleCatalog, est); err != nil {
-		t.Fatalf("the shipped catalog must fit the prompt budget: %v", err)
+// testAUR461LargeCatalogIsRenderedWhole is AC-002 as issue #179 corrected it:
+// no catalog is too large for the prompt. A quietly shortened list would
+// make the model cite a rule that exists but was cut -- this card's own
+// defect, back by another road -- and a refused one aborted the review of
+// every policy that outgrew a fixed ceiling (512 tokens held about 19 skill
+// sections). The list is rendered whole at any size; only an empty one is
+// refused, because it would tell the model to choose from nothing.
+func testAUR461LargeCatalogIsRenderedWhole(t *testing.T) {
+	if err := prompt.ValidateRuleCatalog(prompt.DefaultRuleCatalog); err != nil {
+		t.Fatalf("the shipped catalog must be valid: %v", err)
 	}
 
-	oversized := append([]string(nil), prompt.DefaultRuleCatalog...)
-	for i := 0; i < 200; i++ {
-		oversized = append(oversized, "quality/synthetic-overflow-rule-"+strings.Repeat("x", 20)+string(rune('a'+i%26)))
+	large := append([]string(nil), prompt.DefaultRuleCatalog...)
+	for i := 0; i < 5000; i++ {
+		large = append(large, fmt.Sprintf("policy#reg-%04d-a-value-of-this-kind-never-goes-back-to-the-agent-without-review", i))
 	}
-	sort.Strings(oversized)
-	err := prompt.ValidateRuleCatalog(oversized, est)
-	if err == nil {
-		t.Fatal("a catalog over the token budget was accepted: the list would be truncated and the model would cite a rule that was cut")
+	sort.Strings(large)
+	if err := prompt.ValidateRuleCatalog(large); err != nil {
+		t.Fatalf("a large catalog was refused: %v", err)
 	}
-	if !strings.Contains(err.Error(), "token budget") {
-		t.Errorf("the overflow error must name the budget, got %q", err)
-	}
-	if rendered := prompt.RenderRuleCatalog(oversized); !strings.Contains(rendered, oversized[len(oversized)-1]) {
-		t.Error("RenderRuleCatalog dropped entries instead of rendering the whole list; truncation must be impossible, not merely unused")
+	rendered := prompt.RenderRuleCatalog(large)
+	for _, id := range []string{large[0], large[len(large)/2], large[len(large)-1]} {
+		if !strings.Contains(rendered, "`"+id+"`") {
+			t.Errorf("RenderRuleCatalog dropped %q: truncation must be impossible, not merely unused", id)
+		}
 	}
 
-	// An empty catalog is equally loud: it would tell the model to choose
-	// from nothing.
-	if err := prompt.ValidateRuleCatalog(nil, est); err == nil {
+	// An empty catalog is loud: it would tell the model to choose from
+	// nothing.
+	if err := prompt.ValidateRuleCatalog(nil); err == nil {
 		t.Error("an empty rule catalog was accepted")
 	}
 
-	// And the same failure must stop prompt assembly, not just validation.
+	// And the builder takes the large catalog as it is given.
 	builder := prompt.NewPromptBuilder()
-	if err := builder.SetRuleCatalog(oversized); err == nil {
-		t.Error("SetRuleCatalog accepted an over-budget catalog")
+	if err := builder.SetRuleCatalog(large); err != nil {
+		t.Fatalf("SetRuleCatalog refused a large catalog: %v", err)
 	}
-	if strings.Join(builder.RuleCatalog(), ",") != strings.Join(prompt.DefaultRuleCatalog, ",") {
-		t.Error("a rejected catalog must leave the builder on its previous, valid list")
+	if strings.Join(builder.RuleCatalog(), ",") != strings.Join(large, ",") {
+		t.Error("the builder dropped ids from the catalog it was given")
 	}
 }

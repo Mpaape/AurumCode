@@ -156,9 +156,9 @@ func (r *Reviewer) SetDynamicRules(rules map[string]Rule) {
 // SetRuleCatalog passes an expanded rule_id list down to the prompt
 // builder, so the model is taught exactly the ids SetDynamicRules will
 // accept -- the embedded catalog's ids plus AUR-519's dynamic skill-section
-// ids. It validates eagerly (the same token-budget and non-empty/sorted
-// checks prompt.ValidateRuleCatalog already applies) and never truncates: a
-// catalog that no longer fits the prompt budget is a loud error here.
+// ids. It validates eagerly (the non-empty/sorted checks
+// prompt.ValidateRuleCatalog applies) and never truncates or refuses by
+// size: the catalog grows with the policy and enters the prompt whole.
 func (r *Reviewer) SetRuleCatalog(ids []string) error {
 	return r.promptBuilder.SetRuleCatalog(ids)
 }

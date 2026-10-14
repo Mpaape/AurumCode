@@ -135,7 +135,10 @@ jobs:
       # artifact -- see docs/configuration.md's "Trilha de auditoria e
       # SARIF" section for the exact job.
     concurrency:
-      group: aurumcode-review-${{ github.event.pull_request.number }}
+      # The `aurumcode/` prefix is reserved (docs/getting-started.md): a caller
+      # that declares the same group at the top of its own workflow makes
+      # GitHub cancel the run for a deadlock between the two (issue #179).
+      group: aurumcode/review/pr-${{ github.event.pull_request.number }}
       cancel-in-progress: true
 
     steps:
@@ -536,14 +539,43 @@ jobs:
               -e AURUMCODE_STANDARDS_REPOSITORY -e AURUMCODE_STANDARDS_REF)
           fi
           docker_args+=(aurumcode-review "${args[@]}")
+          # The review's diagnostics stay in the live log and in this file, so
+          # a review that stops without publishing can say why where the PR's
+          # checks show it (below).
+          review_log="${RUNNER_TEMP}/aurumcode-review.log"
           review_rc=0
-          docker "${docker_args[@]}" || review_rc=$?
+          docker "${docker_args[@]}" 2>&1 | tee "${review_log}" || review_rc=${PIPESTATUS[0]}
           # The container writes as root; hand the files to the runner's uid
           # so the steps below can read and upload them, then keep the
           # review's own exit status.
           docker run --rm --entrypoint chown -v "${out_dir}:/aurumcode-out" aurumcode-review \
             -R "$(id -u):$(id -g)" /aurumcode-out
           if [ "${review_rc}" -ne 0 ]; then
+            # Exit 3 is the gate closing on findings: the review's own comment
+            # and status say why. Any other code is a review that did not
+            # reach a result (a refused configuration, an unreachable model, a
+            # policy it could not load) and may have published nothing, so the
+            # reason goes to an annotation and to the job summary instead of
+            # only the raw log (issue #179). The lines are the CLI's own
+            # `aurumcode review:` diagnostics; % and line breaks are escaped so
+            # nothing in them can open another workflow command.
+            if [ "${review_rc}" -ne 3 ]; then
+              reason="$(grep -a '^aurumcode review: ' "${review_log}" | tail -n 6 | cut -c1-700 || true)"
+              if [ -z "${reason}" ]; then
+                reason="aurumcode review saiu com o código ${review_rc} sem diagnóstico; veja o log deste passo."
+              fi
+              annotation="${reason//'%'/'%25'}"
+              annotation="${annotation//$'\r'/'%0D'}"
+              annotation="${annotation//$'\n'/'%0A'}"
+              echo "::error title=AurumCode - a revisão não terminou (código ${review_rc})::${annotation}"
+              {
+                echo "### AurumCode: a revisão não terminou (código ${review_rc})"
+                echo
+                echo "A revisão desta rodada não chegou a um resultado. O motivo, nas últimas linhas do diagnóstico do AurumCode:"
+                echo
+                printf '%s\n' "${reason}" | sed 's/^/    /'
+              } >> "${GITHUB_STEP_SUMMARY}"
+            fi
             exit "${review_rc}"
           fi
           if [ -s "${RUNNER_TEMP}/aurumcode-out/aurumcode-changelog-output" ]; then
@@ -688,7 +720,8 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: aurumcode-dependencies-${{ github.repository }}
+      # Reserved prefix, as in the `review` job above.
+      group: aurumcode/dependencies/${{ github.repository }}
       cancel-in-progress: false
 
     steps:
