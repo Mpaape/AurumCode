@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A triagem dedicada avisa o modelo de que `[REDACTED]` é a máscara do AurumCode, nunca motivo para contestar; bloco aplicável só quando o código atual bate com o diff e sem a máscara.
+- Corrigido: o modelo sempre decide a evidência determinística: achado sem avaliação vai a uma triagem dedicada (omitido, de novo); sem resposta ou sem provedor fica aguardando (inconclusivo), nunca reprova o gate nem o --fail-on.
+- Parecer enxuto: o mesmo problema de duas fontes vira um item e um comentário; a correção do bloqueante vai como sugestão aplicável; status curto ("Bloqueado: N problemas"); título de regra não é mais mascarado no SARIF.
 - Corrigido: achado determinístico que o modelo contestou e a triagem do gate deixou de contar vai ao SARIF como suprimido, com o motivo do modelo; a aba Security não mostra como erro o que o gate decidiu contra.
 - Tutorial plugin-agendado: o alvo de exemplo usa consulta parametrizada; os achados do plugin de exemplo são sintéticos e o tutorial demonstra o ingest, não a detecção.
 - Corrigido: SARIF e auditoria nunca saem como JSON inválido quando um texto citado tem segredo entre aspas escapadas; a redação refaz string por string quando a do documento inteiro quebraria o JSON.

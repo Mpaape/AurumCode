@@ -11,7 +11,7 @@ arquivo gerado, não revisado: gerado.go
 sem gate declarado
 
 Cobertura da revisão — arquivos do diff cobertos: 0 de 0; sem revisão completa: 1.
-- 1 arquivo foi filtrado antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
+- 1 arquivo foi filtrado antes da revisão (gerado, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: parte do diff ficou fora da revisão [partial_coverage]
 exit_code=0
@@ -30,7 +30,7 @@ arquivo gerado, não revisado: gerado.go
 gate da política: reprovou · 1 arquivo revisado
 
 Cobertura da revisão — arquivos do diff cobertos: 1 de 1; sem revisão completa: 1.
-- 1 arquivo foi filtrado antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
+- 1 arquivo foi filtrado antes da revisão (gerado, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
 Sem achados nas fontes concluídas; inconclusivo: parte do diff ficou fora da revisão [partial_coverage]
 exit_code=1

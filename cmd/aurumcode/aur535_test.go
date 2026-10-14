@@ -164,7 +164,7 @@ func TestAUR535ActionPolicyFromGithubHomeApplies(t *testing.T) {
 	if applied.code != 0 {
 		t.Fatalf("policy under /github/home was not accepted: exit=%d stderr=%s unexpected=%v", applied.code, applied.stderr, applied.unexpected)
 	}
-	if !strings.Contains(applied.postedBody, hardcodedSecretMessage) {
+	if !strings.Contains(applied.postedBody, publishedSecretTitle) {
 		t.Fatalf("published review lost the policy-protected finding:\n%s", applied.postedBody)
 	}
 	if !strings.Contains(applied.postedBody, policyRuleOverrideWarningSnippet) {

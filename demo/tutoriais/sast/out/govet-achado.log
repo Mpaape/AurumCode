@@ -9,6 +9,7 @@ aurumcode review: policy gate: go-vet/printf - fmt.Printf format %d has arg s of
 
 gate da política: reprovou · 1 arquivo revisado
 calc/calc.go:9: [warning] fmt.Printf format %d has arg s of wrong type string (rule go-vet/printf)
+  origem: govet | avaliacao do modelo: confirmed [E1] - achado real no exemplo do tutorial
 exit_code=3
 RESULTADO: go vet achou o printf errado na linha adicionada; o achado antigo de legado.go nao entra
 LLM_API_KEY no ambiente do go: ausente

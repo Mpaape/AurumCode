@@ -120,7 +120,7 @@ func TestAUR519ReviewerCopiesCoverageMetadata(t *testing.T) {
 		bigFile("a.go"), bigFile("b.go"), bigFile("c.go"),
 	}}
 	orch := llm.NewOrchestrator(&FakeProvider{Response: `{"summary":"ok","issues":[]}`}, nil, nil)
-	reviewer := NewReviewer(orch, Config{MaxTokens: 4200, ReserveReply: 100})
+	reviewer := NewReviewer(orch, Config{MaxTokens: 4600, ReserveReply: 100})
 
 	result, err := reviewer.GenerateReview(context.Background(), diff)
 	if err != nil {

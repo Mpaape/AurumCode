@@ -36,6 +36,7 @@ $ aurumcode review --base main --politica /policy
 aurumcode review: SAST (Semgrep) inconclusivo: a varredura não produziu resultado confiável (a saída do Semgrep não é um relatório válido [sast_invalid_output]); nenhum achado determinístico do Semgrep foi publicado nesta execução. Detalhe da engine: semgrep: semgrep: JSON output has no "results" key: scanner: invalid output
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: revisão inconclusiva — a saída do Semgrep não é um relatório válido [sast_invalid_output]
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (a saída do Semgrep não é um relatório válido [sast_invalid_output]) [detalhe: semgrep: semgrep: JSON output has no "results" key: scanner: invalid output]
 ## AurumCode revisão de código
 
 > [!WARNING]
@@ -44,7 +45,6 @@ aurumcode review: policy gate: revisão inconclusiva — a saída do Semgrep nã
 
 gate da política: reprovou · 1 arquivo revisado
 Sem achados nas fontes concluídas; inconclusivo: a saída do Semgrep não é um relatório válido [sast_invalid_output]
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao policy) inconclusivo (a saída do Semgrep não é um relatório válido [sast_invalid_output]) [detalhe: semgrep: semgrep: JSON output has no "results" key: scanner: invalid output]
 exit_code=1
 RESULTADO: block: saida invalida do SAST e inconclusiva (sast_invalid_output)
 --- semgrep AUSENTE do PATH, SAST habilitado e SEM gate.inconclusive: o padrao e bloquear

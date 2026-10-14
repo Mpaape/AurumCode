@@ -281,7 +281,9 @@ func TestAUR476PRDeclaresOmittedTests(t *testing.T) {
 	if !strings.Contains(posted.Body, "coverage") && !strings.Contains(posted.Body, "Cobertura") {
 		t.Fatalf("published review has no coverage declaration:\n%s", posted.Body)
 	}
-	if !strings.Contains(posted.Body, "tests/change_test.go") {
-		t.Fatalf("published review does not name the omitted test path:\n%s", posted.Body)
+	// The ignored files are counted, not named: the names are the
+	// repository's own ignore configuration.
+	if !strings.Contains(posted.Body, "1 file(s) ignored") || strings.Contains(posted.Body, "tests/change_test.go") {
+		t.Fatalf("published review does not count the ignored file, or names it:\n%s", posted.Body)
 	}
 }

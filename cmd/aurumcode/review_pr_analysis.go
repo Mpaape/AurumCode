@@ -30,6 +30,7 @@ func (p *prReview) collectEvidence() (int, bool) {
 func (p *prReview) joinEvidence() (int, bool) {
 	p.settleDeferredScans()
 	p.attachAssessments()
+	p.triageUnassessed()
 	p.reportSecurityPass()
 	p.runStaticAnalysis()
 	p.snapshotAndApplyRules()

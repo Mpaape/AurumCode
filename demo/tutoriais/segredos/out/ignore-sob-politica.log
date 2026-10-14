@@ -13,6 +13,7 @@ Cobertura da revisão
 - 1 arquivo não tem gramática no runtime: o contexto estrutural (símbolos e imports) não foi produzido e o modelo leu apenas o texto.
   - .gitleaksignore
 config.py:1: [error] Segredo no código casou a regra github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
+  origem: analysis | avaliacao do modelo: confirmed [E1] - achado real no exemplo do tutorial
 exit_code=0
 RESULTADO: sem politica, a impressao digital no .gitleaksignore esconde o achado
 --- sob politica central: o .gitleaksignore vira achado

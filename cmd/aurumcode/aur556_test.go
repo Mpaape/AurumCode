@@ -68,6 +68,7 @@ func aur556SQLiFixture(t *testing.T, repoConfig string) string {
 	if err := os.WriteFile(fixture, []byte(`{"summary":"ok","verdict":"approve","issues":[]}`), 0600); err != nil {
 		t.Fatal(err)
 	}
+	confirmTriage(t, fixture)
 	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
 	return dir
 }
@@ -248,7 +249,7 @@ func TestAUR556PRPathCountsAnalysisFinding(t *testing.T) {
 	if code != exitFindings {
 		t.Fatalf("exit=%d, want exitFindings; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
-	if !strings.Contains(reviewBody, "origem analysis") {
+	if !strings.Contains(reviewBody, "origin analysis") {
 		t.Errorf("published parecer must cite the analysis origin:\n%s", reviewBody)
 	}
 	if publishedStatus.Context != policyGateContext || publishedStatus.State != "failure" || !strings.Contains(publishedStatus.Description, "analysis") {

@@ -225,7 +225,7 @@ func TestAUR515DivergentHeadOmitsContextButKeepsDiffReview(t *testing.T) {
 	if !strings.Contains(posted.Body, "Repository context omitted") {
 		t.Fatalf("published review does not declare the divergent-HEAD omission:\n%s", posted.Body)
 	}
-	if !strings.Contains(posted.Body, hardcodedSecretMessage) {
+	if !strings.Contains(posted.Body, publishedSecretTitle) {
 		t.Fatalf("the remote diff review must still be published when context is omitted (AC-003):\n%s", posted.Body)
 	}
 }

@@ -129,7 +129,7 @@ run_ac004() {
   # action.yml and .github/workflows are outside this card's paths and
   # read_paths (the sealed run does not materialize them); the tests that
   # read only those files are skipped here and run in the full suite.
-  ( cd "$root" && go test -buildvcs=false -count=1 -p 1 -skip '^(TestAUR499ActionOutput|TestAUR555SBOMStepPrecedesReview|TestAUR555SecretsOptionalAndScopedToReview|TestAUR555WorkflowValidWithoutDTrackAndSignsOnlyAfterReview)$' ./cmd/aurumcode/... ./internal/gate/... ./internal/review/... ) >"$log" 2>&1 || { cat "$log" >&2; fail go-test-failed; }
+  ( cd "$root" && go test -buildvcs=false -count=1 -p 1 -skip '^(TestAUR499ActionOutput|TestAUR555SBOMStepPrecedesReview|TestAUR555SecretsOptionalAndScopedToReview|TestAUR555WorkflowValidWithoutDTrackAndSignsOnlyAfterReview|TestAUR613WorkflowChecksOutStandardsLayer)$' ./cmd/aurumcode/... ./internal/gate/... ./internal/review/... ) >"$log" 2>&1 || { cat "$log" >&2; fail go-test-failed; }
   grep -Eq '^ok[[:space:]]+github.com/Mpaape/AurumCode/cmd/aurumcode' "$log" || fail 'cmd-not-run'
 }
 

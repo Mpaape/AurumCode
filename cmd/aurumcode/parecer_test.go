@@ -197,8 +197,8 @@ func TestResolvedFindingCommentIsMarked(t *testing.T) {
 	}
 }
 
-// The tests the change touches are a count with the first names, never a
-// list of hundreds of lines in the parecer.
+// The tests the change touches are one count line in the parecer, never
+// their names.
 func TestAffectedTestsAreCountedNotListed(t *testing.T) {
 	var names []string
 	for i := 0; i < 40; i++ {
@@ -209,14 +209,14 @@ func TestAffectedTestsAreCountedNotListed(t *testing.T) {
 	if !strings.Contains(body, "40 affected test(s) in 1 package(s)") {
 		t.Fatalf("count missing:\n%s", body)
 	}
-	if strings.Count(body, "TestCase") != maxAffectedTestsShown || !strings.Contains(body, ", …") {
-		t.Fatalf("the list is not capped at %d names:\n%s", maxAffectedTestsShown, body)
+	if strings.Contains(body, "TestCase") {
+		t.Fatalf("the parecer lists test names:\n%s", body)
 	}
 }
 
-// In the default (comments) mode with inline comments on, an
-// implementation-ready suggestion is posted as a GitHub suggestion on its
-// changed line, applicable with one click, beside the blocking finding.
+// In the default (comments) mode with inline comments on, the fix the model
+// proposed for a blocking finding's lines goes inside that finding's one
+// comment as a GitHub suggestion, applicable with one click.
 func TestSuggestionsAreProposedOnTheLineInCommentsMode(t *testing.T) {
 	response := `{"verdict":"comment","summary":"ReadAll ignores an error.","issues":[
   {"file":"app.go","line":8,"side":"RIGHT","severity":"warning","rule_id":"quality/missing-error-handling","message":"ReadAll ignores the error fetch returns","evidence":"data, _ := fetch() discards the second return value","impact":"an I/O failure is treated as success","verification":"check err before returning data"}],
@@ -229,20 +229,28 @@ func TestSuggestionsAreProposedOnTheLineInCommentsMode(t *testing.T) {
 			inline = append(inline, bodyOf(t, w))
 		}
 	}
-	if len(inline) != 2 {
-		t.Fatalf("want the finding and the suggestion on the line, got %d inline comment(s)\nstdout=%s\nstderr=%s", len(inline), stdout, stderr)
+	if len(inline) != 1 {
+		t.Fatalf("want one comment, the finding with its fix, got %d inline comment(s)\nstdout=%s\nstderr=%s", len(inline), stdout, stderr)
 	}
-	var suggestion string
-	for _, b := range inline {
-		if strings.Contains(b, "```suggestion") {
-			suggestion = b
+	if !strings.Contains(inline[0], "ReadAll ignores the error") || !strings.Contains(inline[0], "```suggestion\n\tdata, err := fetch()") || !strings.Contains(inline[0], "if err != nil") {
+		t.Fatalf("the finding's comment does not carry an applicable GitHub suggestion:\n%v", inline)
+	}
+	if !strings.Contains(stdout, "1 comentário(s) na linha") {
+		t.Fatalf("stdout does not count the one comment:\n%s", stdout)
+	}
+}
+
+// A code suggestion that is not the fix of a blocking finding is never a
+// line comment: it stays in the parecer's details.
+func TestSuggestionWithoutBlockingFindingIsNotALineComment(t *testing.T) {
+	response := `{"verdict":"comment","summary":"Opcional.","issues":[],
+ "suggestions":[{"title":"Nome melhor","description":"Opcional.","kind":"code","file":"app.go","line":8,"proposed_code":"\tdata, err := fetch()"}]}`
+	g := &parecerServer{}
+	stdout, stderr := parecerReview(t, g, response, true)
+	for _, w := range g.written {
+		if strings.HasPrefix(w, "POST /repos/owner/repo/pulls/48/comments") {
+			t.Fatalf("a non-blocking suggestion became a line comment: %s\nstdout=%s\nstderr=%s", w, stdout, stderr)
 		}
-	}
-	if !strings.Contains(suggestion, "Check the error") || !strings.Contains(suggestion, "if err != nil") {
-		t.Fatalf("the suggestion is not an applicable GitHub suggestion:\n%v", inline)
-	}
-	if !strings.Contains(stdout, "sugestão aplicável publicada na linha") || !strings.Contains(stdout, "2 comentário(s) na linha") {
-		t.Fatalf("stdout does not count the suggestion:\n%s", stdout)
 	}
 }
 

@@ -190,9 +190,16 @@ type reviewState struct {
 	proposedExceptions string
 	triageDemoted      int                 // findings the model's dispute demoted (gate.triage)
 	triageDemotions    []types.ReviewIssue // those findings, for the SARIF
-	rawIssues          []types.ReviewIssue // verdict-reuse snapshot, before rule config
-	scans              []gateScan
-	coverage           reviewCoverageBreakdown
+	// triageFailure is the reason the dedicated triage call (the model
+	// deciding the evidence its review left unassessed) did not answer;
+	// empty when it answered or was not needed.
+	triageFailure string
+	// triageAwaiting is the findings left awaiting the model (gate.Run
+	// .Awaiting): they never count toward --fail-on either.
+	triageAwaiting []types.ReviewIssue
+	rawIssues      []types.ReviewIssue // verdict-reuse snapshot, before rule config
+	scans          []gateScan
+	coverage       reviewCoverageBreakdown
 
 	// deliberation: the scanners deferred to the model's decision, the
 	// root and refusal they run with, what was offered and the transcript.

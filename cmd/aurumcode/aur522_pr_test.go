@@ -121,7 +121,7 @@ func TestAUR522PRBinaryWithoutPatchIsNotReviewed(t *testing.T) {
 
 // (a') an image: binary content and an extension of the binary-format
 // catalog. Nothing in it is reviewable by reading, so it is declared ignored
-// (listed by name), out of the coverage count.
+// (counted in the parecer, named in the terminal), out of the coverage count.
 func TestAUR522PRBinaryIsDeclaredIgnored(t *testing.T) {
 	head := aur522PRCheckout(t, map[string][]byte{
 		"app.go":   []byte("package demo\nfunc Change() {}\n"),
@@ -129,8 +129,8 @@ func TestAUR522PRBinaryIsDeclaredIgnored(t *testing.T) {
 	})
 	diff := aur522PRAppDiff + "diff --git a/logo.png b/logo.png\nBinary files /dev/null and b/logo.png differ\n"
 	code, out, posted := aur522PRRun(t, head, diff)
-	if code != 0 || !strings.Contains(posted, "  - logo.png (binary)") || !strings.Contains(posted, "ignored") {
-		t.Fatalf("an image must be declared ignored by name (exit=%d):\n%s\n%s", code, out, posted)
+	if code != 0 || !strings.Contains(posted, "1 file(s) ignored") || strings.Contains(posted, "logo.png") {
+		t.Fatalf("an image must be counted ignored in the parecer, not named (exit=%d):\n%s\n%s", code, out, posted)
 	}
 	if strings.Contains(posted, "were not fully reviewed") || strings.Contains(posted, "token budget") {
 		t.Fatalf("an image must not make the review partial:\n%s", posted)

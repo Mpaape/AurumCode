@@ -33,6 +33,7 @@ func aur567AllSources(t *testing.T) (code int, stdout, stderr string, audit audi
 	if err := os.WriteFile(fixture, []byte(resp), 0600); err != nil {
 		t.Fatal(err)
 	}
+	confirmTriage(t, fixture)
 	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
 	setSemgrepPATH(t, semgrepFake(t, semgrepErrorFinding, false, ""))
 	auditPath := filepath.Join(t.TempDir(), "audit.json")
@@ -172,7 +173,7 @@ func TestAUR567PRSecurityPassFindingFailsGate(t *testing.T) {
 	if !strings.Contains(errOut, "security/hardcoded-secret") || !strings.Contains(errOut, "origem security") {
 		t.Errorf("gate line must name the rule and origem security:\n%s", errOut)
 	}
-	if !strings.Contains(posted, "origem security") {
+	if !strings.Contains(posted, "origin security") {
 		t.Errorf("published parecer must cite origem security:\n%s", posted)
 	}
 	raw, err := os.ReadFile(audit)

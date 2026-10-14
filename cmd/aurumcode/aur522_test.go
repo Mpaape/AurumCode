@@ -129,6 +129,7 @@ func aur522Fixture(t *testing.T, response string) {
 	if err := os.WriteFile(p, []byte(response), 0600); err != nil {
 		t.Fatal(err)
 	}
+	confirmTriage(t, p)
 	t.Setenv("AURUMCODE_LLM_FIXTURE", p)
 }
 
