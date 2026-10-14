@@ -4,27 +4,27 @@
 
 ## 2.0.1 - 2026-10-14
 
-Nenhum limite de tamanho derruba a revisão: política grande, PR grande e arquivo grande são revisados inteiros, e o modelo só divide a revisão em partes quando ele próprio recusa o tamanho.
+Nenhum limite de tamanho derruba a revisão: política, PR e arquivo grandes são revisados inteiros, e a revisão só se divide quando o modelo recusa o tamanho.
 
 ### Entregue
 
-- Sem teto de token por padrão: prompt, evidência, ferramentas, lotes e custo da deliberação. Um modelo que recusa o prompt por ser longo demais faz a revisão se dividir em lotes até caber, e o terminal narra cada recusa (#179).
+- Sem teto de token por padrão (prompt, evidência, ferramentas, lotes, custo da deliberação); quando o modelo recusa o prompt por tamanho, a revisão se divide em lotes até caber e o terminal narra cada recusa (#179).
 - Política grande não derruba mais a revisão: catálogo de regras, texto das skills e arquivos curados do repositório entram inteiros (#179).
-- Sem teto de bytes nem de contagem na revisão e no gate: fonte MCP, saída de scanner, manifestos, OSV, Dependency-Track, verificação, contexto de código, ferramentas, linha do filtro de segredos e commits do changelog entram inteiros, sem recusa nem inconclusivo.
-- Arquivo de texto grande não fica de fora por tamanho: a busca exata do diff tem orçamento de memória e cai para substituição inteira. No `--pr`, arquivo que a API mandou sem linhas tem o diff refeito do checkout verificado; cópia é arquivo novo e mudança só no fim de linha retém a aprovação.
-- Workflow reutilizável: a revisão que não terminou escreve o motivo como anotação e no resumo do job; grupos de concorrência viraram `aurumcode/...`, porque colidiam com os do chamador; o job de SARIF dos exemplos tolera revisão sem artefato (#179).
+- Sem teto de bytes nem de contagem: MCP, scanner, manifestos, OSV, Dependency-Track, verificação, contexto, ferramentas, filtro de segredos e commits do changelog entram inteiros, sem recusa nem inconclusivo.
+- Arquivo de texto grande não fica de fora: o diff cai para substituição inteira quando a busca exata não cabe. No `--pr`, arquivo sem linhas na API tem o diff refeito do checkout verificado.
+- Workflow reutilizável: a revisão que não terminou diz o motivo na anotação e no resumo; grupos de concorrência viraram `aurumcode/...`; o job de SARIF dos exemplos tolera revisão sem artefato (#179).
 - Tutoriais regravados com o produto atual; uma gravação de outra árvore é aviso, e só o tutorial cuja saída muda é regravado.
 
 ### Limites
 
-- Uma recusa por tamanho durante as rodadas de ferramenta da deliberação é contada como do prompt base, e a auditoria da tentativa recusada se perde (falha fechada).
+- Recusa por tamanho nas rodadas de ferramenta da deliberação conta como do prompt base, e a auditoria da tentativa recusada se perde (falha fechada).
 - Resultado de ferramenta inteiro pode passar da janela do modelo nas rodadas da deliberação; a revisão então falha em vez de ser cortada.
 - Renomeação pura para um caminho que executa (como `.github/workflows`) não é mostrada ao modelo, como na 2.0.0.
-- Um valor positivo declarado na configuração (`prompt_max_tokens`, `batches`, `max_read_bytes`, `verification.max_calls` e os demais) continua valendo, com a mesma mensagem de antes.
+- Valor positivo declarado na configuração (`prompt_max_tokens`, `batches`, `max_read_bytes`, `verification.max_calls` etc.) continua valendo, com a mesma mensagem.
 
 ### Migração do v1
 
-- Nada novo além da 2.0.0. Da 2.0.0 para a 2.0.1, troque `@v2.0.0` por `@v2.0.1` no workflow; quem dependia dos tetos padrão e quer mantê-los deve declará-los em `.aurumcode/config.yml`.
+- Da 2.0.0 para a 2.0.1, troque `@v2.0.0` por `@v2.0.1`; quem quer manter os tetos antigos os declara em `.aurumcode/config.yml`.
 
 ## 2.0.0 - 2026-10-13
 
