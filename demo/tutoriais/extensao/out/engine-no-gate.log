@@ -9,6 +9,7 @@ aurumcode review: policy gate: exemplo:marca - linha marcada para o exemplo de e
 
 policy gate: failed · 1 file reviewed
 app.py:2: [error] linha marcada para o exemplo de engine do guia de extensao (rule exemplo:marca)
+  origem: exemplo | avaliacao do modelo: confirmed [E1] - achado real no exemplo do tutorial
 exit_code=3
 RESULTADO: a engine de exemplo achou a marca no diff e o gate reprovou com origem exemplo
 auditoria blocking_findings: rule_id=exemplo:marca path=app.py line=2 origin=exemplo

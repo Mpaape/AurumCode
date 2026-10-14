@@ -12,5 +12,6 @@ aurumcode review: policy gate: SECRETS (gitleaks, origem gitleaks, secao repo) i
 
 gate da política: reprovou · 1 arquivo revisado
 config.py:1: [error] Segredo no código casou a regra github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
+  origem: analysis | avaliacao do modelo: confirmed [E1] - achado real no exemplo do tutorial
 exit_code=1
 RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gate reprova

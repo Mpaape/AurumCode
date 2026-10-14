@@ -9,6 +9,7 @@ aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_
 
 gate da política: passou · 1 arquivo revisado
 config.py:1: [error] Segredo no código casou a regra github-pat (Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure.) (rule analysis/hardcoded-secret)
+  origem: analysis | avaliacao do modelo: confirmed [E1] - achado real no exemplo do tutorial
 exit_code=0
 RESULTADO: sem politica, o comentario gitleaks:allow do autor silencia o achado
 --- sob politica central: o mesmo commit, o autor nao consegue silenciar
