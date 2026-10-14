@@ -54,7 +54,9 @@ func (run *Run) keep(source, origin string, issues []types.ReviewIssue) []types.
 		switch {
 		case t.Disputed[key]:
 			run.Demoted = append(run.Demoted, Demotion{Source: source, Issue: issue})
-		case t.Awaiting && !t.Assessed[key]:
+		case t.Awaiting && origin != OriginSkills && !t.Assessed[key]:
+			// The model's own findings (skills) are not evidence it
+			// assesses: only deterministic findings wait for it.
 			run.Awaiting = append(run.Awaiting, Demotion{Source: source, Issue: issue})
 		default:
 			kept = append(kept, issue)

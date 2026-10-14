@@ -169,3 +169,21 @@ func TestEvidenceTriagerFailsWhenTheModelDoesNotAnswer(t *testing.T) {
 		}
 	}
 }
+
+// A reply that leaves items out is asked once more about those alone; what
+// is still left out comes back unassessed.
+func TestEvidenceTriagerAsksOnceMoreAboutOmittedItems(t *testing.T) {
+	caller := &triageCaller{answer: func(text string) (llm.Response, error) {
+		if strings.Contains(text, "Achado E1") {
+			return llm.Response{Text: `{"evidence_assessments":[{"evidence_id":"E1","status":"disputed","justification":"fixture"}]}`}, nil
+		}
+		return llm.Response{Text: `{"evidence_assessments":[]}`}, nil
+	}}
+	got, err := (&EvidenceTriager{Caller: caller}).Assess(context.Background(), triageItems(3))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || caller.calls != 2 || strings.Contains(caller.prompts[1], "Achado E1") || !strings.Contains(caller.prompts[1], "Achado E3") {
+		t.Fatalf("assessments %+v after %d calls; the second prompt must carry only the omitted items:\n%s", got, caller.calls, caller.prompts[len(caller.prompts)-1])
+	}
+}

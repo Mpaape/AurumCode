@@ -49,6 +49,42 @@ const triageSchemaName = "aurumcode_evidence_triage"
 // is not the JSON asked for): the caller must treat the items as awaiting
 // the model, never as decided.
 func (t *EvidenceTriager) Assess(ctx context.Context, items []prompt.EvidenceItem) ([]types.EvidenceAssessment, error) {
+	first, err := t.assess(ctx, items)
+	if err != nil {
+		return nil, err
+	}
+	// A reply that leaves items out is asked once more, about those alone;
+	// what is still left out stays unassessed (the caller leaves it
+	// awaiting the model, never counted as a static error).
+	missing := omitted(items, first)
+	if len(missing) == 0 {
+		return first, nil
+	}
+	second, err := t.assess(ctx, missing)
+	if err != nil {
+		return first, nil
+	}
+	return append(first, second...), nil
+}
+
+// omitted is the items assessments do not answer.
+func omitted(items []prompt.EvidenceItem, assessments []types.EvidenceAssessment) []prompt.EvidenceItem {
+	answered := make(map[string]bool, len(assessments))
+	for _, a := range assessments {
+		answered[a.EvidenceID] = true
+	}
+	var out []prompt.EvidenceItem
+	for _, item := range items {
+		if !answered[item.ID] {
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+// assess is one round of the triage over items, split in halves when the
+// provider refuses it by size.
+func (t *EvidenceTriager) assess(ctx context.Context, items []prompt.EvidenceItem) ([]types.EvidenceAssessment, error) {
 	if len(items) == 0 {
 		return nil, nil
 	}
@@ -74,11 +110,11 @@ func (t *EvidenceTriager) Assess(ctx context.Context, items []prompt.EvidenceIte
 // assessHalves decides items in two smaller prompts.
 func (t *EvidenceTriager) assessHalves(ctx context.Context, items []prompt.EvidenceItem) ([]types.EvidenceAssessment, error) {
 	half := len(items) / 2
-	first, err := t.Assess(ctx, items[:half])
+	first, err := t.assess(ctx, items[:half])
 	if err != nil {
 		return nil, err
 	}
-	second, err := t.Assess(ctx, items[half:])
+	second, err := t.assess(ctx, items[half:])
 	if err != nil {
 		return nil, err
 	}

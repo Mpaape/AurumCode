@@ -194,9 +194,12 @@ type reviewState struct {
 	// deciding the evidence its review left unassessed) did not answer;
 	// empty when it answered or was not needed.
 	triageFailure string
-	rawIssues     []types.ReviewIssue // verdict-reuse snapshot, before rule config
-	scans         []gateScan
-	coverage      reviewCoverageBreakdown
+	// triageAwaiting is the findings left awaiting the model (gate.Run
+	// .Awaiting): they never count toward --fail-on either.
+	triageAwaiting []types.ReviewIssue
+	rawIssues      []types.ReviewIssue // verdict-reuse snapshot, before rule config
+	scans          []gateScan
+	coverage       reviewCoverageBreakdown
 
 	// deliberation: the scanners deferred to the model's decision, the
 	// root and refusal they run with, what was offered and the transcript.

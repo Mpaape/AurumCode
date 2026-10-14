@@ -54,7 +54,15 @@ func (s *reviewState) triageUnassessed() {
 		}
 	}
 	s.result.EvidenceAssessments = mergeAssessments(s.result.EvidenceAssessments, assessments)
+	if len(assessments) < len(items) {
+		// Asked twice and still silent on some: they wait for the model.
+		s.triageFailure = triageReasonUnanswered
+	}
 }
+
+// triageReasonUnanswered is the reason of a triage that left findings
+// without an assessment even when asked again about them alone.
+const triageReasonUnanswered = "triage_unanswered"
 
 // unassessedEvidence is every finding of a source the model may triage
 // that carries no assessment, as one evidence item per finding (the id the

@@ -1698,31 +1698,25 @@ recusar o prompt por tamanho, os achados são divididos em metades; não há tet
 de quantidade. Contestado com justificativa, o achado deixa de contar;
 confirmado, bloqueia como sempre.
 
-Quando o modelo não deu resposta utilizável (falha do provedor, recusa sem
+Uma resposta da triagem que deixa achados de fora é repetida uma vez, só com
+os omitidos. Achado estático nunca reprova sozinho: quando o modelo não deu
+resposta utilizável (sem provedor configurado, falha do provedor, recusa sem
 espaço, resposta que não passou no parser ou só foi lida em modo degradado,
-limite de deliberação, ou a própria triagem dedicada sem resposta), nada é
-rebaixado, nem mesmo pela contestação de um perfil ou lote saudável. Os achados
-que bloqueariam também não reprovam o gate como erro estático: ficam
-aguardando a avaliação do modelo, numa linha só, e o gate fica inconclusivo
-pelo motivo do modelo e falha, qualquer que seja `gate.inconclusive`:
+limite de deliberação, ou a triagem sem resposta ou ainda omitindo achados),
+nada é rebaixado, nem mesmo pela contestação de um perfil ou lote saudável,
+e os achados que bloqueariam também não reprovam o gate: ficam aguardando a
+avaliação do modelo, numa linha só, e o gate fica inconclusivo pelo motivo
+do modelo (`quality_skipped`, `provider_failure`, `model_parse_failure`,
+`triage_unanswered`, ...) e falha, qualquer que seja `gate.inconclusive`:
 
 ```text
 aurumcode review: policy gate: gate.triage: achados determinísticos aguardando a avaliação do modelo: 29 — o modelo não deu uma resposta utilizável (o provedor de modelo não respondeu [provider_failure]); sem a decisão do modelo não há veredito
 ```
 
-Sem provedor configurado (`quality_skipped`), a evidência conta
-integralmente, como antes, e o stderr e as limitações do parecer dizem isso:
-
-```text
-aurumcode review: gate.triage: a triagem pelo modelo não ocorreu — revisão por modelo não executada (sem provedor configurado) [quality_skipped]; a evidência determinística contou integralmente e o bloqueio foi mantido
-```
-
-Depois do travessão vai o motivo, em pt-BR como frase com o código entre
-colchetes e em inglês como o próprio código entre parênteses; quando o gate
-passa mesmo assim, a linha termina em "contou integralmente", sem falar em
-bloqueio. Com todas as fontes da evidência em `none`, sem gate declarado ou
-sob política central, nada é anunciado nem aguarda: a triagem não teria
-ocorrido de qualquer forma.
+Um `--fail-on` explícito respeita a triagem do mesmo jeito: achado contestado
+pelo modelo ou aguardando a avaliação não conta. Com todas as fontes da
+evidência em `none`, sem gate declarado ou sob política central, nada é
+anunciado nem aguarda: a evidência conta como sempre contou.
 
 Um review que ofereceu evidência não é servido do cache de modelo por arquivo
 (o cache guarda achados, não avaliações), e a chave de reaproveitamento do

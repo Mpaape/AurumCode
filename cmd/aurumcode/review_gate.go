@@ -184,7 +184,6 @@ func (s *reviewState) runGate() (int, bool) {
 	s.settleAwaiting(run.Awaiting, res)
 	applyGateOutcome(run, res)
 	s.reportTriage(run.Demoted)
-	s.reportTriageNotRun(res)
 	return 0, false
 }
 

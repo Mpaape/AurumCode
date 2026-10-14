@@ -33,6 +33,7 @@ func aur567AllSources(t *testing.T) (code int, stdout, stderr string, audit audi
 	if err := os.WriteFile(fixture, []byte(resp), 0600); err != nil {
 		t.Fatal(err)
 	}
+	confirmTriage(t, fixture)
 	t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
 	setSemgrepPATH(t, semgrepFake(t, semgrepErrorFinding, false, ""))
 	auditPath := filepath.Join(t.TempDir(), "audit.json")

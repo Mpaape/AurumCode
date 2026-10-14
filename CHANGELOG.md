@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Corrigido: o modelo sempre decide a evidência determinística: achado que a revisão não avaliou vai a uma triagem dedicada; sem resposta do modelo ele fica aguardando (inconclusivo), nunca reprova o gate como erro estático.
+- Corrigido: o modelo sempre decide a evidência determinística: achado sem avaliação vai a uma triagem dedicada (omitido, de novo); sem resposta ou sem provedor fica aguardando (inconclusivo), nunca reprova o gate nem o --fail-on.
 - Corrigido: achado determinístico que o modelo contestou e a triagem do gate deixou de contar vai ao SARIF como suprimido, com o motivo do modelo; a aba Security não mostra como erro o que o gate decidiu contra.
 - Tutorial plugin-agendado: o alvo de exemplo usa consulta parametrizada; os achados do plugin de exemplo são sintéticos e o tutorial demonstra o ingest, não a detecção.
 - Corrigido: SARIF e auditoria nunca saem como JSON inválido quando um texto citado tem segredo entre aspas escapadas; a redação refaz string por string quando a do documento inteiro quebraria o JSON.

@@ -76,12 +76,13 @@ func TestModelWithoutAnswerLeavesEvidenceAwaiting(t *testing.T) {
 		reason        string
 	}{
 		{"triage not answered", "", "[model_parse_failure]"},
+		{"triage silent twice", `{"evidence_assessments":[]}`, "[triage_unanswered]"},
 	} {
 		aur579Repo(t)
 		aur608Config(t, triageGate)
-		fixture := tc.fixture
-		if fixture == "" {
-			fixture = triageFixture(t, `"nao e json"`)
+		fixture := triageFixture(t, `"nao e json"`)
+		if tc.fixture != "" {
+			fixture = triageFixture(t, tc.fixture)
 		}
 		t.Setenv("AURUMCODE_LLM_FIXTURE", fixture)
 		code, out, errOut := aur579Review(t, nil)
@@ -118,5 +119,16 @@ func TestProviderFailureLeavesEvidenceAwaiting(t *testing.T) {
 		if strings.Contains(all, fmt.Sprintf("%s -", securityBreach.RuleID)) {
 			t.Errorf("%q: the awaiting finding was published as a gate failure:\n%s", cfg, all)
 		}
+	}
+}
+
+// An explicit --fail-on respects the triage: the finding the model disputed
+// does not count toward it.
+func TestFailOnRespectsTheTriage(t *testing.T) {
+	aur579Repo(t)
+	aur608Config(t, triageGate)
+	t.Setenv("AURUMCODE_LLM_FIXTURE", triageFixture(t, `{"evidence_assessments":[{"evidence_id":"E1","status":"disputed","justification":"valor sintetico de fixture de teste"}]}`))
+	if code, _, errOut := aur579Review(t, nil, "--fail-on", "warning"); code != 0 {
+		t.Fatalf("the disputed finding must not count toward --fail-on: exit=%d\n%s", code, errOut)
 	}
 }

@@ -86,7 +86,27 @@ func (s *reviewState) findingsAtThreshold() int {
 	if s.threshold <= 0 {
 		return 0
 	}
-	return countAtOrAbove(s.run.IssuesForGate(), s.threshold)
+	return countAtOrAbove(s.issuesDecidedByModel(s.run.IssuesForGate()), s.threshold)
+}
+
+// issuesDecidedByModel is issues without the findings the model's triage
+// demoted and the ones left awaiting it: an explicit --fail-on respects the
+// triage as the gate does, and a static finding never fails alone.
+func (s *reviewState) issuesDecidedByModel(issues []types.ReviewIssue) []types.ReviewIssue {
+	if len(s.triageDemotions)+len(s.triageAwaiting) == 0 {
+		return issues
+	}
+	out := make([]types.ReviewIssue, 0, len(issues))
+	skip := map[string]bool{}
+	for _, issue := range append(append([]types.ReviewIssue{}, s.triageDemotions...), s.triageAwaiting...) {
+		skip[findingOriginKey(issue.RuleID, issue.File, issue.Line)] = true
+	}
+	for _, issue := range issues {
+		if !skip[findingOriginKey(issue.RuleID, issue.File, issue.Line)] {
+			out = append(out, issue)
+		}
+	}
+	return out
 }
 
 // writeArtifacts writes AUR-521's audit record and SARIF from the gate's

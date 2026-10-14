@@ -4,6 +4,7 @@ $ aurumcode review --base main
 aurumcode review: SAST (Semgrep) inconclusivo: a varredura não produziu resultado confiável (o Semgrep falhou ao rodar [sast_execution_error]); nenhum achado determinístico do Semgrep foi publicado nesta execução. Detalhe da engine: semgrep: execution failed: exit status 2
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: revisão inconclusiva — o Semgrep falhou ao rodar [sast_execution_error]
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (o Semgrep falhou ao rodar [sast_execution_error]) [detalhe: semgrep: execution failed: exit status 2]
 ## AurumCode revisão de código
 
 > [!WARNING]
@@ -12,7 +13,6 @@ aurumcode review: policy gate: revisão inconclusiva — o Semgrep falhou ao rod
 
 gate da política: reprovou · 1 arquivo revisado
 Sem achados nas fontes concluídas; inconclusivo: o Semgrep falhou ao rodar [sast_execution_error]
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (o Semgrep falhou ao rodar [sast_execution_error]) [detalhe: semgrep: execution failed: exit status 2]
 exit_code=1
 RESULTADO: semgrep falhou: inconclusivo e, com block, o gate reprova
 --- gate.inconclusive: warn

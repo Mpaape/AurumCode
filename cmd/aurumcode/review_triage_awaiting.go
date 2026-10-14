@@ -14,15 +14,11 @@ import (
 // awaitingReason is why the evidence of a triaged source waits for the
 // model: the dedicated triage call that failed, or the review's own model
 // failure (provider, refusal, unparsable or degraded reply, deliberation
-// limit). Empty when the model answered, and when no model was configured
-// at all (quality_skipped), which keeps the deterministic gate it always
-// was.
+// limit) or no model configured at all (quality_skipped): a static finding
+// never decides the gate alone. Empty when the model answered.
 func (s *reviewState) awaitingReason() string {
 	if s.triageFailure != "" {
 		return s.triageFailure
-	}
-	if s.model == modelSkipped {
-		return ""
 	}
 	return s.modelReason()
 }
@@ -34,6 +30,9 @@ func (s *reviewState) awaitingReason() string {
 // gate.Run.Awaiting). They never become blocking findings.
 func (s *reviewState) settleAwaiting(awaiting []gateDemotion, res *gateDecision) {
 	n := len(awaiting)
+	for _, d := range awaiting {
+		s.triageAwaiting = append(s.triageAwaiting, d.Issue)
+	}
 	if n == 0 || res == nil {
 		return
 	}

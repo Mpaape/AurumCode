@@ -41,6 +41,7 @@ func aur579Fixture(t *testing.T, assessments string) string {
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	confirmTriage(t, path)
 	return path
 }
 
