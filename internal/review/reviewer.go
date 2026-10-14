@@ -98,7 +98,7 @@ type ReviewContext struct {
 	// its own files, instead of the whole diff's, which can fill a window by
 	// itself.
 	CodebaseContextFor func(files []types.DiffFile) string
-	MemoryNotes     string // Untrusted, attributed observations from review memory
+	MemoryNotes        string // Untrusted, attributed observations from review memory
 	// RepositoryContext is the rendered repository context block
 	// (config.BuildContextBlockWithWarnings). It travels in its own prompt
 	// slot, inside the budget, instead of being appended by a provider
@@ -185,7 +185,7 @@ func (r *Reviewer) reviewPrepared(ctx context.Context, prepared preparedPrompt) 
 	}
 	result, err := r.parse(resp)
 	if err != nil {
-		return nil, err
+		return nil, refuseCutReply(err, prepared)
 	}
 	weighAssessments(result, admittedEvidence(prepared.parts))
 	outcome, err := r.applyGates(prepared.diff, result)

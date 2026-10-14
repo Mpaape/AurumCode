@@ -202,3 +202,52 @@ func TestBatchesCarryTheCodebaseContextOfTheirOwnFiles(t *testing.T) {
 		t.Fatal("a batch carried the codebase context of the whole diff")
 	}
 }
+
+// cutShortCompleter answers a long prompt with a reply cut off by the model's
+// length cap, which fails to parse, and a short one with a whole reply.
+type cutShortCompleter struct {
+	limit int
+	cuts  int
+}
+
+func (c *cutShortCompleter) CompleteMessages(_ context.Context, messages []llm.Message, _ llm.Options) (llm.Response, error) {
+	bytes := 0
+	for _, m := range messages {
+		bytes += len(m.Content)
+	}
+	if bytes/4 > c.limit {
+		c.cuts++
+		return llm.Response{Text: `{"verdict":"approve","issues":[{"file":"a.go","li`, FinishReason: "length"}, nil
+	}
+	return llm.Response{Text: approveResponse}, nil
+}
+
+// A reply the model cut short is a prompt that left too little room: the
+// review splits it, as it splits a prompt the model refused.
+func TestReplyCutShortSplitsTheReview(t *testing.T) {
+	model := &cutShortCompleter{limit: 20000}
+	reviewer := NewReviewer(model, DefaultConfig())
+	diff := manyFilesDiff(3, 2, 400)
+
+	if _, err := reviewer.GenerateReviewWithContext(context.Background(), diff, ReviewContext{}); err != nil {
+		t.Fatalf("a reply cut short was not answered by splitting: %v", err)
+	}
+	refusals := reviewer.PromptRefusals()
+	if model.cuts == 0 || len(refusals) == 0 || !refusals[0].Cut || len(reviewer.Batches()) < 2 {
+		t.Fatalf("cuts %d refusals %+v batches %d: the review must split after a reply cut short", model.cuts, refusals, len(reviewer.Batches()))
+	}
+}
+
+// A reply that is not cut short but does not parse is still the deterministic
+// fallback's business, never a reason to split.
+func TestUnparseableReplyIsNotSplit(t *testing.T) {
+	calls := 0
+	reviewer := NewReviewer(completerFunc(func() (llm.Response, error) {
+		calls++
+		return llm.Response{Text: "not json", FinishReason: "stop"}, nil
+	}), DefaultConfig())
+	_, _ = reviewer.GenerateReviewWithContext(context.Background(), manyFilesDiff(2, 1, 50), ReviewContext{})
+	if calls != 1 || len(reviewer.PromptRefusals()) != 0 {
+		t.Fatalf("calls %d refusals %v: an unparseable reply must not split the review", calls, reviewer.PromptRefusals())
+	}
+}

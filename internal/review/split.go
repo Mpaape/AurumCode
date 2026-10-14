@@ -32,6 +32,11 @@ type PromptRefusal struct {
 	EstimatedTokens int
 	Limit           int
 	Requested       int
+	// Cut is set when the model did not refuse the prompt but cut its reply
+	// short (finish reason "length"): the window left too little room, or
+	// the reply outgrew the model's own cap, and a smaller part per request
+	// is the same remedy.
+	Cut bool
 }
 
 // PromptRefusals returns the prompts the provider refused during the last
@@ -109,6 +114,17 @@ func splittable(diff *types.Diff) bool {
 	return len(withPatch) >= 2
 }
 
+// refuseCutReply treats a reply the model cut short (finish reason
+// "length") as the prompt having left too little room; any other parse error
+// passes through.
+func refuseCutReply(err error, prepared preparedPrompt) error {
+	var parseErr *prompt.ParseError
+	if !errors.As(err, &parseErr) || parseErr.FinishReason != "length" {
+		return err
+	}
+	return &promptRefused{refusal: PromptRefusal{EstimatedTokens: metaCount(prepared.parts.Meta, "estimated_tokens"), Cut: true}, err: err}
+}
+
 // refuse wraps a provider's refusal of the prompt with the prompt's size;
 // any other error passes through.
 func refuse(err error, prepared preparedPrompt) error {
@@ -158,6 +174,10 @@ func (r *Reviewer) explainNoRoom(err error) error {
 	if err == nil || len(r.refusals) == 0 || !errors.As(err, &noRoom) {
 		return err
 	}
-	return fmt.Errorf("the model refused a prompt of about %d tokens as too long, and splitting the review down to %d tokens still leaves no room for a code change: what goes with every part (instructions, policy, context and evidence) takes about %d tokens; shorten the policy or use a model with a larger context window: %w",
+	what := "refused a prompt of about %d tokens as too long"
+	if r.refusals[0].Cut {
+		what = "cut its reply short on a prompt of about %d tokens"
+	}
+	return fmt.Errorf("the model "+what+", and splitting the review down to %d tokens still leaves no room for a code change: what goes with every part (instructions, policy, context and evidence) takes about %d tokens; shorten the policy or use a model with a larger context window: %w",
 		r.refusals[0].EstimatedTokens, noRoom.MaxTokens, noRoom.FixedTokens, err)
 }

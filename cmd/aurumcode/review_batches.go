@@ -23,12 +23,15 @@ func configuredBatchLimits(cfg *config.Config) review.BatchLimits {
 }
 
 // noteRefusals says on stderr, once per refusal, that the model refused the
-// prompt as longer than its context window and the review went on in smaller
-// parts (internal/review/split.go).
+// prompt as longer than its context window (or cut its reply short) and the
+// review went on in smaller parts (internal/review/split.go).
 func (s *reviewState) noteRefusals(refusals []review.PromptRefusal) {
 	for _, r := range refusals {
 		line := i18n.Format(s.reviewLanguage, "terminal.prompt_refused_unsized", r.EstimatedTokens)
-		if r.Limit > 0 {
+		switch {
+		case r.Cut:
+			line = i18n.Format(s.reviewLanguage, "terminal.reply_cut", r.EstimatedTokens)
+		case r.Limit > 0:
 			line = i18n.Format(s.reviewLanguage, "terminal.prompt_refused", r.EstimatedTokens, r.Limit)
 		}
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)

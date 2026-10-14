@@ -45,12 +45,8 @@ quality_gates:
 deliberation:
   enabled: true
   max_rounds: 3
-  max_cost_tokens: 60000   # custo das rodadas de ferramenta alem do prompt base
   per_tool_timeout_seconds: 120
 # Toda PR para a main acrescenta uma entrada concisa em "## Unreleased" do
 # CHANGELOG.md; o check "Changelog obrigatório" le este modo da base (AUR-509).
 changelog_check:
   mode: required
-batches:
-  max_batches: 8             # lote dev -> main grande: nenhum arquivo fica fora por teto
-  max_prompt_tokens: 1500000
