@@ -57,3 +57,32 @@ func TestExcerptShowsEveryFileAndWindowPastTheOldCeilings(t *testing.T) {
 		t.Fatalf("the excerpt was cut at %d bytes, want every window past the old 24 KiB", size)
 	}
 }
+
+// Past the old 6 symbols and 3 occurrences per symbol, every named symbol
+// and every occurrence of it is shown.
+func TestExcerptShowsEverySymbolAndOccurrence(t *testing.T) {
+	var src strings.Builder
+	src.WriteString("package d\n\n")
+	names := []string{"Uno", "Dos", "Tres", "Cuatro", "Cinco", "Seis", "Siete"}
+	for _, n := range names {
+		src.WriteString("func " + n + "() {}\n")
+	}
+	for i := 0; i < 5; i++ {
+		src.WriteString(strings.Repeat("\n", 30) + "// Siete aparece aqui\n")
+	}
+	rev := revision{"d/a.go": "package d\n\nfunc use() {}\n", "d/z.go": src.String()}
+	issue := types.ReviewIssue{File: "d/a.go", Line: 3, Message: strings.Join(names, " ")}
+	shown, _, err := excerpts(rev, goDecls, issue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	siete := 0
+	for _, e := range shown {
+		if e.Label == "símbolo Siete" {
+			siete++
+		}
+	}
+	if siete < 6 {
+		t.Fatalf("the 7th symbol has %d windows, want its declaration and all 5 later occurrences", siete)
+	}
+}

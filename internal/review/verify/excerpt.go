@@ -19,10 +19,6 @@ const (
 	citedRadius = 12
 	// definitionLines is how many lines from a symbol occurrence are shown.
 	definitionLines = 15
-	// maxSymbols bounds the symbols of one finding looked up.
-	maxSymbols = 6
-	// maxOccurrences bounds the windows of one symbol in one file.
-	maxOccurrences = 3
 )
 
 // identifier is a name the finding's text may mention.
@@ -97,17 +93,12 @@ func symbolWindows(src Source, declared Declarer, issue types.ReviewIssue, cited
 		return nil
 	}
 	var out []window
-	looked := 0
 	for _, p := range siblings(src, issue.File) {
 		data, err := src.Read(p)
 		if err != nil {
 			continue
 		}
 		for _, name := range declaredAmong(declared(p, data), names) {
-			if looked == maxSymbols {
-				return out
-			}
-			looked++
 			if _, ok := files[p]; !ok {
 				files[p], lines[p] = string(data), splitLines(string(data))
 			}
@@ -154,7 +145,7 @@ func siblings(src Source, file string) []string {
 }
 
 // occurrences is a window from each line naming name, outside the cited
-// window, up to maxOccurrences.
+// window, every one of them (issue #179).
 func occurrences(p, name string, lines []string, cited window) []window {
 	var out []window
 	for i, line := range lines {
@@ -166,9 +157,6 @@ func occurrences(p, name string, lines []string, cited window) []window {
 			continue
 		}
 		out = append(out, window{path: p, start: n, end: min(len(lines), n+definitionLines-1), label: "símbolo " + name})
-		if len(out) == maxOccurrences {
-			break
-		}
 	}
 	return out
 }
