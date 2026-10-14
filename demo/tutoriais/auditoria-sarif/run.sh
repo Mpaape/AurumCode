@@ -104,8 +104,8 @@ caso_upload_workflow() {
   grep -q 'security-events: write' "$wf" && echo "job upload-sarif: concede security-events: write a si mesmo"
   if awk '/^  review:/{r=1;next} /^  upload-sarif:/{r=0} r&&/security-events/' "$wf" | grep -q .; then echo "ERRO: o job review pede security-events"; return 1; fi
   echo "job review: nao pede security-events (um reutilizavel nao concede permissao ao chamador)"
-  if grep -qE '^[[:space:]]*(- )?uses: github/codeql-action/upload-sarif' "$reuse"; then echo "ERRO: review.yml chama upload-sarif"; return 1; fi
-  echo "review.yml: nao chama upload-sarif; so publica o artefato"
+  if awk '/^  review:/{r=1;next} /^  [a-z][a-z-]*:/{r=0} r' "$reuse" | grep -qE '^[[:space:]]*(- )?uses: github/codeql-action/upload-sarif'; then echo "ERRO: o job review do review.yml chama upload-sarif"; return 1; fi
+  echo "review.yml: o job review nao chama upload-sarif; so publica o artefato"
   grep -q 'name: aurumcode-sarif-${{ github.event.pull_request.number }}' "$reuse" && grep -q 'name: aurumcode-sarif-${{ github.event.pull_request.number }}' "$wf" && echo "nome do artefato: igual no review.yml e no download do chamador"
   grep -q 'sarif_file: aurumcode-review.sarif' "$wf" && grep -q 'aurumcode-review.sarif' "$reuse" && echo "arquivo: aurumcode-review.sarif nos dois"
   grep -q 'head.repo.full_name == github.repository' "$wf" && echo "PR de fork: o job de upload e pulado"

@@ -293,6 +293,10 @@ type Config struct {
 	// ChangelogCheck (nil = not declared = off) makes every pull request
 	// add a concise changelog entry (AUR-509). Governed per section.
 	ChangelogCheck *ChangelogCheckConfig `yaml:"changelog_check"`
+	// Scheduled (nil = not declared) lists the external plugins the
+	// scheduled run executes (AUR-622, scheduled.go). Governed per plugin
+	// name by ApplyCentralPolicy.
+	Scheduled *ScheduledConfig `yaml:"scheduled"`
 }
 
 // DefaultConfigPath is where Load looks, relative to the repository root.
@@ -381,6 +385,9 @@ func Parse(data []byte, source string) (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.ChangelogCheck.Validate(); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if err := cfg.Scheduled.Validate(); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", source, err)
 	}
 	if err := cfg.QualityGates.Sast.Validate(); err != nil {

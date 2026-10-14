@@ -1,0 +1,9 @@
+scheduled:
+  plugins:
+    - name: vvah
+      dockerfile: plugins/vvah/Dockerfile
+      env: [ANTHROPIC_API_KEY, VVAH_MODEL]
+      output:
+        format: vvah-findings
+        path: security-scan/findings.json
+      timeout_minutes: 90

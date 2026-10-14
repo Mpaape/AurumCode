@@ -92,6 +92,7 @@ func subcommands() []subcommand {
 		mcpSubcommand(),
 		changelogSubcommand(),
 		feedbackSubcommand(),
+		pluginSubcommand(),
 	}
 }
 

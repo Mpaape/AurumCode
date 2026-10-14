@@ -1,0 +1,13 @@
+== fora-do-envio
+$ plugin-exemplo/plugin.sh misto <arvore>
+plugin terminou com exit 0 (saida guardada fora do log)
+$ aurumcode plugin ingest --name vvah --format vvah-findings --input /work/security-scan/findings.json --repo /work --plugin-exit 0 --sarif /work/.saida/plugin-vvah.sarif
+plugin vvah: 1 alerta enviado para a aba Security (visível só para quem tem escrita); fora do envio: falso positivo 1, outro canal 1, sem veredito 1; não verificados enviados como aviso: 0
+exit_code=0
+RESULTADO: so o verdadeiro positivo do canal principal vai para a aba Security; os outros so contam
+saida do ingest: so contagens, nenhum titulo, arquivo ou descricao
+sarif: version 2.1.0, ferramenta AurumCode plugin vvah
+sarif: automationDetails.id aurumcode/plugin/vvah/
+sarif: 1 resultado(s)
+sarif: plugin/vvah/cwe-89 error security-severity 9.8 fingerprint vvaf1_aaaa...
+sarif: segredo do texto redigido: sim

@@ -1,0 +1,8 @@
+== degradado
+$ plugin-exemplo/plugin.sh degradado <arvore>
+plugin terminou com exit 0 (saida guardada fora do log)
+$ aurumcode plugin ingest --name vvah --format vvah-findings --input /work/security-scan/findings.json --repo /work --plugin-exit 0 --sarif /work/.saida/plugin-vvah.sarif
+aurumcode plugin ingest: plugin vvah inconclusivo [degraded]: nenhum SARIF gravado, os alertas abertos ficam como estão
+exit_code=1
+RESULTADO: plugin degradado: inconclusivo, exit 1
+nenhum SARIF gravado: os alertas abertos ficam como estao
