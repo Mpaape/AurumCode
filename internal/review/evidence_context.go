@@ -2,9 +2,11 @@ package review
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/prompt"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
 // What the dedicated triage shows the model about one finding. A finding a
@@ -60,7 +62,9 @@ func (c EvidenceContext) Describe(item prompt.EvidenceItem, commit string, wide 
 		}
 		item.Snippet = ""
 		item.Note = fmt.Sprintf("valor encontrado no commit %s do intervalo revisado (histórico): pode não existir mais no arquivo atual; o trecho é o daquele commit", short)
-	} else if !wide {
+	} else if !wide || strings.EqualFold(item.Side, "LEFT") {
+		// A removed line is numbered in the old file: the current file at
+		// that number is unrelated, so the item keeps its own snippet.
 		return item
 	}
 	data, err := c.read(ref, item.File)
@@ -91,7 +95,7 @@ func (c EvidenceContext) read(ref, path string) ([]byte, error) {
 // window is the lines of text within radius of line, numbered; the whole
 // text when it is short and radius is the wider one.
 func (c EvidenceContext) window(text string, line, radius int) string {
-	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
+	lines := c.redactedLines(text)
 	start, end := line-radius, line+radius
 	if radius == wideRadius && len(lines) <= wholeFileLines {
 		start, end = 1, len(lines)
@@ -108,9 +112,45 @@ func (c EvidenceContext) window(text string, line, radius int) string {
 		if n == line {
 			marker = ">"
 		}
-		fmt.Fprintf(&out, "%s%5d| %s\n", marker, n, c.redact(lines[n-1]))
+		fmt.Fprintf(&out, "%s%5d| %s\n", marker, n, lines[n-1])
 	}
 	return strings.TrimRight(out.String(), "\n")
+}
+
+// reKeyBegin and reKeyEnd open and close a private key block.
+var (
+	reKeyBegin = regexp.MustCompile(`-----BEGIN[ \t][A-Z ]*PRIVATE KEY-----`)
+	reKeyEnd   = regexp.MustCompile(`-----END[ \t][A-Z ]*PRIVATE KEY-----`)
+)
+
+// redactedLines is text redacted as a whole, then split into its lines, so
+// a secret spanning lines (a private key's base64 body) is masked like the
+// filter masks it whole. A whole-text redaction that changes the line count
+// (a block collapsed into the marker) cannot keep the numbering, so then
+// every line inside a private key block is masked and each line redacted
+// on its own.
+func (c EvidenceContext) redactedLines(text string) []string {
+	raw := strings.Split(strings.TrimRight(text, "\n"), "\n")
+	whole := strings.Split(strings.TrimRight(c.redact(text), "\n"), "\n")
+	if len(whole) == len(raw) {
+		return whole
+	}
+	out := make([]string, len(raw))
+	inKey := false
+	for i, l := range raw {
+		if reKeyBegin.MatchString(l) {
+			inKey = true
+		}
+		if inKey {
+			out[i] = redaction.Marker
+		} else {
+			out[i] = c.redact(l)
+		}
+		if reKeyEnd.MatchString(l) {
+			inKey = false
+		}
+	}
+	return out
 }
 
 func (c EvidenceContext) redact(text string) string {
