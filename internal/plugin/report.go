@@ -41,5 +41,5 @@ func Run(o Options, language string, stdout, stderr io.Writer) int {
 func SummaryText(language, name string, c Counts) string {
 	return i18n.Format(language, "plugin.summary", name,
 		i18n.Counted(language, "plugin.alerts", c.Accepted),
-		c.FalsePositive, c.OtherChannel, c.NoVerdict)
+		c.FalsePositive, c.OtherChannel, c.NoVerdict, c.Unverified)
 }

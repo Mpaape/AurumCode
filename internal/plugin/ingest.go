@@ -66,8 +66,9 @@ func Ingest(o Options) (Counts, error) {
 	if err != nil {
 		return Counts{}, err
 	}
+	excluded := outputDir(o.Repo, o.Input)
 	for i := range parsed.Findings {
-		clean, reason := checkPath(o.Repo, parsed.Findings[i].Path)
+		clean, reason := checkPath(o.Repo, excluded, parsed.Findings[i].Path)
 		if reason != "" {
 			return Counts{}, &PathError{Index: i, Reason: reason}
 		}

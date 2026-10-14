@@ -1,5 +1,7 @@
 gatilho: schedule, ou workflow_dispatch na branch padrao
-outro evento (pull_request incluso): o primeiro passo sai com exit 1
+pull_request: os jobs sao pulados pelo if (nenhum passo roda)
+defesa em profundidade: se rodasse em outro evento, o primeiro passo sairia com exit 1
+timeout do job: o do plugin mais a folga fixa; rc 124 vira uma linha no log
 sem upload-artifact e sem resumo do job
 saida do plugin: arquivo em RUNNER_TEMP, nunca impresso
 envio: upload-sarif fixado por SHA

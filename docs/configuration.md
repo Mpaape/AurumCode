@@ -2637,14 +2637,16 @@ scheduled:
       output:
         format: vvah-findings          # sarif | vvah-findings
         path: security-scan/findings.json        # relativo à árvore varrida
-      timeout_minutes: 60              # padrão 60; sem teto
+      timeout_minutes: 60              # padrão 60; sem teto; o job tem +30 min de folga
       required: false                  # na política central: o repo não remove
 ```
 
 Recusado na leitura: plugin sem `image` fixada por digest e sem
 `dockerfile` (ou com os dois), `env` com valor (`NOME=valor` ou mapa),
 `output.path` ou `dockerfile` absoluto ou com `..`, formato desconhecido e
-nome repetido. Sob política central, uma entrada `required: true` vence a do
+nome repetido. Na política central, `dockerfile` é recusado: plugin de
+política é `image` fixada por digest (o Dockerfile viria do repositório
+varrido). Sob política central, uma entrada `required: true` vence a do
 repositório de mesmo nome (aviso nomeado); uma não obrigatória cede.
 
 Comandos:

@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -11,8 +12,22 @@ type vvahReport struct {
 	SchemaVersion *string           `json:"schema_version"`
 	Findings      []vvahRanked      `json:"findings"`
 	Degraded      *bool             `json:"degraded"`
+	Dropped       []vvahDropped     `json:"dropped"`
 	Unreachable   []json.RawMessage `json:"unreachable_files"`
 }
+
+// vvahDropped is a candidate the harness dropped, with its reason.
+type vvahDropped struct {
+	File      string `json:"file"`
+	Line      int    `json:"line"`
+	VulnClass string `json:"vuln_class"`
+	Title     string `json:"title"`
+	Reason    string `json:"reason"`
+}
+
+// unverifiedReasons are the drop reasons where the harness could not decide:
+// a doubt never disappears, it becomes a warning alert.
+var unverifiedReasons = map[string]bool{"INCONCLUSIVE": true, "VERIFY_ERROR": true, "UNCONFIRMED": true}
 
 type vvahRanked struct {
 	Finding  *vvahFinding `json:"finding"`
@@ -74,7 +89,32 @@ func parseVVAH(data []byte) (Parsed, error) {
 		}
 		out.Findings = append(out.Findings, vvahToFinding(rf.Severity, f))
 	}
+	for _, d := range r.Dropped {
+		if !unverifiedReasons[strings.ToUpper(strings.TrimSpace(d.Reason))] {
+			continue
+		}
+		out.Findings = append(out.Findings, unverifiedFinding(d))
+		out.Counts.Unverified++
+	}
 	return out, nil
+}
+
+// unverifiedFinding is a dropped candidate whose verification was
+// inconclusive: a warning under plugin/<name>/nao-verificado/<class>, with a
+// fingerprint of the file, the line's block of ten and the class, so a small
+// shift keeps the alert.
+func unverifiedFinding(d vvahDropped) Finding {
+	class := normalizeClass("", d.VulnClass)
+	return Finding{
+		Class:       "nao-verificado/" + class,
+		Title:       "Não verificado: " + d.Title,
+		Message:     "A verificação do plugin foi inconclusiva para este candidato; ele não foi confirmado nem descartado.",
+		Path:        d.File,
+		Line:        d.Line,
+		Severity:    "medium",
+		Score:       defaultScore("medium"),
+		Fingerprint: fallbackFingerprint("nao-verificado/"+class, d.File, fmt.Sprintf("%d", d.Line/10)),
+	}
 }
 
 func verdict(v *string) string {

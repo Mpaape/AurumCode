@@ -56,8 +56,8 @@ work="$(mktemp -d)"
 trap 'chmod -R u+w -- "$work" 2>/dev/null || true; rm -rf -- "$work"' EXIT
 
 readonly pkgs=(./internal/config ./internal/plugin)
-readonly t_config='^(TestAUR622ConfigRefusesMalformedPlugins|TestAUR622PolicyRequiredPluginStays)$'
-readonly t_ingest='^(TestAUR622IngestWritesOnlyTruePositives|TestAUR622IngestCountsOtherChannelAndNoVerdict|TestAUR622GenericSARIFAdapter)$'
+readonly t_config='^(TestAUR622ConfigRefusesMalformedPlugins|TestAUR622PolicyRequiredPluginStays|TestAUR622PolicyRefusesDockerfilePlugin)$'
+readonly t_ingest='^(TestAUR622IngestWritesOnlyTruePositives|TestAUR622IngestCountsOtherChannelAndNoVerdict|TestAUR622GenericSARIFAdapter|TestAUR622UnverifiedDropBecomesWarning)$'
 readonly t_inconclusive='^(TestAUR622InconclusiveWritesNoSARIF|TestAUR622NonAnalysisErrorIsConclusive)$'
 readonly t_paths='^TestAUR622PathOutsideTreeFails$'
 readonly t_workflow='^TestAUR622WorkflowPluginsJob$'

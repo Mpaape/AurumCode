@@ -1,18 +1,18 @@
 == ingest
 $ aurumcode plugin list --json --repo /work
-[{"name":"vvah","dockerfile":"plugins/vvah/Dockerfile","args":[],"env":["ANTHROPIC_API_KEY","VVAH_MODEL"],"timeout_minutes":90,"output":{"format":"vvah-findings","path":"security-scan/findings.json"}}]
+[{"name":"vvah","dockerfile":"plugins/vvah/Dockerfile","args":[],"env":["ANTHROPIC_API_KEY","VVAH_MODEL"],"timeout_minutes":90,"job_timeout_minutes":120,"output":{"format":"vvah-findings","path":"security-scan/findings.json"}}]
 exit_code=0
 RESULTADO: plugin list le scheduled.plugins da configuracao confiavel
 $ plugin-exemplo/plugin.sh tres-achados <arvore>
 plugin terminou com exit 0 (saida guardada fora do log)
 $ aurumcode plugin ingest --name vvah --format vvah-findings --input /work/security-scan/findings.json --repo /work --plugin-exit 0 --sarif /work/.saida/plugin-vvah.sarif
-plugin vvah: 2 alertas enviados para a aba Security (visível só para quem tem escrita); fora do envio: falso positivo 1, outro canal 0, sem veredito 0
+plugin vvah: 2 alertas enviados para a aba Security (visível só para quem tem escrita); fora do envio: falso positivo 1, outro canal 0, sem veredito 0; não verificados enviados como aviso: 0
 exit_code=0
 RESULTADO: ingest conclusivo: SARIF gravado com os 2 verdadeiros positivos
 saida do ingest: so contagens, nenhum titulo, arquivo ou descricao
 sarif: version 2.1.0, ferramenta AurumCode plugin vvah
 sarif: automationDetails.id aurumcode/plugin/vvah/
 sarif: 2 resultado(s)
-sarif: plugin/vvah/cwe-89 security-severity 9.8 fingerprint vvaf1_aaaa...
-sarif: plugin/vvah/cwe-209 security-severity 5.5 fingerprint vvaf1_bbbb...
+sarif: plugin/vvah/cwe-89 error security-severity 9.8 fingerprint vvaf1_aaaa...
+sarif: plugin/vvah/cwe-209 warning security-severity 5.5 fingerprint vvaf1_bbbb...
 sarif: segredo do texto redigido: sim

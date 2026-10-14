@@ -15,6 +15,10 @@ const (
 	// not declare one. It is a default, never a ceiling: any positive value
 	// is accepted.
 	DefaultPluginTimeoutMinutes = 60
+	// PluginJobSlackMinutes is added to a plugin's timeout for the job
+	// around it (image build, ingest, upload), so the plugin's own timeout
+	// is the one that fires first and the log can say so.
+	PluginJobSlackMinutes = 30
 )
 
 var (
@@ -77,6 +81,11 @@ func (p PluginConfig) EffectiveTimeoutMinutes() int {
 	return p.TimeoutMinutes
 }
 
+// JobTimeoutMinutes is the timeout of the job that runs the plugin.
+func (p PluginConfig) JobTimeoutMinutes() int {
+	return p.EffectiveTimeoutMinutes() + PluginJobSlackMinutes
+}
+
 func (p PluginConfig) label() string {
 	return fmt.Sprintf("scheduled.plugins[%s]", p.Name)
 }
@@ -100,6 +109,20 @@ func (s *ScheduledConfig) Validate() error {
 		seen[p.Name] = true
 		if err := p.validate(); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// ValidatePolicy refuses, in a central policy, a plugin built from a
+// Dockerfile: the job builds it from the scanned repository's default
+// branch, so the repository could replace the policy's plugin by one that
+// reports nothing and closes the open alerts. A policy plugin is an image
+// pinned by digest.
+func (s *ScheduledConfig) ValidatePolicy() error {
+	for _, p := range s.EffectivePlugins() {
+		if strings.TrimSpace(p.Dockerfile) != "" {
+			return fmt.Errorf("%s.dockerfile: a central policy plugin must be an image pinned by digest (@sha256:); a Dockerfile would be read from the scanned repository", p.label())
 		}
 	}
 	return nil

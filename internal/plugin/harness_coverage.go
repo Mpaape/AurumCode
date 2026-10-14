@@ -22,6 +22,13 @@ import (
 // failure means part of the tree was not analysed.
 var analysisStage = regexp.MustCompile(`^(?i)(s|step|stage)[_-]?[2-6]([^0-9]|$)`)
 
+// representedCoverageReasons are the harness's coverageDegraded reasons
+// whose loss is represented in the alerts: s6_undetermined means some
+// verifications ended undetermined, and those candidates are sent as
+// "nao-verificado" warnings. Any other reason (zero_analysis included)
+// stays inconclusive.
+var representedCoverageReasons = map[string]bool{"s6_undetermined": true}
+
 // newestMatching is the most recently modified file of dir matching
 // pattern (a filepath.Match glob); "" when none.
 func newestMatching(dir, pattern string) string {
@@ -41,7 +48,8 @@ func newestMatching(dir, pattern string) string {
 }
 
 // harnessSARIFCoverage reads the harness's own SARIF: absent, malformed,
-// executionSuccessful false, hollow or coverageDegraded is inconclusive.
+// executionSuccessful false, hollow or coverageDegraded for a reason not in
+// representedCoverageReasons is inconclusive.
 // Its results are not ingested (findings.json carries the verdicts).
 func harnessSARIFCoverage(path string) error {
 	if path == "" {
@@ -51,7 +59,7 @@ func harnessSARIFCoverage(path string) error {
 	if err != nil {
 		return inconclusive(ReasonOutputMissing)
 	}
-	_, err = parseSARIF(data)
+	_, err = parseSARIFTolerating(data, representedCoverageReasons)
 	return err
 }
 

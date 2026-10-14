@@ -23,7 +23,7 @@ Security) exige permissão de escrita no repositório. Por isso o job
 | Log do Actions | só contagens ("N alertas enviados para a aba Security") e motivos estáveis (`[degraded]`, `[coverage_lost]`) |
 | Saída do plugin (stdout/stderr, texto cru do modelo) | arquivo em `$RUNNER_TEMP`, nunca impresso, nunca artefato |
 | Resumo do job, anotações, artefatos | nunca |
-| PR (comentário, status, gate) | nunca; o plugin não roda em `pull_request*` |
+| PR (comentário, status, gate) | nunca; em `pull_request*` os jobs de plugin são pulados pelo `if:` |
 | Aba Security (code scanning) | sim: SARIF com categoria `aurumcode/plugin/<nome>` |
 
 Arquivos que o harness deixa em `security-scan/` além do `findings.json` (o
@@ -37,13 +37,19 @@ Configuração (`scheduled.plugins`, no repositório ou na política central):
 - `name`: `[a-z0-9][a-z0-9_-]*`, único. Vira o ruleId (`plugin/<nome>/...`) e
   a categoria (`aurumcode/plugin/<nome>`).
 - `image` fixada por digest (`<ref>@sha256:<64 hex>`) **ou** `dockerfile`
-  (caminho relativo, lido da branch padrão). Nunca os dois.
+  (caminho relativo, lido da branch padrão). Nunca os dois. Na **política
+  central** só vale `image` por digest: o Dockerfile seria lido do
+  repositório varrido, que poderia trocar o plugin por um que não acha nada
+  e fecha os alertas; a política com `dockerfile` é recusada na leitura.
 - `args`: argumentos do container.
 - `env`: só **nomes** de variáveis. O valor de cada um vem do secret de mesmo
   nome do chamador; um secret ausente falha o job antes de rodar o plugin.
 - `output.format`: `sarif` (genérico) ou `vvah-findings` (o `findings.json`
   do harness); `output.path`: relativo à árvore, num diretório próprio.
-- `timeout_minutes`: padrão 60, sem teto.
+- `timeout_minutes`: padrão 60, sem teto. O job em volta tem esse tempo
+  mais uma folga fixa de 30 minutos (build, ingest e envio), então o timeout
+  do plugin estoura primeiro e o log diz só "O plugin estourou o próprio
+  timeout".
 - `required` (na política central): o repositório não remove nem troca a
   entrada de mesmo nome.
 
@@ -64,8 +70,9 @@ Execução, por plugin (job `plugins`, um item de matriz por plugin):
 
 O ingest:
 
-- recusa achado com caminho absoluto, com `..`, inexistente ou que sai da
-  árvore por link simbólico: o ingest reprova (exit 1), o achado nunca some em
+- recusa achado com caminho absoluto, com `..`, inexistente, que sai da
+  árvore por link simbólico ou que aponta para dentro do diretório gravável
+  de `output.path` (o que o plugin escreveu não é o código varrido): o ingest reprova (exit 1), o achado nunca some em
   silêncio, e a mensagem cita só a posição do achado, nunca o caminho;
 - passa todo texto pelo filtro de segredos antes de gravar;
 - grava SARIF 2.1.0 com `tool.driver.name` `AurumCode plugin <nome>`,
@@ -74,7 +81,13 @@ O ingest:
   `security-severity` (o CVSS do achado, ou o da severidade);
 - no formato `vvah-findings`, só achados do canal `main` com veredito
   `TRUE_POSITIVE` viram alerta; falso positivo, canal `posture` e sem
-  veredito só contam.
+  veredito só contam;
+- **dúvida nunca some**: candidato que o harness descartou com motivo
+  `INCONCLUSIVE`, `VERIFY_ERROR` ou `UNCONFIRMED` vira alerta de aviso
+  (`warning`) `plugin/<nome>/nao-verificado/<classe>`, com mensagem dizendo
+  que a verificação do plugin foi inconclusiva e fingerprint estável de
+  (arquivo, bloco de dez linhas, classe); o caminho passa pela mesma
+  recusa. Descartes por `DUPLICATE` ou `FALSE_POSITIVE` não viram alerta.
 
 ### Inconclusivo: nenhum SARIF
 
@@ -88,7 +101,12 @@ e os alertas abertos ficam como estão:
 - o SARIF do próprio harness (o `*_report.sarif` mais novo ao lado do
   `findings.json`, ou `--harness-sarif`) ausente, com
   `invocations[0].executionSuccessful: false`, `properties.hollow: true` ou
-  `properties.coverageDegraded: true`;
+  `properties.coverageDegraded: true` com algum motivo
+  (`coverageDegradedReasons`) fora da lista dos representados nos alertas.
+  Hoje a lista tem só `s6_undetermined` (verificações indeterminadas, que
+  viram alertas "não verificado"): com só esse motivo o envio segue;
+  `zero_analysis`, lista vazia ou motivo desconhecido continuam
+  inconclusivos;
 - `*_errors.jsonl` (ou `--harness-errors`) com erro de estágio de análise
   (`s2` a `s6`) ou com registro sem estágio legível.
 
@@ -97,7 +115,10 @@ com um modelo pequeno atrás de um proxy compatível com OpenAI, o estágio s4
 falhou com `StructuredOutputValidationError`: o `findings.json` veio com
 `degraded: false` e zero achados, e só o SARIF do harness dizia
 `coverageDegraded: true` (`zero_analysis`). É exatamente o "zero falso" que o
-ingest trata como inconclusivo.
+ingest trata como inconclusivo. Numa segunda execução real (Anthropic,
+montagem do job) o harness achou 4 verdadeiros positivos com
+`coverageDegraded` só por `s6_undetermined` e um candidato `INCONCLUSIVE`:
+o ingest envia 5 alertas, 1 deles "não verificado".
 
 ## O chamador
 

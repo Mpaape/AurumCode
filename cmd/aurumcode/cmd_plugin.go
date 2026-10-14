@@ -124,6 +124,7 @@ type pluginListEntry struct {
 	Args           []string `json:"args"`
 	Env            []string `json:"env"`
 	TimeoutMinutes int      `json:"timeout_minutes"`
+	JobTimeout     int      `json:"job_timeout_minutes"`
 	Output         struct {
 		Format string `json:"format"`
 		Path   string `json:"path"`
@@ -133,7 +134,7 @@ type pluginListEntry struct {
 func pluginListEntries(plugins []config.PluginConfig) []pluginListEntry {
 	out := make([]pluginListEntry, 0, len(plugins))
 	for _, p := range plugins {
-		e := pluginListEntry{Name: p.Name, Image: p.Image, Dockerfile: p.Dockerfile, Args: p.Args, Env: p.Env, TimeoutMinutes: p.EffectiveTimeoutMinutes()}
+		e := pluginListEntry{Name: p.Name, Image: p.Image, Dockerfile: p.Dockerfile, Args: p.Args, Env: p.Env, TimeoutMinutes: p.EffectiveTimeoutMinutes(), JobTimeout: p.JobTimeoutMinutes()}
 		if e.Args == nil {
 			e.Args = []string{}
 		}

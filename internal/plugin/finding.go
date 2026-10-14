@@ -30,6 +30,7 @@ type Counts struct {
 	FalsePositive int // verdict FALSE_POSITIVE
 	NoVerdict     int // no TRUE_POSITIVE verdict (null or unknown)
 	OtherChannel  int // not the main channel (posture)
+	Unverified    int // dropped as inconclusive by the plugin, sent as warnings
 }
 
 // Parsed is an adapter's answer for a conclusive run.

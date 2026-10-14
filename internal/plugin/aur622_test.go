@@ -60,6 +60,13 @@ func aur622HarnessSARIF(degraded, hollow, ok bool) map[string]any {
 	}
 }
 
+// aur622HarnessReasons is a harness SARIF with coverageDegraded and reasons.
+func aur622HarnessReasons(reasons ...any) map[string]any {
+	doc := aur622HarnessSARIF(true, false, true)
+	doc["runs"].([]any)[0].(map[string]any)["properties"].(map[string]any)["coverageDegradedReasons"] = reasons
+	return doc
+}
+
 type aur622Run struct {
 	repo, out, sarif string
 	opts             Options
@@ -219,6 +226,8 @@ func TestAUR622InconclusiveWritesNoSARIF(t *testing.T) {
 		"hollow":                  {aur622Report(nil), aur622HarnessSARIF(false, true, true), 0, "", ReasonHollow},
 		"execution failed":        {aur622Report(nil), aur622HarnessSARIF(false, false, false), 0, "", ReasonExecutionFailed},
 		"analysis stage errors":   {aur622Report(nil), okHarness, 0, `{"stage": "s4", "error": "StructuredOutputValidationError"}` + "\n", ReasonAnalysisErrors},
+		"zero_analysis":           {aur622Report(func(r map[string]any) { r["findings"] = []any{} }), aur622HarnessReasons("zero_analysis"), 0, "", ReasonHollow},
+		"known and unknown":       {aur622Report(nil), aur622HarnessReasons("s6_undetermined", "something_new"), 0, "", ReasonHollow},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -266,6 +275,7 @@ func TestAUR622PathOutsideTreeFails(t *testing.T) {
 		"dotdot":   "../" + filepath.Base(outside) + "/secret.py",
 		"missing":  "nao-existe.py",
 		"symlink":  "link/secret.py",
+		"output":   "security-scan/findings.json",
 	}
 	for name, path := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -333,5 +343,54 @@ func TestAUR622DestinationNeverIssuesOnPublic(t *testing.T) {
 	}
 	if CheckDestination("public", DestinationIssues) == nil || CheckDestination("private", DestinationIssues) != nil {
 		t.Fatal("CheckDestination")
+	}
+}
+
+// The real run: 4 TRUE_POSITIVE, a candidate dropped as INCONCLUSIVE (plus
+// DUPLICATE and FALSE_POSITIVE drops) and coverageDegraded only for
+// s6_undetermined -> conclusive, 5 results, the doubt as a warning.
+func TestAUR622UnverifiedDropBecomesWarning(t *testing.T) {
+	report := aur622Report(func(r map[string]any) {
+		fs := r["findings"].([]any)[:2]
+		fs = append(fs,
+			aur622Finding("Terceiro", aur622File, 3, "CWE-306", "medium", "TRUE_POSITIVE", "main", "vvaf1_"+strings.Repeat("d", 32)),
+			aur622Finding("Quarto", aur622File, 4, "CWE-798", "high", "TRUE_POSITIVE", "main", "vvaf1_"+strings.Repeat("e", 32)))
+		r["findings"] = fs
+		drop := func(reason string, line int) map[string]any {
+			return map[string]any{"file": aur622File, "line": line, "vuln_class": "sql_injection", "title": aur622Title,
+				"chunk_id": "c1", "reason": reason, "detail": aur622Desc, "canonical_idx": 0}
+		}
+		r["dropped"] = []any{drop("INCONCLUSIVE", 12), drop("DUPLICATE", 11), drop("FALSE_POSITIVE", 5)}
+	})
+	r := aur622Setup(t, report, aur622HarnessReasons("s6_undetermined"))
+	code, stdout, stderr := r.run(t)
+	if code != 0 || !strings.Contains(stdout, "5 alertas enviados") || !strings.Contains(stdout, "não verificados enviados como aviso: 1") {
+		t.Fatalf("exit=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	assertNoFindingText(t, "stdout", stdout)
+	raw, _ := os.ReadFile(r.sarif)
+	var doc struct {
+		Runs []struct {
+			Results []struct {
+				RuleID              string            `json:"ruleId"`
+				Level               string            `json:"level"`
+				PartialFingerprints map[string]string `json:"partialFingerprints"`
+			} `json:"results"`
+		} `json:"runs"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	res := doc.Runs[0].Results
+	if len(res) != 5 {
+		t.Fatalf("results = %d", len(res))
+	}
+	last := res[4]
+	if last.RuleID != "plugin/vvah/nao-verificado/sql_injection" || last.Level != "warning" || last.PartialFingerprints[FingerprintKey] == "" {
+		t.Fatalf("unverified result = %+v", last)
+	}
+	// Stable across a small line shift inside the same block of ten.
+	if unverifiedFinding(vvahDropped{File: "a.py", Line: 12, VulnClass: "x"}).Fingerprint != unverifiedFinding(vvahDropped{File: "a.py", Line: 17, VulnClass: "x"}).Fingerprint {
+		t.Fatal("unverified fingerprint moves with the line")
 	}
 }

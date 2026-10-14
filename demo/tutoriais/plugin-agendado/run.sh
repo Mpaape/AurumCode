@@ -2,7 +2,7 @@
 # Tutorial executavel: plugin externo na validacao agendada (AUR-622).
 # Veja docs/tutorials/plugin-agendado.md.
 #
-#   run.sh ingest|fora-do-envio|workflow|degradado|cobertura-perdida
+#   run.sh ingest|fora-do-envio|nao-verificado|workflow|degradado|cobertura-perdida
 #   run.sh all | --check | limpar
 #
 # O plugin de exemplo (plugin-exemplo/plugin.sh) roda no host e faz o papel do
@@ -14,7 +14,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../_lib/tutorial.sh
 . "$HERE/../_lib/tutorial.sh"
 
-CASOS=(ingest fora-do-envio workflow degradado cobertura-perdida)
+CASOS=(ingest fora-do-envio nao-verificado workflow degradado cobertura-perdida)
 
 # roda_plugin CENARIO: o plugin escreve security-scan/ na arvore do caso.
 roda_plugin() {
@@ -52,7 +52,7 @@ print("sarif: automationDetails.id %s" % run["automationDetails"]["id"])
 print("sarif: %d resultado(s)" % len(run["results"]))
 for r in run["results"]:
     fp = r["partialFingerprints"]["aurumcodePlugin/v1"]
-    print("sarif: %s security-severity %s fingerprint %s..." % (r["ruleId"], r["properties"]["security-severity"], fp[:10]))
+    print("sarif: %s %s security-severity %s fingerprint %s..." % (r["ruleId"], r["level"], r["properties"]["security-severity"], fp[:10]))
 print("sarif: segredo do texto redigido: %s" % ("sim" if "valor-sintetico" not in raw and "[REDACTED]" in raw else "NAO"))
 PY
 }
@@ -84,14 +84,30 @@ caso_fora_do_envio() {
   mostra_sarif
 }
 
-# 3. O job agendado do review.yml: conferencia estatica, nao execucao.
+# 3. Duvida nunca some: o harness descartou um candidato como INCONCLUSIVE e o
+# SARIF dele diz coverageDegraded so por s6_undetermined (verificacoes
+# indeterminadas). O candidato vira alerta de aviso "nao verificado" e o envio
+# segue com os 4 verdadeiros positivos.
+caso_nao_verificado() {
+  tut_repo nao-verificado repo-exemplo
+  roda_plugin nao-verificado
+  ingere
+  expect_rc 0 "cobertura degradada so por s6_undetermined: envia os 4 achados e o nao verificado como aviso"
+  sem_texto_de_achado
+  mostra_sarif
+}
+
+# 4. O job agendado do review.yml: conferencia estatica, nao execucao.
 caso_workflow() {
   local wf="$REPO_ROOT/.github/workflows/review.yml" bloco
   bloco="$(awk '/^  plugins-list:$/{p=1} p&&/^  [a-z-]+:$/&&!/^  plugins(-list)?:$/{p=0} p' "$wf")"
   [ -n "$bloco" ] || { echo "ERRO: jobs plugins-list/plugins ausentes"; return 1; }
   grep -qF "if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch)" <<<"$bloco" \
     && echo "gatilho: schedule, ou workflow_dispatch na branch padrao"
-  grep -qF 'schedule|workflow_dispatch) ;;' <<<"$bloco" && echo "outro evento (pull_request incluso): o primeiro passo sai com exit 1"
+  if grep -E '^    if:' <<<"$bloco" | grep -q pull_request; then echo "ERRO: o if de um job cita pull_request"; return 1; fi
+  echo "pull_request: os jobs sao pulados pelo if (nenhum passo roda)"
+  grep -qF 'schedule|workflow_dispatch) ;;' <<<"$bloco" && echo "defesa em profundidade: se rodasse em outro evento, o primeiro passo sairia com exit 1"
+  grep -qF 'timeout-minutes: ${{ matrix.plugin.job_timeout_minutes }}' <<<"$bloco" && echo "timeout do job: o do plugin mais a folga fixa; rc 124 vira uma linha no log"
   if grep -qE 'upload-artifact|GITHUB_STEP_SUMMARY' <<<"$bloco"; then echo "ERRO: canal publico no job"; return 1; fi
   echo "sem upload-artifact e sem resumo do job"
   grep -qF '>"${RUNNER_TEMP}/plugin-${PLUGIN_NAME}.log" 2>&1' <<<"$bloco" && echo "saida do plugin: arquivo em RUNNER_TEMP, nunca impresso"
@@ -112,7 +128,8 @@ caso_degradado() {
 }
 
 # Falha 2: exit 0, findings.json sem achado e degraded false, mas o SARIF do
-# harness diz coverageDegraded (unidades de analise falharam): zero falso.
+# harness diz coverageDegraded por zero_analysis (unidades de analise
+# falharam): zero falso.
 caso_cobertura_perdida() {
   tut_repo cobertura-perdida repo-exemplo
   roda_plugin cobertura-perdida

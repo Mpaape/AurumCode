@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -72,5 +74,27 @@ func TestAUR622PolicyRequiredPluginStays(t *testing.T) {
 	eff, _ = ApplyCentralPolicy(&Config{}, central)
 	if len(eff.Scheduled.EffectivePlugins()) != 2 {
 		t.Fatalf("policy plugins lost without a repository section: %+v", eff.Scheduled)
+	}
+}
+
+// AC-001: a policy plugin built from a Dockerfile is refused when the
+// policy is read: the Dockerfile would come from the scanned repository.
+func TestAUR622PolicyRefusesDockerfilePlugin(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".aurumcode"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write := func(doc string) {
+		if err := os.WriteFile(filepath.Join(root, DefaultConfigPath), []byte(aur622Doc(doc)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("    - name: vvah\n      required: true\n      dockerfile: plugins/vvah/Dockerfile\n      output: {format: vvah-findings, path: security-scan/findings.json}\n")
+	if _, err := LoadCentralPolicy(root); err == nil || !strings.Contains(err.Error(), "pinned by digest") {
+		t.Fatalf("policy dockerfile plugin accepted: %v", err)
+	}
+	write("    - name: vvah\n      required: true\n      image: " + aur622Digest + "\n      output: {format: vvah-findings, path: security-scan/findings.json}\n")
+	if _, err := LoadCentralPolicy(root); err != nil {
+		t.Fatalf("policy image plugin refused: %v", err)
 	}
 }

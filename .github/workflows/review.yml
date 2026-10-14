@@ -975,7 +975,9 @@ jobs:
     needs: plugins-list
     if: needs.plugins-list.outputs.plugins != '' && needs.plugins-list.outputs.plugins != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ matrix.plugin.timeout_minutes }}
+    # The plugin's own timeout plus a fixed slack for the build, the ingest
+    # and the upload (job_timeout_minutes, computed by plugin list).
+    timeout-minutes: ${{ matrix.plugin.job_timeout_minutes }}
     strategy:
       fail-fast: false
       matrix:
@@ -1114,6 +1116,9 @@ jobs:
             >"${RUNNER_TEMP}/plugin-${PLUGIN_NAME}.log" 2>&1 || rc=$?
           docker rm -f "aurumcode-plugin-${PLUGIN_NAME}" >/dev/null 2>&1 || true
           echo "exit=${rc}" >> "$GITHUB_OUTPUT"
+          if [ "${rc}" -eq 124 ]; then
+            echo "O plugin estourou o próprio timeout (${PLUGIN_TIMEOUT} min)."
+          fi
           echo "Plugin terminou com exit ${rc} (saída guardada fora do log)."
 
       - name: Ingest plugin output

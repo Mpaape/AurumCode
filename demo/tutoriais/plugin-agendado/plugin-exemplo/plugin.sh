@@ -5,7 +5,7 @@
 # quando perdeu cobertura: o ingest le degraded e o SARIF do harness).
 #
 #   plugin.sh <cenario> <arvore>
-#   cenarios: tres-achados | misto | degradado | cobertura-perdida
+#   cenarios: tres-achados | misto | nao-verificado | degradado | cobertura-perdida
 set -euo pipefail
 cenario="$1"; arvore="$2"
 aqui="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"

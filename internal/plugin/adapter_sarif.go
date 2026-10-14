@@ -44,7 +44,12 @@ type sarifResultIn struct {
 // parseSARIF reads a generic SARIF 2.1.0 document. A run that reports
 // executionSuccessful: false, hollow or coverageDegraded is inconclusive, as
 // is a document without runs or of another version.
-func parseSARIF(data []byte) (Parsed, error) {
+func parseSARIF(data []byte) (Parsed, error) { return parseSARIFTolerating(data, nil) }
+
+// parseSARIFTolerating is parseSARIF where a coverageDegraded run whose
+// coverageDegradedReasons are ALL in tolerated (and not empty) stays
+// conclusive.
+func parseSARIFTolerating(data []byte, tolerated map[string]bool) (Parsed, error) {
 	var doc sarifIn
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return Parsed{}, inconclusive(ReasonOutputInvalid)
@@ -57,7 +62,7 @@ func parseSARIF(data []byte) (Parsed, error) {
 	}
 	var out Parsed
 	for _, run := range doc.Runs {
-		if reason := runInconclusive(run); reason != "" {
+		if reason := runInconclusive(run, tolerated); reason != "" {
 			return Parsed{}, inconclusive(reason)
 		}
 		for _, r := range run.Results {
@@ -67,16 +72,34 @@ func parseSARIF(data []byte) (Parsed, error) {
 	return out, nil
 }
 
-func runInconclusive(run sarifRun) string {
+func runInconclusive(run sarifRun, tolerated map[string]bool) string {
 	for _, inv := range run.Invocations {
 		if inv.ExecutionSuccessful != nil && !*inv.ExecutionSuccessful {
 			return ReasonExecutionFailed
 		}
 	}
-	if truthy(run.Properties["hollow"]) || truthy(run.Properties["coverageDegraded"]) {
+	if truthy(run.Properties["hollow"]) {
+		return ReasonHollow
+	}
+	if truthy(run.Properties["coverageDegraded"]) && !allTolerated(run.Properties["coverageDegradedReasons"], tolerated) {
 		return ReasonHollow
 	}
 	return ""
+}
+
+// allTolerated: reasons is a non-empty list of strings, each in tolerated.
+func allTolerated(reasons any, tolerated map[string]bool) bool {
+	list, ok := reasons.([]any)
+	if !ok || len(list) == 0 {
+		return false
+	}
+	for _, r := range list {
+		s, ok := r.(string)
+		if !ok || !tolerated[s] {
+			return false
+		}
+	}
+	return true
 }
 
 func truthy(v any) bool {

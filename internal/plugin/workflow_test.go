@@ -44,6 +44,19 @@ func aur622Workflow(t *testing.T) map[string]aur622Job {
 	return wf.Jobs
 }
 
+func mustRead(t *testing.T) []byte {
+	t.Helper()
+	path := os.Getenv("AUR622_WORKFLOW")
+	if path == "" {
+		path = filepath.Join("..", "..", ".github", "workflows", "review.yml")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
 var pinnedUpload = regexp.MustCompile(`^github/codeql-action/upload-sarif@[0-9a-f]{40}$`)
 
 // AC-005: the plugins jobs run only on schedule/workflow_dispatch of the
@@ -83,10 +96,13 @@ func TestAUR622WorkflowPluginsJob(t *testing.T) {
 			}
 		}
 	}
+	if !strings.Contains(string(mustRead(t)), "timeout-minutes: ${{ matrix.plugin.job_timeout_minutes }}") {
+		t.Fatal("the plugins job timeout must be the plugin's plus the slack")
+	}
 	var ran, uploaded, counted bool
 	for _, s := range run.Steps {
 		if s.Name == "Run plugin" {
-			ran = strings.Contains(s.Run, `>"${RUNNER_TEMP}/plugin-${PLUGIN_NAME}.log" 2>&1`) && strings.Contains(s.Run, `-v "${copy}:/alvo:ro"`)
+			ran = strings.Contains(s.Run, `if [ "${rc}" -eq 124 ]; then`) && strings.Contains(s.Run, `>"${RUNNER_TEMP}/plugin-${PLUGIN_NAME}.log" 2>&1`) && strings.Contains(s.Run, `-v "${copy}:/alvo:ro"`)
 		}
 		if strings.HasPrefix(s.Uses, "github/codeql-action/upload-sarif") {
 			uploaded = pinnedUpload.MatchString(strings.Fields(s.Uses)[0]) && s.If == "success()" &&
