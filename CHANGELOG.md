@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Parecer enxuto: o mesmo problema de duas fontes vira um item e um comentário; a correção do bloqueante vai como sugestão aplicável; status curto ("Bloqueado: N problemas"); título de regra não é mais mascarado no SARIF.
 - Corrigido: achado determinístico que o modelo contestou e a triagem do gate deixou de contar vai ao SARIF como suprimido, com o motivo do modelo; a aba Security não mostra como erro o que o gate decidiu contra.
 - Tutorial plugin-agendado: o alvo de exemplo usa consulta parametrizada; os achados do plugin de exemplo são sintéticos e o tutorial demonstra o ingest, não a detecção.
 - Corrigido: SARIF e auditoria nunca saem como JSON inválido quando um texto citado tem segredo entre aspas escapadas; a redação refaz string por string quando a do documento inteiro quebraria o JSON.

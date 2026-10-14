@@ -57,7 +57,7 @@ type reviewCopy struct {
 	contextReducedNote string
 	// rulesHeading and ruleOrigin head and phrase the details' list of
 	// each finding's rule and origin.
-	rulesHeading, ruleOrigin string
+	rulesHeading, ruleOrigin, ruleCount string
 }
 
 // reviewCopyFor reads the review's texts for language from the catalog.
@@ -67,6 +67,7 @@ func reviewCopyFor(language string) reviewCopy {
 		contextReducedNote:       i18n.Text(language, "review.context_reduced_note"),
 		rulesHeading:             i18n.Text(language, "review.rules_heading"),
 		ruleOrigin:               i18n.Text(language, "review.rule_origin"),
+		ruleCount:                i18n.Text(language, "review.rule_count"),
 		verdict:                  i18n.Text(language, "review.verdict"),
 		summary:                  i18n.Text(language, "review.summary"),
 		strengths:                i18n.Text(language, "review.strengths"),

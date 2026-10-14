@@ -30,7 +30,7 @@ func readerLimitations(result *types.ReviewResult, copy reviewCopy) []string {
 		if isEngineLine(line) {
 			continue
 		}
-		text := readableText(strings.TrimPrefix(withoutIgnoredNames(line, copy), triagePrefix))
+		text := readableText(strings.TrimPrefix(strings.TrimPrefix(withoutIgnoredNames(line, copy), triagePrefix), gatePrefix))
 		if text == "" || seen[text] {
 			continue
 		}
@@ -55,21 +55,45 @@ func isEngineLine(line string) bool {
 // not the configuration key.
 const triagePrefix = "gate.triage: "
 
-// writeRulesSection lists, collapsed in the details, the rule and the
-// origin of each finding: what an exception or a policy change names, kept
-// out of the body the author reads first.
+// gatePrefix opens the gate's lines; in the parecer the sentence suffices.
+const gatePrefix = "policy gate: "
+
+// writeRulesSection lists, collapsed in the details, the rules the findings
+// cite and their origin, each once: what an exception or a policy change
+// names, kept out of the body the author reads first. A rule cited once
+// names its place; a rule cited more often, its count.
 func writeRulesSection(b *strings.Builder, result *types.ReviewResult, copy reviewCopy) {
 	issues := sortedIssues(result.Issues)
 	if len(issues) == 0 {
 		return
 	}
-	fmt.Fprintf(b, "#### %s\n\n", copy.rulesHeading)
+	type cited struct {
+		rule, origin, place string
+		count               int
+	}
+	var order []string
+	byKey := map[string]*cited{}
 	for _, issue := range issues {
-		fmt.Fprintf(b, "- `%s:%d`: `%s`", issue.File, issue.Line, issue.RuleID)
-		if issue.Origin != "" {
-			fmt.Fprintf(b, " (%s)", fmt.Sprintf(copy.ruleOrigin, issue.Origin))
+		key := issue.RuleID + "\x00" + issue.Origin
+		if c, ok := byKey[key]; ok {
+			c.count++
+			continue
 		}
-		b.WriteString("\n")
+		byKey[key] = &cited{rule: issue.RuleID, origin: issue.Origin, place: fmt.Sprintf("%s:%d", issue.File, issue.Line), count: 1}
+		order = append(order, key)
+	}
+	fmt.Fprintf(b, "#### %s\n\n", copy.rulesHeading)
+	for _, key := range order {
+		c := byKey[key]
+		fmt.Fprintf(b, "- `%s`", c.rule)
+		if c.origin != "" {
+			fmt.Fprintf(b, " (%s)", fmt.Sprintf(copy.ruleOrigin, c.origin))
+		}
+		if c.count == 1 {
+			fmt.Fprintf(b, ": `%s`\n", c.place)
+		} else {
+			fmt.Fprintf(b, ": %s\n", fmt.Sprintf(copy.ruleCount, c.count))
+		}
 	}
 	b.WriteString("\n")
 }

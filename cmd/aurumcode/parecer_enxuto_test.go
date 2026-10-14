@@ -1,0 +1,95 @@
+package main
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/Mpaape/AurumCode/internal/gate"
+	"github.com/Mpaape/AurumCode/internal/gate/facts"
+	"github.com/Mpaape/AurumCode/internal/review/blocking"
+	"github.com/Mpaape/AurumCode/internal/review/consolidate"
+	"github.com/Mpaape/AurumCode/pkg/types"
+)
+
+// The same secret reported by the static analysis and by Gitleaks on one
+// line is one item of the parecer, naming both sources, with a short
+// Portuguese title; another problem on the same line stays its own item.
+func TestOneSecretFromTwoSourcesIsOneItem(t *testing.T) {
+	issues := []types.ReviewIssue{
+		{File: "f.json", Line: 17, Severity: "error", RuleID: "analysis/hardcoded-secret", Origin: "analysis", Message: "Segredo no código casou a regra generic-api-key (Detected a Generic API Key.) (rule analysis/hardcoded-secret)"},
+		{File: "f.json", Line: 17, Severity: "error", RuleID: "gitleaks:generic-api-key", Origin: "gitleaks", Message: "Segredo ou credencial escrito no código (regra `gitleaks:generic-api-key`, gitleaks v8.30.1, commit f60b78e4b714)"},
+		{File: "f.json", Line: 17, Severity: "error", RuleID: "security/sql-injection", Origin: "security", Message: "Possível injeção de SQL [standards/security-review SCR-001] (rule security/sql-injection: SQL Injection)"},
+	}
+	rule := blocking.Ungated()
+	shown := presentation{consolidate.Apply(issues, consolidate.Options{Blocking: rule.Blocks})}
+	result := &types.ReviewResult{Issues: issues, Metadata: map[string]string{}, Limitations: []string{
+		"policy gate: gitleaks:generic-api-key - Segredo ou credencial escrito no código (severidade error, limiar error, origem gitleaks, secao repo)",
+		"policy gate: revisão inconclusiva — o provedor de modelo não respondeu [provider_failure]",
+	}}
+	body := formatReviewDocument(shown.publishedResult(result, "pt-BR", rule), nil, "pt-BR", rule)
+	if !strings.Contains(body, "Bloqueado: 2 problemas") {
+		t.Fatalf("the headline counts the secret twice:\n%s", body)
+	}
+	fix := body[strings.Index(body, "### Corrigir antes do merge"):strings.Index(body, "<details>")]
+	if strings.Count(fix, "`f.json:17`") != 2 {
+		t.Fatalf("want the secret once and the SQL injection once:\n%s", fix)
+	}
+	if !strings.Contains(fix, "Possível segredo no código — apontado por análise estática e Gitleaks") {
+		t.Fatalf("the secret item lacks its short title or one of its sources:\n%s", fix)
+	}
+	if !strings.Contains(fix, "Possível injeção de SQL — apontado por revisão de segurança") {
+		t.Fatalf("the other problem on the line was merged or lost its title:\n%s", fix)
+	}
+	for _, noise := range []string{"Detected a Generic", "Texto original", "(rule ", "[standards/", "[provider_failure]", "severidade error, limiar"} {
+		if strings.Contains(body, noise) {
+			t.Fatalf("the parecer carries %q:\n%s", noise, body)
+		}
+	}
+	if !strings.Contains(body, "- revisão inconclusiva — o provedor de modelo não respondeu") {
+		t.Fatalf("a gate line without a finding must stay, as a sentence:\n%s", body)
+	}
+
+	// Under a declared gate, each source is a gate key: the headline still
+	// counts the problems, not the keys.
+	var found []facts.AuditFinding
+	for _, issue := range issues {
+		found = append(found, facts.AuditFinding{RuleID: issue.RuleID, Path: issue.File, Line: issue.Line, Severity: issue.Severity})
+	}
+	gated := blocking.FromGate(true, gate.Result{Fail: true, BlockingFindings: found})
+	shown = presentation{consolidate.Apply(issues, consolidate.Options{Blocking: gated.Blocks})}
+	if body := formatReviewDocument(shown.publishedResult(result, "pt-BR", gated), nil, "pt-BR", gated); !strings.Contains(body, "Bloqueado: 2 problemas") {
+		t.Fatalf("the gated headline counts a source twice:\n%s", body)
+	}
+}
+
+// aur620Diff adds lines 1-12 of app.py.
+func aur620Diff() *types.Diff {
+	lines := make([]string, 0, 12)
+	for i := 0; i < 12; i++ {
+		lines = append(lines, "+x = 1")
+	}
+	return &types.Diff{Files: []types.DiffFile{{Path: "app.py", Hunks: []types.DiffHunk{{NewStart: 1, NewLines: 12, Lines: lines}}}}}
+}
+
+// A blocking finding with a concrete fix of its lines carries the fix as a
+// GitHub suggestion that replaces exactly those lines; without a fix the
+// comment has no block.
+func TestBlockingFindingCommentCarriesItsFix(t *testing.T) {
+	issue := types.ReviewIssue{File: "app.py", Line: 10, Severity: "error", RuleID: "security/hardcoded-secret", Message: "Possível segredo no código"}
+	fixes := []types.ReviewSuggestion{{Kind: "code", File: "app.py", StartLine: 10, EndLine: 10, ProposedCode: `API_KEY = os.environ.get("ASSISTENTE_API_KEY", "")`}}
+	c := findingComment(aur620Diff(), fixes, issue, "RIGHT", "**Possível segredo no código**")
+	if c.Line != 10 || c.StartLine != 0 || c.Side != "RIGHT" || !strings.HasSuffix(c.Body, "```suggestion\nAPI_KEY = os.environ.get(\"ASSISTENTE_API_KEY\", \"\")\n```") {
+		t.Fatalf("the fix is not an applicable suggestion on line 10: %+v", c)
+	}
+	multi := []types.ReviewSuggestion{{Kind: "code", File: "app.py", StartLine: 9, EndLine: 11, ProposedCode: "a\nb"}}
+	if c := findingComment(aur620Diff(), multi, issue, "RIGHT", "x"); c.StartLine != 9 || c.Line != 11 {
+		t.Fatalf("a multi-line fix must replace exactly its range: %+v", c)
+	}
+	elsewhere := []types.ReviewSuggestion{{Kind: "code", File: "app.py", StartLine: 3, EndLine: 3, ProposedCode: "y"}}
+	if c := findingComment(aur620Diff(), elsewhere, issue, "RIGHT", "x"); strings.Contains(c.Body, "```suggestion") || c.Line != 10 {
+		t.Fatalf("a fix of other lines was attached: %+v", c)
+	}
+	if c := findingComment(aur620Diff(), nil, issue, "RIGHT", "x"); c.Body != "x" {
+		t.Fatalf("no fix, no block: %+v", c)
+	}
+}

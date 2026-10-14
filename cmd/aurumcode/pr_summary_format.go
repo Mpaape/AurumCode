@@ -148,8 +148,10 @@ const (
 // below the threshold are observations; nothing is approval.
 func decide(result *types.ReviewResult, rule blocking.Rule) (reviewDecision, int) {
 	if n := rule.Count(result.Issues); n > 0 {
-		// A problem two sources reported is published, and counted, once.
-		if shown := n - atoiOrZero(result.Metadata[metaAbsorbedBlocking]); shown > 0 {
+		// A problem two sources reported is published, and counted, once:
+		// a gate counts its own keys, one per source, so the occurrences
+		// published inside another leave the count.
+		if shown := n - atoiOrZero(result.Metadata[metaAbsorbedBlocking]); rule.Gated() && shown > 0 {
 			n = shown
 		}
 		return decisionBlocked, n
