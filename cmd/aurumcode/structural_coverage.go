@@ -82,9 +82,33 @@ func uninspectedPRNotices(diff *types.Diff, dir string) []analyzer.DiffNotice {
 		}
 		if n := analyzer.ClassifyBlob(f.Path, content); n != nil {
 			notices = append(notices, *n)
+			continue
+		}
+		if len(f.Hunks) == 0 && largeCheckoutCopy(dir, f.Path) {
+			notices = append(notices, analyzer.DiffNotice{
+				Path:    f.Path,
+				Message: "not reviewed, no patch (binary or large): " + f.Path,
+				Reason:  analyzer.NoticeReasonNoPatch,
+			})
 		}
 	}
 	return notices
+}
+
+// noPatchLargeBytes keeps the guard the removed size cut used to give a
+// file the diff carries without any line: a text copy this large with no
+// patch (git marked it binary, or only renamed it) is not proven reviewed,
+// so it withholds approval. It never drops content the diff does carry.
+const noPatchLargeBytes = 1 << 20
+
+// largeCheckoutCopy reports a verified checkout copy past noPatchLargeBytes,
+// from its size alone (the file is not read).
+func largeCheckoutCopy(dir, path string) bool {
+	if dir == "" {
+		return false
+	}
+	info, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(path)))
+	return err == nil && info.Mode().IsRegular() && info.Size() > noPatchLargeBytes
 }
 
 // declaredBinary reports a notice the review declares ignored instead of

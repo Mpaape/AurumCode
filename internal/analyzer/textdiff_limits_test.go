@@ -213,3 +213,36 @@ func TestDiff_AllFilesSkipped(t *testing.T) {
 		t.Fatalf("expected 1 notice, got %+v", notices)
 	}
 }
+
+// TestRangeDiffFromObjects_ReviewsLargeFile is the object-database path of
+// --pr's local diff: a 20000-line file with one changed line reaches the
+// diff with a hunk that carries the change, not as a file without lines.
+func TestRangeDiffFromObjects_ReviewsLargeFile(t *testing.T) {
+	requireGitBinary(t)
+
+	lines := bigFixture(bigFileLines)
+	dir := t.TempDir()
+	runGit(t, dir, "init", "-q", "-b", "main")
+	writeFileOrFail(t, filepath.Join(dir, "huge.txt"), strings.Join(lines, "\n")+"\n")
+	runGit(t, dir, "add", "huge.txt")
+	runGit(t, dir, "commit", "-q", "-m", "one")
+	lines[777] = "the one line that changed"
+	writeFileOrFail(t, filepath.Join(dir, "huge.txt"), strings.Join(lines, "\n")+"\n")
+	runGit(t, dir, "add", "huge.txt")
+	runGit(t, dir, "commit", "-q", "-m", "two")
+
+	repo, err := OpenRepo(dir)
+	if err != nil {
+		t.Fatalf("OpenRepo: %v", err)
+	}
+	diff, err := repo.RangeDiffFromObjects("HEAD~1", "HEAD")
+	if err != nil {
+		t.Fatalf("RangeDiffFromObjects: %v", err)
+	}
+	if len(diff.Files) != 1 || len(diff.Files[0].Hunks) != 1 {
+		t.Fatalf("huge.txt must reach the review with one hunk, got %+v", diff.Files)
+	}
+	if got := strings.Join(diff.Files[0].Hunks[0].Lines, "\n"); !strings.Contains(got, "+the one line that changed") {
+		t.Errorf("the hunk does not carry the change: %q", got)
+	}
+}
