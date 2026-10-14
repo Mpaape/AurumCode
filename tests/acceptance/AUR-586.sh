@@ -9,8 +9,9 @@
 #                   sealed copy: AUR-563/564 AC-002 stay green), and a value
 #                   outside the notation (board valid: abc ...) is rejected
 #   AC-002          run.sh --check fails with a clear reason when out/.imagem
-#                   is missing or recorded for another tree, and passes when it
-#                   matches (the message says whether the image was verified)
+#                   is missing, passes with a notice when it was recorded for
+#                   another tree and the output still matches, and passes when
+#                   it matches (the message says whether the image was verified)
 #   AC-003          the eight acceptance programs (430 432 434 435 459 461 467
 #                   475) copy cmd internal pkg whole, never an enumerated
 #                   package list, and parse; their behavioral run is in the spec
@@ -130,8 +131,8 @@ probe_imagem() {
   if bash "$run" --check >"$work/chk.out" 2>&1; then echo 'sem out/.imagem o --check passou' >&2; return 1; fi
   grep -q 'out/.imagem ausente' "$work/chk.out" || { echo 'motivo de out/.imagem ausente nao e claro' >&2; return 1; }
   sed 's/^tree=.*/tree=0000000000000000000000000000000000000000000000000000000000000000/' "$work/imagem.keep" > "$out"
-  if bash "$run" --check >"$work/chk.out" 2>&1; then echo 'com arvore de outra imagem o --check passou' >&2; return 1; fi
-  grep -q 'outra arvore' "$work/chk.out" || { echo 'motivo de arvore diferente nao e claro' >&2; return 1; }
+  bash "$run" --check >"$work/chk.out" 2>&1 || { cat "$work/chk.out" >&2; echo 'com arvore de outra imagem e a mesma saida o --check deveria passar com aviso' >&2; return 1; }
+  grep -q 'AVISO: .*outra arvore' "$work/chk.out" || { echo 'arvore diferente sem aviso claro' >&2; return 1; }
   cp "$work/imagem.keep" "$out"
 }
 
@@ -139,12 +140,12 @@ ac002() {
   local c="$work/ac002"
   clone "$c"
   probe_imagem "$c" || fail 'AC-002/imagem-nao-exigida'
-  # a change in the product source changes the tree identity: the recorded
-  # out/.imagem no longer matches
+  # a change in the product source changes the tree identity: a tutorial whose
+  # output did not change is not re-recorded, so --check passes with a notice
   printf '\n// mudanca\n' >> "$c/cmd/aurumcode/main.go"
-  if bash "$c/demo/tutoriais/revisao/run.sh" --check >"$work/chk.out" 2>&1; then fail 'AC-002/fonte-alterada-aceita'; fi
-  grep -q 'outra arvore' "$work/chk.out" || fail 'AC-002/motivo-fonte-alterada'
-  printf '%s/AC-002/ok (--check rejeita out/.imagem ausente ou de outra arvore, com motivo; passa com o gravado)\n' "$card"
+  bash "$c/demo/tutoriais/revisao/run.sh" --check >"$work/chk.out" 2>&1 || fail 'AC-002/fonte-alterada-reprovou-saida-igual'
+  grep -q 'AVISO: .*outra arvore' "$work/chk.out" || fail 'AC-002/fonte-alterada-sem-aviso'
+  printf '%s/AC-002/ok (--check rejeita out/.imagem ausente; de outra arvore passa com aviso quando a saida confere; passa com o gravado)\n' "$card"
 }
 
 ac003() {

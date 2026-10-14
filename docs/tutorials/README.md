@@ -3,8 +3,8 @@
 Cada tutorial é executável: os blocos de configuração são os arquivos de
 `demo/tutoriais/<tutorial>/`, cada caso roda como uma fase (`run.sh <caso>`),
 a saída da última execução real fica em `out/` e `run.sh --check` a compara
-com `expected/` (depois de conferir que `out/.imagem` foi gravado pela imagem desta
-árvore). Cada linha de `expected/` precisa aparecer em `out/` tantas vezes quantas
+com `expected/` (e confere `out/.imagem`: ausente reprova; gravado por outra árvore
+é só aviso, porque só o tutorial cuja saída muda é regravado). Cada linha de `expected/` precisa aparecer em `out/` tantas vezes quantas
 `expected/` a repete (duas linhas `exit_code=3` exigem dois `exit_code=3`, um só
 reprova), e as linhas `RESULTADO:` precisam aparecer na ordem de `expected/`. Valores que mudam com o board ou o relógio aparecem nos blocos pela forma
 (`board valid: <N> atomic cards`, `<timestamp>`, `<duracao>`); a notação está em
