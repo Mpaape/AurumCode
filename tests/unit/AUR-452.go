@@ -212,7 +212,6 @@ func indexOf(haystack, needle string) int {
 	return -1
 }
 
-
 // bigContentProvider contributes a fixed amount of filler text, used to
 // prove the cost-ceiling accounting on a large contribution.
 type bigContentProvider struct{ n int }

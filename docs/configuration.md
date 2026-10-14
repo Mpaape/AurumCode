@@ -928,9 +928,10 @@ ao processo filho, que lê conteúdo controlado pelo autor do PR. O ambiente é:
 
 Variáveis de proxy (`HTTPS_PROXY` etc.) não são repassadas: um runner atrás de
 proxy precisa de regras locais (veja os pacotes `p/...` acima). Limites de
-cada execução: 120 s (`scanner.Timeout`), 5 s para fechar a saída depois do
-cancelamento (`scanner.WaitDelay`) e 32 MiB por fluxo de saída
-(`scanner.MaxOutputBytes`); passar de qualquer um deles é inconclusivo.
+cada execução: 120 s (`scanner.Timeout`) e 5 s para fechar a saída depois do
+cancelamento (`scanner.WaitDelay`); passar de qualquer um deles é
+inconclusivo. A saída não tem teto de tamanho: um relatório grande é lido
+inteiro.
 
 ## Trilha de auditoria e SARIF (AUR-521)
 

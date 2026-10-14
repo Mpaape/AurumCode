@@ -123,3 +123,18 @@ func TestFileCacheKeepsNothingWithoutADeclaredCeiling(t *testing.T) {
 		t.Fatalf("explicit ceiling: %d files kept, want the one read", len(capped.cache))
 	}
 }
+
+// Issue #179: a file past the old 1 MiB per-file read bound is read whole
+// when nothing declares a ceiling; an explicit MaxFileBytes still refuses.
+func TestFilePastTheOldReadBoundIsReadWhole(t *testing.T) {
+	big := strings.Repeat(strings.Repeat("b", 1023)+"\n", 2048)
+	root, tracked := revisionFixture(t, map[string]string{"big.txt": big})
+
+	data, err := openRevision(t, root, tracked, RevisionOptions{}).Read("big.txt")
+	if err != nil || len(data) != len(big) {
+		t.Fatalf("no ceiling: err=%v bytes=%d, want %d", err, len(data), len(big))
+	}
+	if _, err := openRevision(t, root, tracked, RevisionOptions{MaxFileBytes: 1 << 20}).Read("big.txt"); err == nil {
+		t.Fatal("an explicit MaxFileBytes of 1 MiB accepted a 2 MiB file")
+	}
+}
