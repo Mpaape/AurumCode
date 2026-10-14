@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,9 +13,6 @@ import (
 
 // ProtocolVersion is the MCP revision the client asks for.
 const ProtocolVersion = "2025-06-18"
-
-// maxLineBytes bounds one JSON-RPC message read from the server.
-const maxLineBytes = 1 << 20
 
 // Conn is one live connection to a server: newline-delimited JSON-RPC over
 // a writer and a reader. Close ends the server.
@@ -54,16 +52,25 @@ type toolResult struct {
 }
 
 // session drives one conversation on conn.
+// A message has no size ceiling: the server's answer is read whole.
 type session struct {
 	conn   Conn
-	lines  *bufio.Scanner
+	lines  *bufio.Reader
 	nextID int
 }
 
 func newSession(conn Conn) *session {
-	sc := bufio.NewScanner(conn)
-	sc.Buffer(make([]byte, 64*1024), maxLineBytes)
-	return &session{conn: conn, lines: sc}
+	return &session{conn: conn, lines: bufio.NewReader(conn)}
+}
+
+// readLine returns the next newline-delimited message, whatever its size;
+// io.EOF once the server closed with nothing left.
+func (s *session) readLine() ([]byte, error) {
+	line, err := s.lines.ReadBytes('\n')
+	if err == io.EOF && len(line) > 0 {
+		return line, nil
+	}
+	return line, err
 }
 
 // callTool initializes the session and calls tool with args, returning the
@@ -110,12 +117,22 @@ func (s *session) request(ctx context.Context, method string, params any) (json.
 	if err := s.send(rpcRequest{JSONRPC: "2.0", ID: &id, Method: method, Params: params}); err != nil {
 		return nil, err
 	}
-	for s.lines.Scan() {
+	for {
+		line, err := s.readLine()
+		if err == io.EOF {
+			return nil, fmt.Errorf("o servidor MCP encerrou antes de responder %s", method)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("lendo o servidor MCP: %w", err)
+		}
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
 		var resp rpcResponse
-		if err := json.Unmarshal(s.lines.Bytes(), &resp); err != nil {
+		if err := json.Unmarshal(line, &resp); err != nil {
 			return nil, fmt.Errorf("%w: %s não é JSON-RPC", ErrMalformed, method)
 		}
 		if resp.ID == nil || *resp.ID != id {
@@ -129,10 +146,6 @@ func (s *session) request(ctx context.Context, method string, params any) (json.
 		}
 		return resp.Result, nil
 	}
-	if err := s.lines.Err(); err != nil {
-		return nil, fmt.Errorf("lendo o servidor MCP: %w", err)
-	}
-	return nil, fmt.Errorf("o servidor MCP encerrou antes de responder %s", method)
 }
 
 func (s *session) send(req rpcRequest) error {

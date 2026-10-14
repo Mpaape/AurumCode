@@ -33,7 +33,7 @@ var requiredCitations = []string{
 	"scanner.Scanner", "scanner.Report", "scanner.Register", "scanner.Executor",
 	"scanner.Engine", "scanner.FailureReason", "deliberation.Tool", "deliberation.Limits",
 	"deliberation.Transcript", "deliberation.LimitError", "config.ContextProvider",
-	"config.ProviderTimeout", "config.MaxProviderContributionBytes",
+	"config.ProviderTimeout", "config.CuratedProvider",
 }
 
 // citation is a qualified name in the guide: pkg.Name or pkg.Type.Member,

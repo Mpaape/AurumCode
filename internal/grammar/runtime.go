@@ -71,9 +71,6 @@ func (r Runtime) Analyze(name string, content []byte) (s Structure) {
 		return s
 	}
 	s.Language = entry.Name
-	if len(content) > MaxParseBytes {
-		content = content[:MaxParseBytes]
-	}
 	lang := entry.Language()
 	if lang == nil {
 		s.Reason = "grammar failed to load"

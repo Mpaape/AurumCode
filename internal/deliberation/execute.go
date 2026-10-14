@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"unicode/utf8"
 
 	"github.com/Mpaape/AurumCode/internal/llm"
 )
@@ -41,7 +40,7 @@ func (s Session) execute(ctx context.Context, round int, tools map[string]Tool, 
 	record.Status = StatusExecuted
 	record.Result = s.redact(result.Summary)
 	record.Digest = result.Digest
-	return toolMessage(call, capContent(s.redact(result.Content))), record, nil
+	return toolMessage(call, s.redact(result.Content)), record, nil
 }
 
 // refuse records a call that was never executed and tells the model why.
@@ -53,16 +52,4 @@ func (s Session) refuse(record Call, call llm.ToolCall, reason error) (llm.Messa
 
 func toolMessage(call llm.ToolCall, content string) llm.Message {
 	return llm.Message{Role: llm.RoleTool, ToolCallID: call.ID, Content: content}
-}
-
-// capContent keeps a tool message within maxToolMessageBytes.
-func capContent(content string) string {
-	if len(content) <= maxToolMessageBytes {
-		return content
-	}
-	cut := maxToolMessageBytes - len(truncationNote)
-	for cut > 0 && !utf8.RuneStart(content[cut]) {
-		cut--
-	}
-	return content[:cut] + truncationNote
 }

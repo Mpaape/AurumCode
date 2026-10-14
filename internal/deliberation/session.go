@@ -8,14 +8,6 @@ import (
 	"github.com/Mpaape/AurumCode/internal/llm"
 )
 
-// maxToolMessageBytes caps what one tool result sends back to the model;
-// the full result stays with the tool (a scanner's findings reach the gate
-// whatever the cap).
-const maxToolMessageBytes = 8192
-
-// truncationNote ends a tool message cut by maxToolMessageBytes.
-const truncationNote = "\n[resultado truncado pelo limite da mensagem de ferramenta]"
-
 // Session is one bounded deliberation.
 type Session struct {
 	Caller  Caller

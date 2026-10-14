@@ -19,14 +19,6 @@ const (
 	citedRadius = 12
 	// definitionLines is how many lines from a symbol occurrence are shown.
 	definitionLines = 15
-	// maxSymbols bounds the symbols of one finding looked up.
-	maxSymbols = 6
-	// maxOccurrences bounds the windows of one symbol in one file.
-	maxOccurrences = 3
-	// maxSiblingFiles bounds the files of the cited file's directory read.
-	maxSiblingFiles = 40
-	// maxExcerptBytes bounds the code of one verification prompt.
-	maxExcerptBytes = 24 << 10
 )
 
 // identifier is a name the finding's text may mention.
@@ -66,14 +58,10 @@ func excerpts(src Source, declared Declarer, issue types.ReviewIssue) ([]prompt.
 	if declared != nil {
 		windows = append(windows, symbolWindows(src, declared, issue, cited, files, lines)...)
 	}
+	// Every window is shown, whatever the size of the prompt (issue #179).
 	var out []prompt.VerificationExcerpt
-	size := 0
 	for _, w := range windows {
 		text := strings.Join(lines[w.path][w.start-1:w.end], "\n")
-		if size+len(text) > maxExcerptBytes && len(out) > 0 {
-			break
-		}
-		size += len(text)
 		out = append(out, prompt.VerificationExcerpt{Path: w.path, StartLine: w.start, EndLine: w.end, Label: w.label, Text: text})
 	}
 	shown := map[string]string{}
@@ -105,17 +93,12 @@ func symbolWindows(src Source, declared Declarer, issue types.ReviewIssue, cited
 		return nil
 	}
 	var out []window
-	looked := 0
 	for _, p := range siblings(src, issue.File) {
 		data, err := src.Read(p)
 		if err != nil {
 			continue
 		}
 		for _, name := range declaredAmong(declared(p, data), names) {
-			if looked == maxSymbols {
-				return out
-			}
-			looked++
 			if _, ok := files[p]; !ok {
 				files[p], lines[p] = string(data), splitLines(string(data))
 			}
@@ -148,14 +131,12 @@ func declaredAmong(symbols []string, names map[string]bool) []string {
 	return out
 }
 
-// siblings is the cited file first, then the other files of its directory.
+// siblings is the cited file first, then every other file of its
+// directory, however many there are.
 func siblings(src Source, file string) []string {
 	out := []string{file}
 	dir := path.Dir(file)
 	for _, p := range src.Paths() {
-		if len(out) == maxSiblingFiles {
-			break
-		}
 		if p != file && path.Dir(p) == dir {
 			out = append(out, p)
 		}
@@ -164,7 +145,7 @@ func siblings(src Source, file string) []string {
 }
 
 // occurrences is a window from each line naming name, outside the cited
-// window, up to maxOccurrences.
+// window, every one of them (issue #179).
 func occurrences(p, name string, lines []string, cited window) []window {
 	var out []window
 	for i, line := range lines {
@@ -176,9 +157,6 @@ func occurrences(p, name string, lines []string, cited window) []window {
 			continue
 		}
 		out = append(out, window{path: p, start: n, end: min(len(lines), n+definitionLines-1), label: "símbolo " + name})
-		if len(out) == maxOccurrences {
-			break
-		}
 	}
 	return out
 }

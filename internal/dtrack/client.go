@@ -178,11 +178,8 @@ func (c *Client) WithClock(now Clock, sleep Sleeper) *Client {
 	return c
 }
 
-// maxResponseBytes bounds every response body this package ever reads,
-// independent of the redaction filter further up the call stack: a
-// malicious or misconfigured server cannot make this client hold an
-// unbounded body in memory just to extract a token or three integers.
-const maxResponseBytes = 1 << 20
+// A response body has no size ceiling (issue #179): a large answer is
+// decoded whole instead of failing the gate's check.
 
 func (c *Client) newRequest(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, method, c.host+path, body)
@@ -236,11 +233,11 @@ func (c *Client) Upload(ctx context.Context, project string, bom []byte) (string
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBytes))
+		io.Copy(io.Discard, resp.Body)
 		return "", &StatusError{Op: "upload", Status: resp.StatusCode}
 	}
 	var out uploadResponse
-	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBytes)).Decode(&out); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return "", fmt.Errorf("dtrack: upload: decoding response: %w", err)
 	}
 	if strings.TrimSpace(out.Token) == "" {
@@ -270,11 +267,11 @@ func (c *Client) bomProcessing(ctx context.Context, token string) (*bool, error)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBytes))
+		io.Copy(io.Discard, resp.Body)
 		return nil, &StatusError{Op: "poll", Status: resp.StatusCode}
 	}
 	var out bomStatusResponse
-	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBytes)).Decode(&out); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, fmt.Errorf("dtrack: poll: decoding response: %w", err)
 	}
 	return out.Processing, nil
@@ -335,11 +332,11 @@ func (c *Client) ProjectMetrics(ctx context.Context, project string) (ProjectMet
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBytes))
+		io.Copy(io.Discard, resp.Body)
 		return ProjectMetrics{}, &StatusError{Op: "metrics", Status: resp.StatusCode}
 	}
 	var out ProjectMetrics
-	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBytes)).Decode(&out); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return ProjectMetrics{}, fmt.Errorf("dtrack: metrics: decoding response: %w", err)
 	}
 	return out, nil

@@ -16,8 +16,8 @@ import (
 // SymbolToolName is the definitions-and-uses lookup of a symbol.
 const SymbolToolName = "find_symbol"
 
-// symbolMaxHits bounds the occurrences one lookup returns.
-const symbolMaxHits = 60
+// A lookup returns every definition and occurrence, each line whole (issue
+// #179).
 
 type symbolArgs struct {
 	Name string `json:"name" desc:"nome do símbolo (função, método, tipo, constante)"`
@@ -78,16 +78,12 @@ func (t *SymbolTool) Run(ctx context.Context, raw json.RawMessage) (deliberation
 			if !hasWord(line, args.Name) || t.isComment(lang, line) {
 				continue
 			}
-			if hits == symbolMaxHits {
-				fmt.Fprintf(&b, "[ocorrências truncadas em %d]\n", symbolMaxHits)
-				return t.finish(args.Name, defined, b.String(), hits)
-			}
 			hits++
 			note := ""
 			if !st.HasStructure {
 				note = " (sem gramática: texto)"
 			}
-			fmt.Fprintf(&b, "%s:%d%s: %s\n", p, i+1, note, clip(strings.TrimSpace(line)))
+			fmt.Fprintf(&b, "%s:%d%s: %s\n", p, i+1, note, strings.TrimSpace(line))
 		}
 	}
 	return t.finish(args.Name, defined, b.String(), hits)

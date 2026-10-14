@@ -12,9 +12,10 @@ import (
 	"github.com/Mpaape/AurumCode/internal/grammar"
 )
 
-// Limits bounds every phase of resolution so a large or hostile repo can
-// never exhaust memory or time. The zero value is not valid; use NewResolver
-// for sensible defaults or NewResolverWithLimits to customize.
+// Limits optionally bounds resolution. Each field is a ceiling only when
+// positive: the zero value (NewResolver's) reads every file whole and
+// records every reference, so no size or count leaves a dependent out of
+// the context (issue #179).
 type Limits struct {
 	MaxFiles      int // max repo files enumerated for the reference scan
 	MaxBytes      int // max bytes read from any single file
@@ -22,15 +23,6 @@ type Limits struct {
 }
 
 const (
-	// DefaultMaxFiles bounds how many files are enumerated for the reference
-	// scan. Changed files are always read, regardless of this limit.
-	DefaultMaxFiles = 2000
-	// DefaultMaxBytes bounds how many bytes are read from any single file.
-	// Files larger than this are scanned as a truncated prefix.
-	DefaultMaxBytes = 256 * 1024
-	// DefaultMaxDependents bounds how many dependent references are recorded.
-	DefaultMaxDependents = 500
-
 	// maxDroppedNotes bounds the length of Pack.Dropped so a pathological repo
 	// cannot make the report itself unbounded.
 	maxDroppedNotes = 200
@@ -75,27 +67,12 @@ type Resolver struct {
 	exclude func(rel string) bool
 }
 
-// NewResolver returns a Resolver with the default limits.
-func NewResolver() *Resolver {
-	return NewResolverWithLimits(Limits{
-		MaxFiles:      DefaultMaxFiles,
-		MaxBytes:      DefaultMaxBytes,
-		MaxDependents: DefaultMaxDependents,
-	})
-}
+// NewResolver returns a Resolver without ceilings.
+func NewResolver() *Resolver { return NewResolverWithLimits(Limits{}) }
 
-// NewResolverWithLimits returns a Resolver with explicit limits. Any
-// non-positive field falls back to its default.
+// NewResolverWithLimits returns a Resolver with explicit limits. A
+// non-positive field is no ceiling.
 func NewResolverWithLimits(limits Limits) *Resolver {
-	if limits.MaxFiles <= 0 {
-		limits.MaxFiles = DefaultMaxFiles
-	}
-	if limits.MaxBytes <= 0 {
-		limits.MaxBytes = DefaultMaxBytes
-	}
-	if limits.MaxDependents <= 0 {
-		limits.MaxDependents = DefaultMaxDependents
-	}
 	return &Resolver{limits: limits, grammar: grammar.Default()}
 }
 
@@ -278,7 +255,7 @@ func (r *Resolver) normalizeAllowed(root string, allowed []string, pack *Pack) [
 		out = append(out, p)
 	}
 	sort.Strings(out)
-	if len(out) > r.limits.MaxFiles {
+	if r.limits.MaxFiles > 0 && len(out) > r.limits.MaxFiles {
 		pack.Dropped = appendDropped(pack.Dropped, "file enumeration truncated at "+itoa(r.limits.MaxFiles)+" files")
 		out = out[:r.limits.MaxFiles]
 	}
@@ -326,7 +303,7 @@ func (r *Resolver) enumerate(root string, pack *Pack) []string {
 		if !d.Type().IsRegular() {
 			return nil
 		}
-		if len(files) >= r.limits.MaxFiles {
+		if r.limits.MaxFiles > 0 && len(files) >= r.limits.MaxFiles {
 			truncated = true
 			return nil
 		}
@@ -340,8 +317,8 @@ func (r *Resolver) enumerate(root string, pack *Pack) []string {
 	return files
 }
 
-// readFile reads up to MaxBytes of root/rel, skipping symlinks. It reports
-// whether the read was truncated.
+// readFile reads root/rel whole (up to MaxBytes when that is positive),
+// skipping symlinks. It reports whether the read was truncated.
 func (r *Resolver) readFile(root, rel string) ([]byte, bool, error) {
 	full := filepath.Join(root, filepath.FromSlash(rel))
 	info, err := os.Lstat(full)
@@ -359,6 +336,10 @@ func (r *Resolver) readFile(root, rel string) ([]byte, bool, error) {
 		return nil, false, err
 	}
 	defer f.Close()
+	if r.limits.MaxBytes <= 0 {
+		data, err := io.ReadAll(f)
+		return data, false, err
+	}
 	data, err := io.ReadAll(io.LimitReader(f, int64(r.limits.MaxBytes)))
 	if err != nil {
 		return nil, false, err
@@ -381,7 +362,7 @@ func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]b
 		if changedSet[rel] {
 			continue
 		}
-		if len(refs) >= r.limits.MaxDependents {
+		if r.reachedDependents(len(refs)) {
 			truncated = true
 			break
 		}
@@ -401,7 +382,7 @@ func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]b
 		}
 		if symRegex != nil {
 			for _, m := range symRegex.FindAllIndex(data, -1) {
-				if len(refs) >= r.limits.MaxDependents {
+				if r.reachedDependents(len(refs)) {
 					truncated = true
 					break
 				}
@@ -413,6 +394,11 @@ func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]b
 		pack.Dropped = appendDropped(pack.Dropped, "dependents truncated at "+itoa(r.limits.MaxDependents))
 	}
 	pack.References = refs
+}
+
+// reachedDependents reports an explicit MaxDependents reached by n.
+func (r *Resolver) reachedDependents(n int) bool {
+	return r.limits.MaxDependents > 0 && n >= r.limits.MaxDependents
 }
 
 // finalize sorts and de-duplicates the pack and derives Dependents from the

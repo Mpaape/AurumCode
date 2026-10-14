@@ -30,12 +30,6 @@ type Source interface {
 // ErrStale marks an answer older than the configured limit.
 var ErrStale = errors.New("dependencies: advisory source answer is older than the limit")
 
-// maxOSVBody bounds one answer; a larger one is not trustworthy.
-const maxOSVBody = 16 << 20
-
-// maxOSVPages bounds the paging of one query.
-const maxOSVPages = 20
-
 // OSV is the OSV API client (POST /v1/query). MaxAge, when positive, bounds
 // how old an answer may be by its Date and Age headers; an answer without a
 // Date header is then stale too.
@@ -100,11 +94,15 @@ type osvSeverity struct {
 	Score string `json:"score"`
 }
 
-// Query asks the source about q, following its pages.
+// Query asks the source about q, following every page: no answer size nor
+// page count makes the check inconclusive (issue #179). A page token the
+// source already sent is a real error (a source that would loop forever),
+// and ctx bounds the whole paging.
 func (o OSV) Query(ctx context.Context, q Query) ([]Vulnerability, error) {
 	var out []Vulnerability
 	token := ""
-	for page := 0; page < maxOSVPages; page++ {
+	seen := map[string]bool{}
+	for {
 		answer, err := o.page(ctx, osvQuery{Package: osvPackage{Name: q.Name, Ecosystem: q.Ecosystem}, Version: q.Version, PageToken: token})
 		if err != nil {
 			return nil, err
@@ -118,8 +116,11 @@ func (o OSV) Query(ctx context.Context, q Query) ([]Vulnerability, error) {
 		if token = answer.NextPageToken; token == "" {
 			return out, nil
 		}
+		if seen[token] {
+			return nil, fmt.Errorf("dependencies: OSV repeated a page token for %s/%s", q.Ecosystem, q.Name)
+		}
+		seen[token] = true
 	}
-	return nil, fmt.Errorf("dependencies: OSV answer for %s/%s exceeds %d pages", q.Ecosystem, q.Name, maxOSVPages)
 }
 
 func (o OSV) page(ctx context.Context, body osvQuery) (osvAnswer, error) {
@@ -143,12 +144,9 @@ func (o OSV) page(ctx context.Context, body osvQuery) (osvAnswer, error) {
 	if err := o.fresh(resp.Header); err != nil {
 		return osvAnswer{}, err
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxOSVBody+1))
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return osvAnswer{}, fmt.Errorf("dependencies: reading OSV answer: %w", err)
-	}
-	if len(data) > maxOSVBody {
-		return osvAnswer{}, fmt.Errorf("dependencies: OSV answer exceeds %d bytes", maxOSVBody)
 	}
 	var answer osvAnswer
 	if err := json.Unmarshal(data, &answer); err != nil {

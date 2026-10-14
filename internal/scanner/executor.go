@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"time"
@@ -18,13 +17,6 @@ const Timeout = 120 * time.Second
 // (a grandchild such as a vet tool or semgrep-core): past it the pipes are
 // closed and the scan fails, so Timeout is a real limit.
 const WaitDelay = 5 * time.Second
-
-// MaxOutputBytes bounds each output stream of one engine's process. A
-// larger stream is not a trustworthy report: the scan is inconclusive.
-const MaxOutputBytes = 32 << 20
-
-// ErrOutputTooLarge marks a stream that exceeded MaxOutputBytes.
-var ErrOutputTooLarge = fmt.Errorf("scanner: output exceeds %d bytes: %w", MaxOutputBytes, ErrInvalidOutput)
 
 // ErrInvalidOutput marks a scan whose output is not a trustworthy report
 // (unparseable, wrong shape, or carrying the engine's own errors).
@@ -114,8 +106,9 @@ func ExecCommand(ctx context.Context, dir, binary string, args ...string) (stdou
 
 // IsolatedCommand is the production Command: binary from PATH in dir, with
 // exactly env as its environment (nil is read as empty, never as
-// "inherit"), each stream bounded by MaxOutputBytes, and its pipes closed
-// WaitDelay after a cancelled context.
+// "inherit"), each stream kept whole (a large report is still the report:
+// no size makes a scan inconclusive), and its pipes closed WaitDelay after
+// a cancelled context.
 func IsolatedCommand(env []string) Command {
 	if env == nil {
 		env = []string{}
@@ -125,34 +118,9 @@ func IsolatedCommand(env []string) Command {
 		cmd.Dir = dir
 		cmd.Env = env
 		cmd.WaitDelay = WaitDelay
-		outBuf, errBuf := &boundedBuffer{}, &boundedBuffer{}
-		cmd.Stdout, cmd.Stderr = outBuf, errBuf
+		var outBuf, errBuf bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &outBuf, &errBuf
 		err := cmd.Run()
-		if outBuf.exceeded || errBuf.exceeded {
-			return "", "", ErrOutputTooLarge
-		}
 		return outBuf.String(), errBuf.String(), err
 	}
 }
-
-// boundedBuffer keeps at most MaxOutputBytes and remembers it was cut. It
-// never fails a write, so the child is not killed by a broken pipe before
-// the caller learns the output was too large. The buffer is a field, not
-// embedded, so io.Copy cannot bypass Write through bytes.Buffer.ReadFrom.
-type boundedBuffer struct {
-	buf      bytes.Buffer
-	exceeded bool
-}
-
-func (b *boundedBuffer) Write(p []byte) (int, error) {
-	if room := MaxOutputBytes - b.buf.Len(); len(p) > room {
-		b.exceeded = true
-		if room > 0 {
-			b.buf.Write(p[:room])
-		}
-		return len(p), nil
-	}
-	return b.buf.Write(p)
-}
-
-func (b *boundedBuffer) String() string { return b.buf.String() }

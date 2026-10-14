@@ -165,10 +165,14 @@ func TestAC003EveryOtherOutcomeKeepsBlocking(t *testing.T) {
 			t.Errorf("%s: must keep blocking with %s, got outcome %s", tc.name, tc.want, res.Records[0].Outcome)
 		}
 	}
-	limited := newVerifier(rev, &caller{replies: []string{fixture(t, "verifier-refuted.json")}}, 0).
-		Verify(context.Background(), []types.ReviewIssue{issue}, blocksAll)
-	if len(limited.Kept) != 1 || limited.Records[0].Outcome != OutcomeCallLimit || limited.Calls != 0 {
-		t.Errorf("past the call ceiling the finding keeps blocking: outcome %s", limited.Records[0].Outcome)
+	// Past an explicit ceiling (max_calls: 1) the second finding keeps
+	// blocking; 0 is no ceiling (TestEveryFindingIsVerifiedWithoutACallCeiling).
+	second := issue
+	second.Line = 7
+	limited := newVerifier(rev, &caller{replies: []string{fixture(t, "verifier-refuted.json")}}, 1).
+		Verify(context.Background(), []types.ReviewIssue{issue, second}, blocksAll)
+	if len(limited.Kept) != 1 || limited.Records[1].Outcome != OutcomeCallLimit || limited.Calls != 1 {
+		t.Errorf("past the call ceiling the finding keeps blocking: outcome %s", limited.Records[1].Outcome)
 	}
 	unread := newVerifier(nil, &caller{replies: []string{fixture(t, "verifier-refuted.json")}}, 8).
 		Verify(context.Background(), []types.ReviewIssue{issue}, blocksAll)
