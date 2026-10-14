@@ -21,10 +21,10 @@ func TestDefaultResolverHasNoFileOrReferenceCeiling(t *testing.T) {
 	root := t.TempDir()
 	files := map[string]string{"big/big.go": "package big\n\nfunc F() {}\n"}
 	for n := 0; n < 2100; n++ {
-		files[fmt.Sprintf("use/u%04d.txt", n)] = "calls F() here\n"
+		files[fmt.Sprintf("use/u%04d.go", n)] = "package use\n\nfunc u() { F() }\n"
 	}
-	long := "calls F() " + strings.Repeat("y", 300)
-	files["use/large.txt"] = strings.Repeat("filler line\n", (300<<10)/12) + long + "\n"
+	long := "func g() { F() } // " + strings.Repeat("y", 300)
+	files["use/large.go"] = "package use\n\n" + strings.Repeat("// filler line\n", (300<<10)/15) + long + "\n"
 	writeTree(t, root, files)
 
 	pack, err := NewResolver().Resolve(root, []string{"big/big.go"})
@@ -37,7 +37,7 @@ func TestDefaultResolverHasNoFileOrReferenceCeiling(t *testing.T) {
 	}
 	found := false
 	for _, s := range pack.Snippets {
-		if s.File == "use/large.txt" && strings.Contains(s.Text, long) {
+		if s.File == "use/large.go" && strings.Contains(s.Text, long) {
 			found = true
 		}
 	}
@@ -54,14 +54,14 @@ func TestDefaultResolverScansPastTheOldSymbolCeiling(t *testing.T) {
 	for n := 0; n < 4100; n++ {
 		fmt.Fprintf(&symbols, "func G%d() {}\n", n)
 	}
-	writeTree(t, root, map[string]string{"big/big.go": symbols.String(), "use/u.txt": "calls G4099() here\n"})
+	writeTree(t, root, map[string]string{"big/big.go": symbols.String(), "use/u.go": "package use\n\nfunc u() { G4099() }\n"})
 
 	pack, err := NewResolver().Resolve(root, []string{"big/big.go"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	noTruncation(t, pack)
-	if len(pack.Dependents) != 1 || pack.Dependents[0] != "use/u.txt" {
-		t.Fatalf("dependents = %v, want use/u.txt", pack.Dependents)
+	if len(pack.Dependents) != 1 || pack.Dependents[0] != "use/u.go" {
+		t.Fatalf("dependents = %v, want use/u.go", pack.Dependents)
 	}
 }

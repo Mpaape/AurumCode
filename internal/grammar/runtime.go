@@ -109,9 +109,10 @@ func flatten(syms []gotreesitter.OutlineSymbol, out []string) []string {
 
 // excludedDeclarationParts name tree-sitter node-type fragments that denote
 // something other than a reusable declaration. They are grammar vocabulary
-// shared by every grammar (blocks, parameters, call arguments, struct fields),
-// not language names.
-var excludedDeclarationParts = []string{"block", "param", "argument", "field", "call", "body_statement"}
+// shared by every grammar (blocks, parameters, call arguments, struct fields,
+// commands a shell runs), not language names. A command names the program it
+// invokes, the way a call names its callee: a use, never a declaration.
+var excludedDeclarationParts = []string{"block", "param", "argument", "field", "call", "body_statement", "command"}
 
 // declaredNames walks the tree and collects the text of every `name` field of
 // a declaration-shaped node outside executable blocks. The tags query of a

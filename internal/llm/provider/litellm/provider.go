@@ -7,6 +7,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"io"
 	"net/http"
+	"time"
 )
 
 // Provider implements LiteLLM proxy provider (OpenAI-compatible)
@@ -16,6 +17,9 @@ type Provider struct {
 	model   string
 	dialect Dialect
 	client  *http.Client
+	// sleep waits between attempts after a rate limit; time.Sleep unless a
+	// test replaces it.
+	sleep func(time.Duration)
 }
 
 // NewProvider creates a new LiteLLM provider. The client timeout comes from
@@ -36,6 +40,7 @@ func NewProviderWithDialect(dialect Dialect, apiKey, baseURL, model string) *Pro
 		client: &http.Client{
 			Timeout: llm.ProviderTimeout(),
 		},
+		sleep: time.Sleep,
 	}
 }
 
@@ -173,7 +178,8 @@ func (p *Provider) Complete(prompt string, opts llm.Options) (llm.Response, erro
 }
 
 // post sends one chat-completions request and returns the raw body of a 200
-// response. Every request this provider makes goes through it.
+// response. Every request this provider makes goes through it; a plain rate
+// limit is waited out and retried (retry.go).
 func (p *Provider) post(reqBody any) ([]byte, error) {
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
@@ -184,31 +190,30 @@ func (p *Provider) post(reqBody any) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: invalid base URL: %w", p.dialect.Name, err)
 	}
+	return p.postRetrying(url, jsonData)
+}
+
+// send makes one attempt: the status, the headers and the body.
+func (p *Provider) send(url string, jsonData []byte) (int, http.Header, []byte, error) {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return 0, nil, nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	p.dialect.authorize(req, p.apiKey)
 
-	// Send request
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return 0, nil, nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		return 0, nil, nil, fmt.Errorf("failed to read response: %w", err)
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, p.apiError(resp.StatusCode, body)
-	}
-	return body, nil
+	return resp.StatusCode, resp.Header, body, nil
 }
 
 // Tokens estimates token count (approximate)

@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/Mpaape/AurumCode/internal/grammar"
 )
@@ -41,6 +42,21 @@ func matchesImport(imp string, dirKeys, stemKeys, dirBaseKeys map[string]struct{
 	if n == "" {
 		return false
 	}
+	// A dotted module path ("pkg.util", or "pkg.util.helper" for a name
+	// imported from it) names the file of one of its slashed prefixes.
+	if !strings.Contains(n, "/") && strings.Contains(n, ".") {
+		parts := strings.Split(n, ".")
+		for i := len(parts); i > 0; i-- {
+			if matchesPath(strings.Join(parts[:i], "/"), dirKeys, stemKeys, dirBaseKeys) {
+				return true
+			}
+		}
+	}
+	return matchesPath(n, dirKeys, stemKeys, dirBaseKeys)
+}
+
+// matchesPath is matchesImport for one normalized path.
+func matchesPath(n string, dirKeys, stemKeys, dirBaseKeys map[string]struct{}) bool {
 	if _, ok := dirKeys[n]; ok {
 		return true
 	}
@@ -75,23 +91,46 @@ func normalizeImport(imp string) string {
 	return s
 }
 
-// symbolAlternation builds a single word-boundary regex matching any changed
-// symbol, sorted for determinism. If there are too many symbols it returns nil
-// and a Dropped note instead.
-func symbolAlternation(symbolFiles map[string][]string) (*regexp.Regexp, string) {
-	if len(symbolFiles) == 0 {
-		return nil, ""
+// symbolRegexByLanguage builds, per language, a single word-boundary regex
+// matching every changed symbol that language defines, sorted for
+// determinism.
+func symbolRegexByLanguage(symbolLangs map[string]map[string]bool) map[string]*regexp.Regexp {
+	byLang := map[string][]string{}
+	for name, langs := range symbolLangs {
+		for lang := range langs {
+			byLang[lang] = append(byLang[lang], name)
+		}
 	}
-	names := make([]string, 0, len(symbolFiles))
-	for name := range symbolFiles {
-		names = append(names, name)
+	out := make(map[string]*regexp.Regexp, len(byLang))
+	for lang, names := range byLang {
+		sort.Strings(names)
+		parts := make([]string, len(names))
+		for i, name := range names {
+			parts[i] = regexp.QuoteMeta(name)
+		}
+		out[lang] = regexp.MustCompile(`\b(?:` + strings.Join(parts, "|") + `)\b`)
 	}
-	sort.Strings(names)
-	parts := make([]string, len(names))
-	for i, name := range names {
-		parts[i] = regexp.QuoteMeta(name)
+	return out
+}
+
+// isIdentifier reports whether a grammar's definition name is an identifier
+// with a letter (a letter or underscore, then letters, digits or
+// underscores; a blank "_" names nothing): punctuation
+// and quoted or expanded words such as ":" or "\"$fn\"" are not symbols another
+// file can reference.
+func isIdentifier(name string) bool {
+	letter := false
+	for i, c := range name {
+		switch {
+		case unicode.IsLetter(c):
+			letter = true
+		case c == '_':
+		case i > 0 && unicode.IsDigit(c):
+		default:
+			return false
+		}
 	}
-	return regexp.MustCompile(`\b(?:` + strings.Join(parts, "|") + `)\b`), ""
+	return letter
 }
 
 func indexOf(content []byte, sub []byte) int {

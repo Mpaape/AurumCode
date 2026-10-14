@@ -140,10 +140,12 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 	}
 	repoFiles = r.keepIncluded(repoFiles, pack)
 
-	symbolFiles := make(map[string][]string) // symbol name -> defining changed files
-	dirKeys := make(map[string]struct{})     // directory path of changed files
-	stemKeys := make(map[string]struct{})    // base name (no ext) of changed files
-	dirBaseKeys := make(map[string]struct{}) // base directory name of changed files
+	symbolFiles := make(map[string][]string)        // symbol name -> defining changed files
+	symbolLangs := make(map[string]map[string]bool) // symbol name -> languages defining it
+	dirKeys := make(map[string]struct{})            // directory path of changed files
+	stemKeys := make(map[string]struct{})           // base name (no ext) of changed files
+	dirBaseKeys := make(map[string]struct{})        // base directory name of changed files
+	changedDirs := make(map[string]struct{})        // directories of changed files, "" for the root
 
 	for _, rel := range changedPaths {
 		data, truncated, err := r.readFile(root, rel)
@@ -161,9 +163,17 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 			pack.Unstructured = append(pack.Unstructured, rel+": "+st.Reason)
 		}
 		for _, sym := range st.Symbols {
+			if !isIdentifier(sym) {
+				continue
+			}
 			symbolFiles[sym] = append(symbolFiles[sym], rel)
+			if symbolLangs[sym] == nil {
+				symbolLangs[sym] = map[string]bool{}
+			}
+			symbolLangs[sym][st.Language] = true
 		}
 		dir, stem, dirBase := importKeys(rel)
+		changedDirs[dir] = struct{}{}
 		if dir != "" {
 			dirKeys[dir] = struct{}{}
 			dirBaseKeys[dirBase] = struct{}{}
@@ -171,7 +181,7 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 		stemKeys[stem] = struct{}{}
 	}
 
-	r.scan(root, repoFiles, changedSet, symbolFiles, dirKeys, stemKeys, dirBaseKeys, pack)
+	r.scan(root, repoFiles, changedSet, symbolLangs, importIndex{dirKeys, stemKeys, dirBaseKeys, changedDirs}, pack)
 
 	for sym := range symbolFiles {
 		pack.Symbols = append(pack.Symbols, sym)
@@ -351,15 +361,24 @@ func (r *Resolver) readFile(root, rel string) ([]byte, bool, error) {
 	return data, truncated, nil
 }
 
-// scan walks every non-changed file and records import and symbol-reference
-// edges that point at the changed set.
-func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]bool, symbolFiles map[string][]string, dirKeys, stemKeys, dirBaseKeys map[string]struct{}, pack *Pack) {
-	symRegex, skipped := symbolAlternation(symbolFiles)
-	if skipped != "" {
-		pack.Dropped = appendDropped(pack.Dropped, skipped)
-	}
+// importIndex is the three import match keys of the changed files.
+// changedDirs are the changed files' directories, "" for the root.
+type importIndex struct{ dirKeys, stemKeys, dirBaseKeys, changedDirs map[string]struct{} }
 
+// scan walks every non-changed file and records import and symbol-reference
+// edges that point at the changed set. A symbol is looked for only in files
+// that can reach it -- files that import a changed file, sit in a changed
+// file's directory, or declare no import the grammar can read -- and only in files of a language that defines it among
+// the changed files: a Go function is referenced from Go code that imports
+// its package, never from the prose, plans, shell scripts or unrelated
+// packages that happen to contain the same word. A name one of those files
+// also defines (String, Name, Run) is ambiguous and yields no reference. That is relevance, not a
+// ceiling: a real symbol with many references keeps every one of them.
+func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]bool, symbolLangs map[string]map[string]bool, imports importIndex, pack *Pack) {
+	regexByLang := symbolRegexByLanguage(symbolLangs)
 	refs := make([]Reference, 0)
+	var symbolRefs []Reference
+	definedElsewhere := map[string]bool{}
 	truncated := false
 	for _, rel := range repoFiles {
 		if changedSet[rel] {
@@ -377,20 +396,42 @@ func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]b
 		if wasTruncated {
 			pack.Dropped = appendDropped(pack.Dropped, "truncated "+rel+" at "+itoa(r.limits.MaxBytes)+" bytes")
 		}
-		for _, imp := range r.structureOf(rel, data).Imports {
-			if matchesImport(imp, dirKeys, stemKeys, dirBaseKeys) {
+		st := r.structureOf(rel, data)
+		dir, _, _ := importKeys(rel)
+		// A file that declares no import gives the grammar nothing to tell
+		// its dependencies by: its text is scanned.
+		_, linked := imports.changedDirs[dir]
+		linked = linked || len(st.Imports) == 0
+		for _, imp := range st.Imports {
+			if matchesImport(imp, imports.dirKeys, imports.stemKeys, imports.dirBaseKeys) {
+				linked = true
 				offset := indexOf(data, []byte(imp))
 				refs = append(refs, Reference{File: rel, Symbol: imp, Line: lineOf(data, offset)})
 			}
 		}
-		if symRegex != nil {
-			for _, m := range symRegex.FindAllIndex(data, -1) {
-				if r.reachedDependents(len(refs)) {
-					truncated = true
-					break
-				}
-				refs = append(refs, Reference{File: rel, Symbol: string(data[m[0]:m[1]]), Line: lineOf(data, m[0])})
+		symRegex := regexByLang[st.Language]
+		if !linked || !st.HasStructure || symRegex == nil {
+			continue
+		}
+		for _, sym := range st.Symbols {
+			if symbolLangs[sym][st.Language] {
+				definedElsewhere[sym] = true
 			}
+		}
+		for _, m := range symRegex.FindAllIndex(data, -1) {
+			if r.reachedDependents(len(refs) + len(symbolRefs)) {
+				truncated = true
+				break
+			}
+			symbolRefs = append(symbolRefs, Reference{File: rel, Symbol: string(data[m[0]:m[1]]), Line: lineOf(data, m[0])})
+		}
+	}
+	// A name another file that can reach the change also defines is
+	// ambiguous: its textual hits cannot be told apart from uses of that
+	// other definition, so they are not references to the change.
+	for _, ref := range symbolRefs {
+		if !definedElsewhere[ref.Symbol] {
+			refs = append(refs, ref)
 		}
 	}
 	if truncated {
