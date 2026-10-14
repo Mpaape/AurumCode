@@ -54,7 +54,7 @@ perfil escolhido, a mesma da seção do provedor abaixo:
 ```yaml
 jobs:
   review:
-    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.0.0
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.1.0
     with:
       provider: anthropic
       model: <id do modelo no provedor>
@@ -120,7 +120,7 @@ opcionais `LLM_FALLBACK_1_API_KEY`, `LLM_FALLBACK_1_BASE_URL`,
 ```yaml
 jobs:
   review:
-    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.0.0
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.1.0
     with:
       provider: bedrock
       fallback_1_provider: litellm
