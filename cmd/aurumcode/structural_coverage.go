@@ -73,42 +73,29 @@ func uninspectedPRNotices(diff *types.Diff, dir string) []analyzer.DiffNotice {
 	for _, f := range diff.Files {
 		content, ok := prFileContent(f, dir)
 		if !ok {
-			notices = append(notices, analyzer.DiffNotice{
-				Path:    f.Path,
-				Message: "not reviewed, no patch (binary or large): " + f.Path,
-				Reason:  analyzer.NoticeReasonNoPatch,
-			})
+			notices = append(notices, noPatchNotice(f.Path))
 			continue
 		}
 		if n := analyzer.ClassifyBlob(f.Path, content); n != nil {
 			notices = append(notices, *n)
 			continue
 		}
-		if len(f.Hunks) == 0 && largeCheckoutCopy(dir, f.Path) {
-			notices = append(notices, analyzer.DiffNotice{
-				Path:    f.Path,
-				Message: "not reviewed, no patch (binary or large): " + f.Path,
-				Reason:  analyzer.NoticeReasonNoPatch,
-			})
+		if len(f.Hunks) == 0 {
+			// Still line-less after recoverMissingPatches: nothing of it was
+			// shown to the model, whatever its checkout copy holds.
+			notices = append(notices, noPatchNotice(f.Path))
 		}
 	}
 	return notices
 }
 
-// noPatchLargeBytes keeps the guard the removed size cut used to give a
-// file the diff carries without any line: a text copy this large with no
-// patch (git marked it binary, or only renamed it) is not proven reviewed,
-// so it withholds approval. It never drops content the diff does carry.
-const noPatchLargeBytes = 1 << 20
-
-// largeCheckoutCopy reports a verified checkout copy past noPatchLargeBytes,
-// from its size alone (the file is not read).
-func largeCheckoutCopy(dir, path string) bool {
-	if dir == "" {
-		return false
+// noPatchNotice declares a changed file nothing of which reached the model.
+func noPatchNotice(path string) analyzer.DiffNotice {
+	return analyzer.DiffNotice{
+		Path:    path,
+		Message: "not reviewed, no patch (binary or large): " + path,
+		Reason:  analyzer.NoticeReasonNoPatch,
 	}
-	info, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(path)))
-	return err == nil && info.Mode().IsRegular() && info.Size() > noPatchLargeBytes
 }
 
 // declaredBinary reports a notice the review declares ignored instead of
@@ -120,6 +107,13 @@ func largeCheckoutCopy(dir, path string) bool {
 // approval, so a crafted byte can never hide code from the review.
 func declaredBinary(n analyzer.DiffNotice) bool {
 	return n.Reason == analyzer.NoticeReasonBinary && n.DeclaredFormat
+}
+
+// declaredIgnored is what the coverage lists as ignored instead of partial:
+// a declared binary, or a path with no content change (nothing to review).
+// Neither counts as reviewed.
+func declaredIgnored(n analyzer.DiffNotice) bool {
+	return declaredBinary(n) || n.Reason == analyzer.NoticeReasonNoContentChange
 }
 
 // splitBinaryFiles separates the diff's declared binary files (by the same content

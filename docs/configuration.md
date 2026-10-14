@@ -1953,7 +1953,11 @@ antes paravam a revisão:
   qualquer tamanho entra na revisão. Quando a busca do diff mínimo passaria do
   orçamento de memória ou de trabalho, o arquivo sai como substituição inteira
   (todas as linhas antigas removidas, todas as novas adicionadas), um diff
-  correto e mais grosseiro, com a memória limitada.
+  correto e mais grosseiro, com a memória limitada. Um arquivo que o diff da
+  API traz sem nenhuma linha (o git o marcou como binário, ou a API não deu o
+  patch) tem o diff refeito do checkout verificado e entra na revisão;
+  renomeação pura, troca de modo ou arquivo vazio é listado como ignorado
+  (nada a revisar); sem checkout verificado, ele fica não revisado.
 - **O modelo recusa o diff por ser longo demais.** O produto não põe teto no
   prompt: a primeira tentativa manda o diff inteiro. Quando o provedor
   responde que o pedido passa da janela de contexto do modelo (HTTP 400 ou

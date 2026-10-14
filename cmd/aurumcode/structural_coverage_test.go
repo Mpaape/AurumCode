@@ -30,8 +30,8 @@ func TestUninspectedPRNotices_LargeTextIsReviewed(t *testing.T) {
 		t.Fatalf("only the binary file may be unreviewed, got %+v", notices)
 	}
 
-	// The same large text file with no line in the diff was never shown to
-	// the model: it stays unreviewed (fail closed), as before the cut went.
+	// The same file still line-less (recoverMissingPatches could not rebuild
+	// it) was never shown to the model: it stays unreviewed (fail closed).
 	noPatch := uninspectedPRNotices(&types.Diff{Files: []types.DiffFile{{Path: "big.txt"}}}, dir)
 	if len(noPatch) != 1 || noPatch[0].Reason != analyzer.NoticeReasonNoPatch {
 		t.Fatalf("a large text file without a patch must stay unreviewed, got %+v", noPatch)

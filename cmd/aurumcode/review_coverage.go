@@ -109,7 +109,7 @@ func mergeReviewCoverage(promptMeta map[string]string, notices []analyzer.DiffNo
 		if n.Reason != "" {
 			label = n.Path + " (" + n.Reason + ")"
 		}
-		if declaredBinary(n) {
+		if declaredIgnored(n) {
 			ignored = append(ignored, label)
 			continue
 		}
