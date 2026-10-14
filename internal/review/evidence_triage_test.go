@@ -127,7 +127,9 @@ func TestEvidenceTriagerKeepsValidAssessmentsOfOfferedIDs(t *testing.T) {
 		t.Fatalf("assessments = %+v", got)
 	}
 	sent := caller.prompts[0]
-	for _, want := range []string{prompt.TriageMarker, "Achado E1", "regra: gitleaks:generic-api-key", "local: fixtures/findings.json:1", "token=valor-sintetico-123456"} {
+	for _, want := range []string{prompt.TriageMarker, "Achado E1", "regra: gitleaks:generic-api-key", "local: fixtures/findings.json:1", "token=valor-sintetico-123456",
+		// The model is told the mask is the product's, never a reason to dispute.
+		"A máscara nunca é motivo para\ncontestar"} {
 		if !strings.Contains(sent, want) {
 			t.Errorf("the triage prompt lacks %q:\n%s", want, sent)
 		}

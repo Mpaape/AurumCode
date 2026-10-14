@@ -161,7 +161,7 @@ pt-BR:
   notice.scanner_inconclusive: "%s (%s) inconclusivo: a varredura não produziu resultado confiável (%s); nenhum achado determinístico do %s foi publicado nesta execução."
   notice.scanner_detail: "Detalhe da engine: %s"
   notice.provider_failure: "Revisão de qualidade inconclusiva: a revisão não foi executada -- nenhum provedor de modelo respondeu (falha de transporte) ou a chamada foi recusada antes de ser feita (--limite); os achados determinísticos (análise estática e segurança), quando houver, foram publicados."
-  notice.triage_awaiting: "gate.triage: achados determinísticos aguardando a avaliação do modelo: %d — o modelo não deu uma resposta utilizável (%s); sem a decisão do modelo não há veredito"
+  notice.triage_awaiting: "gate.triage: achados determinísticos aguardando a avaliação do modelo: %d — %s; sem a decisão do modelo não há veredito"
   notice.history_unavailable: "Histórico do PR indisponível: esta revisão considera o diff atual, mas não confirma decisões ou correções de rodadas anteriores."
   notice.context_omitted: "Contexto do repositório omitido: %s; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto."
   notice.context_omitted.repository: "o checkout local não é o repositório revisado"

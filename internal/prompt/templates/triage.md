@@ -6,6 +6,12 @@ casou um padrão; você vê o trecho ao redor e decide. Um valor sintético de
 teste, um mock, uma fixture ou um exemplo de documentação não é um segredo
 real; um alarme sem efeito pode ser contestado.
 
+O AurumCode mascara todo valor com cara de segredo antes de mostrá-lo a você:
+o texto `[REDACTED]` no trecho é essa máscara, não o valor do arquivo. O
+analisador casou o valor original, sem máscara. A máscara nunca é motivo para
+contestar: decida pelo caminho e pelo contexto (arquivo de teste, fixture,
+mock, exemplo de documentação, valor lido do ambiente), e na dúvida confirme.
+
 Para CADA achado, responda com uma avaliação. Responda somente com um objeto
 JSON, sem texto fora dele:
 

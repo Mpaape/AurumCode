@@ -84,9 +84,23 @@ func TestBlockingFindingCommentCarriesItsFix(t *testing.T) {
 	if c.Line != 10 || c.StartLine != 0 || c.Side != "RIGHT" || !strings.HasSuffix(c.Body, "```suggestion\nAPI_KEY = os.environ.get(\"ASSISTENTE_API_KEY\", \"\")\n```") {
 		t.Fatalf("the fix is not an applicable suggestion on line 10: %+v", c)
 	}
-	multi := []types.ReviewSuggestion{{Kind: "code", File: "app.py", StartLine: 9, EndLine: 11, ProposedCode: "a\nb"}}
+	multi := []types.ReviewSuggestion{{Kind: "code", File: "app.py", StartLine: 9, EndLine: 11, CurrentCode: "x = 1\nx = 1\nx = 1", ProposedCode: "a\nb"}}
 	if c := findingComment(aur620Diff(), multi, issue, "RIGHT", "x"); c.StartLine != 9 || c.Line != 11 {
 		t.Fatalf("a multi-line fix must replace exactly its range: %+v", c)
+	}
+	// A multi-line block must quote the lines it replaces, exactly as the
+	// diff has them, or applying it could delete code the model never saw.
+	unquoted := []types.ReviewSuggestion{{Kind: "code", File: "app.py", StartLine: 9, EndLine: 11, ProposedCode: "a\nb"}}
+	if c := findingComment(aur620Diff(), unquoted, issue, "RIGHT", "x"); strings.Contains(c.Body, "```suggestion") {
+		t.Fatalf("a multi-line fix without its current code became applicable: %+v", c)
+	}
+	misquoted := []types.ReviewSuggestion{{Kind: "code", File: "app.py", StartLine: 9, EndLine: 11, CurrentCode: "x = 1", ProposedCode: "a"}}
+	if c := findingComment(aur620Diff(), misquoted, issue, "RIGHT", "x"); strings.Contains(c.Body, "```suggestion") {
+		t.Fatalf("a fix whose current code is not the diff's lines became applicable: %+v", c)
+	}
+	masked := []types.ReviewSuggestion{{Kind: "code", File: "app.py", StartLine: 10, EndLine: 10, ProposedCode: "API_KEY = \"[REDACTED]\""}}
+	if c := findingComment(aur620Diff(), masked, issue, "RIGHT", "x"); strings.Contains(c.Body, "```suggestion") {
+		t.Fatalf("a fix carrying the redaction marker became applicable: %+v", c)
 	}
 	elsewhere := []types.ReviewSuggestion{{Kind: "code", File: "app.py", StartLine: 3, EndLine: 3, ProposedCode: "y"}}
 	if c := findingComment(aur620Diff(), elsewhere, issue, "RIGHT", "x"); strings.Contains(c.Body, "```suggestion") || c.Line != 10 {

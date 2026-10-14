@@ -93,3 +93,9 @@ func diffLineAt(diff *types.Diff, file string, line int, side string) string {
 	}
 	return ""
 }
+
+// DiffLineAt is diffLineAt for callers outside render: the new-side (or
+// LEFT) body of the diff line at file/line, "" when the diff lacks it.
+func DiffLineAt(diff *types.Diff, file string, line int, side string) string {
+	return diffLineAt(diff, file, line, side)
+}

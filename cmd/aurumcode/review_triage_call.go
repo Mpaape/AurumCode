@@ -26,7 +26,13 @@ const triageIDPrefix = "T"
 // runs only when the review's model answered cleanly: a model that did not
 // already leaves the evidence awaiting it.
 func (s *reviewState) triageUnassessed() {
-	if s.result == nil || s.verifyCaller == nil || s.modelReason() != "" {
+	if s.result == nil || s.modelReason() != "" {
+		return
+	}
+	if s.verifyCaller == nil {
+		// No caller for the triage: the evidence waits for the model rather
+		// than counting as a static error.
+		s.triageFailure = triageReasonUnanswered
 		return
 	}
 	sources := s.triageSources()

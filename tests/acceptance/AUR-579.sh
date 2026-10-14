@@ -130,7 +130,7 @@ run_ac004() {
   local expected="$repo_root/demo/tutoriais/gate/expected/modelo-pondera.txt"
   [[ -f "$expected" ]] || fail tutorial-expected-missing
   grep -Fq 'avaliacao do modelo: disputed' "$expected" || fail tutorial-without-assessment
-  grep -Fq 'Excecoes propostas pelo modelo' "$expected" || fail tutorial-without-proposed-exception
+  grep -Eq 'Exce(coes|ções) propostas pelo modelo' "$expected" || fail tutorial-without-proposed-exception
   local root="$run_dir/root-mut-ac004"
   stage "$root"
   replace_once "$root/internal/prompt/evidence.go" \

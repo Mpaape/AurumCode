@@ -278,6 +278,7 @@ func TestNativeSuggestionCommentSupportsAddedLineRanges(t *testing.T) {
 		File:         "main.go",
 		StartLine:    2,
 		EndLine:      3,
+		CurrentCode:  "func main() {\n  run()",
 		ProposedCode: "func main() { run() }",
 	}
 	comment, ok := nativeSuggestionComment(diff, suggestion, "pt-BR")

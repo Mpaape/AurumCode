@@ -42,7 +42,7 @@ const (
 
 // The fail-closed notice of AC-004, in pt-BR and in the default en-US.
 const (
-	aur608NoticePT = "gate.triage: achados determinísticos aguardando a avaliação do modelo: 1 — o modelo não deu uma resposta utilizável (revisão por modelo não executada (sem provedor configurado) [quality_skipped]); sem a decisão do modelo não há veredito"
+	aur608NoticePT = "gate.triage: achados determinísticos aguardando a avaliação do modelo: 1 — revisão por modelo não executada (sem provedor configurado) [quality_skipped]; sem a decisão do modelo não há veredito"
 	aur608NoticeEN = "gate.triage: 1 deterministic finding(s) awaiting the model's assessment — the model gave no usable answer (quality_skipped); without the model's decision there is no verdict"
 )
 
@@ -276,7 +276,7 @@ func TestAUR608DegradedModelNeverDemotes(t *testing.T) {
 	// The owner's rule (2026-10-14): the model decides. Without a usable
 	// answer the finding waits for it -- inconclusive, failing -- and never
 	// fails the gate as a static error.
-	notice := "gate.triage: achados determinísticos aguardando a avaliação do modelo: 1 — o modelo não deu uma resposta utilizável (a resposta do modelo só foi aproveitada como texto livre [degraded_parse]); sem a decisão do modelo não há veredito"
+	notice := "gate.triage: achados determinísticos aguardando a avaliação do modelo: 1 — a resposta do modelo só foi aproveitada como texto livre [degraded_parse]; sem a decisão do modelo não há veredito"
 	if !strings.Contains(errOut, notice) || !strings.Contains(strings.Join(s.result.Limitations, "\n"), notice) {
 		t.Errorf("stderr and the parecer must say the finding awaits the model (%q):\nstderr=%s\nlimitations=%v", notice, errOut, s.result.Limitations)
 	}

@@ -8,6 +8,8 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/i18n"
+	"github.com/Mpaape/AurumCode/internal/render"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -73,9 +75,37 @@ func isNativeSuggestion(diff *types.Diff, suggestion types.ReviewSuggestion) boo
 			return false
 		}
 		if line == end {
-			return true
+			break
 		}
 	}
+	return suggestionMatchesDiff(diff, suggestion, start, end)
+}
+
+// suggestionMatchesDiff accepts an applicable block only when applying it
+// replaces exactly what the model saw: its current code, when given, is the
+// diff's lines start..end (without it, only a one-line block), and the
+// proposal carries no redaction marker (applying it would write the marker
+// into the file).
+func suggestionMatchesDiff(diff *types.Diff, suggestion types.ReviewSuggestion, start, end int) bool {
+	if strings.Contains(suggestion.ProposedCode, redaction.Marker) {
+		return false
+	}
+	if strings.TrimSpace(suggestion.CurrentCode) == "" {
+		// Without the code it replaces, only a one-line block is safe: it
+		// cannot swallow lines the model never quoted.
+		return start == end
+	}
+	current := strings.Split(strings.TrimRight(suggestion.CurrentCode, "\n"), "\n")
+	if len(current) != end-start+1 {
+		return false
+	}
+	for i, want := range current {
+		got := render.DiffLineAt(diff, suggestion.File, start+i, "RIGHT")
+		if strings.TrimRight(got, " \t\r") != strings.TrimRight(want, " \t\r") {
+			return false
+		}
+	}
+	return true
 }
 
 func formatNativeSuggestionBody(suggestion types.ReviewSuggestion, language string) string {
