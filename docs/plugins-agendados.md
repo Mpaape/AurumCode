@@ -116,10 +116,15 @@ jobs:
   agendado:
     permissions:
       contents: read
+      actions: read            # o upload-sarif precisa em repositório privado
       security-events: write
     uses: Mpaape/AurumCode/.github/workflows/review.yml@<sha>
     secrets: inherit   # repassa ANTHROPIC_API_KEY, VVAH_MODEL e os LLM_*
 ```
+
+O mesmo agendamento dispara também o job `dependencies` (varredura agendada
+de dependências), que precisa de `LLM_API_KEY` e `LLM_BASE_URL`; sem eles
+aquele job falha, independentemente dos plugins.
 
 `secrets: inherit` é necessário porque um `workflow_call` só recebe por nome
 os secrets que declara, e os nomes de `env` de cada plugin são livres.
@@ -130,7 +135,8 @@ Repositório privado **com** GitHub Code Security: igual ao público. **Sem**
 Code Security, a decisão do dono é que os achados virem issues no próprio
 repositório privado (só colaboradores veem), uma por achado, com fingerprint
 estável no corpo. Hoje o job decide o destino (`aurumcode plugin destino`,
-pela visibilidade lida da API) e, quando o destino seria issues, **falha antes
+pela visibilidade lida da API; só um 403 da API de code scanning conta como
+"sem Code Security", um 404 de repositório ainda sem análise não) e, quando o destino seria issues, **falha antes
 de rodar o plugin** e não publica nada: a sincronização de issues ainda não
 foi entregue. Em repositório público o destino é sempre a aba Security; o
 comando recusa issue ali.

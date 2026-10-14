@@ -868,7 +868,9 @@ jobs:
   #
   # The CALLER must, in the job that calls this workflow on schedule or
   # workflow_dispatch:
-  #   - grant `permissions: {contents: read, security-events: write}`. These
+  #   - grant `permissions: {contents: read, actions: read,
+  #     security-events: write}` (upload-sarif needs actions: read in a
+  #     private repository). These
   #     two jobs declare no `permissions:` of their own on purpose: a job of a
   #     reusable workflow that asks for security-events: write would make
   #     every caller that does not grant it (the pull request review
@@ -1034,9 +1036,13 @@ jobs:
         run: |
           set -euo pipefail
           visibility="$(gh api "repos/${REPOSITORY}" --jq .visibility 2>/dev/null || echo public)"
-          scanning=()
-          if [ "${visibility}" = public ] || gh api "repos/${REPOSITORY}/code-scanning/alerts?per_page=1" >/dev/null 2>&1; then
-            scanning=(--code-scanning)
+          # Only a 403 (code scanning not enabled) means unavailable; a 404
+          # (enabled, nothing uploaded yet) is available.
+          scanning=(--code-scanning)
+          if [ "${visibility}" != public ]; then
+            probe="$(gh api "repos/${REPOSITORY}/code-scanning/alerts?per_page=1" 2>&1 >/dev/null)" || {
+              case "${probe}" in *"HTTP 403"*) scanning=() ;; esac
+            }
           fi
           destination="$(docker run --rm aurumcode-review plugin destino --visibilidade "${visibility}" "${scanning[@]}")"
           if [ "${destination}" != security ]; then
@@ -1160,5 +1166,10 @@ jobs:
         env:
           PLUGIN_NAME: ${{ matrix.plugin.name }}
         run: |
-          rm -rf "${RUNNER_TEMP}/plugin-tree-${PLUGIN_NAME}"
+          # The plugin's user may have created files the runner cannot remove.
+          if [ -d "${RUNNER_TEMP}/plugin-tree-${PLUGIN_NAME}" ]; then
+            docker run --rm --entrypoint chown -v "${RUNNER_TEMP}/plugin-tree-${PLUGIN_NAME}:/arvore" aurumcode-review \
+              -R "$(id -u):$(id -g)" /arvore >/dev/null 2>&1 || true
+          fi
+          rm -rf "${RUNNER_TEMP}/plugin-tree-${PLUGIN_NAME}" || true
           docker rmi -f "aurumcode-plugin-${PLUGIN_NAME}" >/dev/null 2>&1 || true

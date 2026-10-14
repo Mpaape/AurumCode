@@ -2631,8 +2631,8 @@ que fica público e o que não fica: [plugins-agendados.md](plugins-agendados.md
 scheduled:
   plugins:
     - name: vvah                      # [a-z0-9][a-z0-9_-]*, único
-      dockerfile: demo/plugins/vvah/Dockerfile   # ou image: <ref>@sha256:<64 hex>
-      args: [scan, --repo, /alvo, --config, /cfg/descoberta.yaml, --stop-after, s9]
+      dockerfile: plugins/vvah/Dockerfile        # ou image: <ref>@sha256:<64 hex>
+      args: []                         # o entrypoint do exemplo já fixa scan, --config e --stop-after
       env: [ANTHROPIC_API_KEY, VVAH_MODEL]       # só NOMES; valores vêm dos secrets
       output:
         format: vvah-findings          # sarif | vvah-findings

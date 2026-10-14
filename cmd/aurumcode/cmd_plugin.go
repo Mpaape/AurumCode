@@ -60,9 +60,6 @@ func pluginSubcommand() subcommand {
 func runPlugin(args []string, stdout, stderr io.Writer, filter *redaction.Filter) int {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		if exit, ok := parseSubcommandFlags("plugin", flag.NewFlagSet("plugin", flag.ContinueOnError), args, stdout, stderr); !ok {
-			if len(args) > 0 {
-				printSubcommandHelp(stdout, "plugin")
-			}
 			return exit
 		}
 		fmt.Fprintln(stderr, "aurumcode plugin: missing verb (list, ingest or destino)")
