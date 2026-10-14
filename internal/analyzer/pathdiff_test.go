@@ -21,6 +21,8 @@ func TestPathDiffsFromObjects(t *testing.T) {
 	writeFileOrFail(t, filepath.Join(dir, "wide.txt"), strings.Repeat(wide+"\n", 4))
 	writeFileOrFail(t, filepath.Join(dir, "old-name.txt"), "renamed as is\n")
 	writeFileOrFail(t, filepath.Join(dir, "run.sh"), "echo hi\n")
+	writeFileOrFail(t, filepath.Join(dir, "keep.txt"), "copied verbatim\n")
+	writeFileOrFail(t, filepath.Join(dir, "eol.txt"), "a\nb")
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-q", "-m", "base")
 
@@ -31,6 +33,9 @@ func TestPathDiffsFromObjects(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFileOrFail(t, filepath.Join(dir, "empty.txt"), "")
+	// A copy keeps the original in head: it is a new file, never "no change".
+	writeFileOrFail(t, filepath.Join(dir, "copy.txt"), "copied verbatim\n")
+	writeFileOrFail(t, filepath.Join(dir, "eol.txt"), "a\nb\n")
 	if err := os.WriteFile(filepath.Join(dir, "logo.png"), append([]byte("\x89PNG\x00\x01"), make([]byte, 64)...), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +48,7 @@ func TestPathDiffsFromObjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenRepo: %v", err)
 	}
-	paths := []string{"small.txt", "wide.txt", "new-name.txt", "run.sh", "empty.txt", "logo.png", "absent.txt"}
+	paths := []string{"small.txt", "wide.txt", "new-name.txt", "run.sh", "empty.txt", "logo.png", "absent.txt", "copy.txt", "eol.txt"}
 	files, notices, err := repo.PathDiffsFromObjects("HEAD~1", "HEAD", paths)
 	if err != nil {
 		t.Fatalf("PathDiffsFromObjects: %v", err)
@@ -55,7 +60,8 @@ func TestPathDiffsFromObjects(t *testing.T) {
 		}
 		got[f.Path] = strings.Join(f.Hunks[0].Lines, "\n")
 	}
-	if !strings.Contains(got["small.txt"], "+TWO") || !strings.Contains(got["wide.txt"], "+changed") || len(got) != 2 {
+	if !strings.Contains(got["small.txt"], "+TWO") || !strings.Contains(got["wide.txt"], "+changed") ||
+		!strings.Contains(got["copy.txt"], "+copied verbatim") || len(got) != 3 {
 		t.Fatalf("changed text must come back with hunks, got %v", got)
 	}
 	reasons := map[string]string{}
@@ -67,6 +73,7 @@ func TestPathDiffsFromObjects(t *testing.T) {
 		"run.sh":       NoticeReasonNoContentChange,
 		"empty.txt":    NoticeReasonNoContentChange,
 		"logo.png":     NoticeReasonBinary,
+		"eol.txt":      NoticeReasonNoPatch,
 	}
 	if len(reasons) != len(want) {
 		t.Fatalf("notices = %v, want %v", reasons, want)

@@ -19,9 +19,11 @@ const NoticeReasonNoContentChange = "no content change"
 // neither when the range does not touch it:
 //
 //   - files: text whose content changed, with windowed hunks;
-//   - notices: binary or generated content (ClassifyBlob), or no content
-//     change (NoticeReasonNoContentChange: same blob as in the base, under
-//     the same or another path, or empty on both sides).
+//   - notices: binary or generated content (ClassifyBlob); no content
+//     change (NoticeReasonNoContentChange: the same blob under the same path,
+//     a pure rename whose base path head no longer has, or empty on both
+//     sides); or a byte change with no line to show (NoticeReasonNoPatch).
+//     A copy (the base path is still in head) is a new file and is diffed.
 func (r *Repo) PathDiffsFromObjects(baseRef, headRef string, paths []string) ([]types.DiffFile, []DiffNotice, error) {
 	baseSHA, err := r.ResolveRef(baseRef)
 	if err != nil {
@@ -39,9 +41,14 @@ func (r *Repo) PathDiffsFromObjects(baseRef, headRef string, paths []string) ([]
 	if err != nil {
 		return nil, nil, err
 	}
-	baseBlobs := make(map[string]bool, len(before))
-	for _, b := range before {
-		baseBlobs[b.sha] = true
+	// renamedFrom holds the blobs of base paths that head no longer has: a
+	// new path with one of them is a pure rename. A blob whose base path is
+	// still in head is a copy, a new file to review.
+	renamedFrom := make(map[string]bool, len(before))
+	for path, b := range before {
+		if _, kept := after[path]; !kept {
+			renamedFrom[b.sha] = true
+		}
 	}
 	var files []types.DiffFile
 	var notices []DiffNotice
@@ -51,7 +58,8 @@ func (r *Repo) PathDiffsFromObjects(baseRef, headRef string, paths []string) ([]
 		if !hadOld && !hasNew {
 			continue
 		}
-		if hasNew && baseBlobs[newBlob.sha] && (!hadOld || oldBlob.sha == newBlob.sha) {
+		sameBlob := hadOld && hasNew && oldBlob.sha == newBlob.sha
+		if sameBlob || (!hadOld && hasNew && renamedFrom[newBlob.sha]) {
 			notices = append(notices, noContentChange(p))
 			continue
 		}
@@ -65,7 +73,7 @@ func (r *Repo) PathDiffsFromObjects(baseRef, headRef string, paths []string) ([]
 		}
 		file := BuildWindowedDiffFile(p, string(oldContent), string(newContent))
 		if len(file.Hunks) == 0 {
-			notices = append(notices, noContentChange(p))
+			notices = append(notices, noLineChange(p, oldContent, newContent))
 			continue
 		}
 		files = append(files, file)
@@ -80,6 +88,21 @@ func classifyPair(path string, oldContent, newContent []byte) *DiffNotice {
 		return n
 	}
 	return ClassifyBlob(path, oldContent)
+}
+
+// noLineChange is the notice of a changed path whose line diff is empty:
+// nothing changed when both sides are equal (empty on both sides), but bytes
+// that differ with no line to show (only the final newline) are a change the
+// model cannot see, declared without a patch so the approval is withheld.
+func noLineChange(path string, oldContent, newContent []byte) DiffNotice {
+	if string(oldContent) == string(newContent) {
+		return noContentChange(path)
+	}
+	return DiffNotice{
+		Path:    path,
+		Message: "changed with no line to show (final newline only), not reviewed: " + path,
+		Reason:  NoticeReasonNoPatch,
+	}
 }
 
 // noContentChange is the notice of a path with no line to review.
