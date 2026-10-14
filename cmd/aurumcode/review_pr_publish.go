@@ -85,7 +85,7 @@ func (p *prReview) postReview() []string {
 // sections (dependency reach, changelog, proposed exceptions) before the
 // collapsed details, and the round and consolidation notes inside them.
 func (p *prReview) reviewBody() string {
-	body := formatGatedReviewBody(p.shown.publishedResult(p.result, p.reviewLanguage), p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, "", p.blockingRule())
+	body := formatGatedReviewBody(p.shown.publishedResult(p.result, p.reviewLanguage, p.blockingRule()), p.diff, p.reviewLanguage, p.publication == "review" && p.inlineComments, "", p.blockingRule())
 	body = appendBodySection(body, reachSection(p.reachLines, p.reviewLanguage))
 	body = appendBodySection(body, p.changelogText)
 	body = appendBodySection(body, p.changelogSuggestion)
@@ -105,17 +105,7 @@ func (p *prReview) postFormalReview(summaryBody string) (failures []string) {
 			if !p.commentsOwnLine(issue) || !p.round.posts(i) {
 				continue
 			}
-			formalComments = append(formalComments, githubclient.ReviewLineComment{
-				Body: p.round.findingBody(i, issue, p.reviewLanguage),
-				Path: issue.File,
-				Line: issue.Line,
-				Side: review.FindingSide(issue),
-			})
-		}
-		for _, suggestion := range p.result.Suggestions {
-			if comment, ok := nativeSuggestionComment(p.diff, suggestion, p.reviewLanguage); ok {
-				formalComments = append(formalComments, comment)
-			}
+			formalComments = append(formalComments, findingComment(p.diff, p.result.Suggestions, issue, review.FindingSide(issue), p.round.findingBody(i, issue, p.reviewLanguage)))
 		}
 	}
 	formal := githubclient.PullRequestReview{
@@ -158,13 +148,8 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 		case !p.round.posts(i):
 			fmt.Fprintf(stdout, "%s -- %s\n", line, roundRepeatedMarker(p.reviewLanguage))
 		case p.inlineComments && p.commentsOwnLine(issue):
-			comment := githubclient.ReviewComment{
-				Body:     p.round.findingBody(i, issue, p.reviewLanguage),
-				CommitID: p.commitID,
-				Path:     issue.File,
-				Line:     issue.Line,
-				Side:     review.FindingSide(issue),
-			}
+			placed := findingComment(p.diff, p.result.Suggestions, issue, review.FindingSide(issue), p.round.findingBody(i, issue, p.reviewLanguage))
+			comment := githubclient.ReviewComment{Body: placed.Body, CommitID: p.commitID, Path: placed.Path, Line: placed.Line, Side: placed.Side, StartLine: placed.StartLine, StartSide: placed.StartSide}
 			key := fmt.Sprintf("aurumcode/%d/%s/%s/%d/%s/%s", p.prNumber, p.commitID, issue.File, issue.Line, review.FindingSide(issue), issue.RuleID)
 			if err := p.client.PostReviewComment(p.ctx, p.owner, p.repoName, p.prNumber, comment, key); err != nil {
 				why := publishError(p.reviewLanguage, publishComment, err)
@@ -181,9 +166,6 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 	for _, issue := range review.OutsideDiffFindings(p.result) {
 		fmt.Fprintf(stdout, "%s %s\n", outsideDiffLine(issue), inParecerMarker)
 	}
-	suggested, suggestionFailures := p.postNativeSuggestions()
-	failures = append(failures, suggestionFailures...)
-	inlineCount += suggested
 	how, err := p.postParecer(summaryBody)
 	if err != nil {
 		why := publishError(p.reviewLanguage, publishComment, err)
@@ -194,33 +176,6 @@ func (p *prReview) postSeparateComments(summaryBody string) (failures []string) 
 	}
 	p.markResolvedComments()
 	return failures
-}
-
-// postNativeSuggestions posts, with inline comments on, each
-// implementation-ready suggestion as a GitHub suggestion on its changed
-// lines, applicable with one click: the comments mode proposes the change
-// the same way the formal review does.
-func (p *prReview) postNativeSuggestions() (published int, failures []string) {
-	if !p.inlineComments {
-		return 0, nil
-	}
-	for _, suggestion := range p.result.Suggestions {
-		line, ok := nativeSuggestionComment(p.diff, suggestion, p.reviewLanguage)
-		if !ok {
-			continue
-		}
-		comment := githubclient.ReviewComment{Body: line.Body, CommitID: p.commitID, Path: line.Path, Line: line.Line, Side: line.Side, StartLine: line.StartLine, StartSide: line.StartSide}
-		key := fmt.Sprintf("aurumcode/%d/%s/%s/%d/suggestion", p.prNumber, p.commitID, line.Path, line.Line)
-		if err := p.client.PostReviewComment(p.ctx, p.owner, p.repoName, p.prNumber, comment, key); err != nil {
-			why := publishError(p.reviewLanguage, publishComment, err)
-			fmt.Fprintf(p.stderr, "aurumcode review: publishing suggestion on %s:%d: %s\n", line.Path, line.Line, why)
-			failures = append(failures, fmt.Sprintf("%s:%d (sugestão): %s", line.Path, line.Line, why))
-			continue
-		}
-		fmt.Fprintf(p.stdout, "%s:%d: sugestão aplicável publicada na linha\n", line.Path, line.Line)
-		published++
-	}
-	return published, failures
 }
 
 // inParecerMarker ends the stdout line of a finding published only in the

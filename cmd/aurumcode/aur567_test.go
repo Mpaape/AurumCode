@@ -173,7 +173,7 @@ func TestAUR567PRSecurityPassFindingFailsGate(t *testing.T) {
 	if !strings.Contains(errOut, "security/hardcoded-secret") || !strings.Contains(errOut, "origem security") {
 		t.Errorf("gate line must name the rule and origem security:\n%s", errOut)
 	}
-	if !strings.Contains(posted, "origem security") {
+	if !strings.Contains(posted, "origin security") {
 		t.Errorf("published parecer must cite origem security:\n%s", posted)
 	}
 	raw, err := os.ReadFile(audit)

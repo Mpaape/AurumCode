@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/i18n"
@@ -47,43 +48,61 @@ func collapseAllowed(rule blocking.Rule, inconclusive bool) bool {
 }
 
 // publishedResult is the run's result with the published findings, for the
-// review body.
-func (pr presentation) publishedResult(result *types.ReviewResult, language string) *types.ReviewResult {
+// review body. The occurrences merged into another that block under rule
+// are recorded, so the headline counts each problem once.
+func (pr presentation) publishedResult(result *types.ReviewResult, language string, rule blocking.Rule) *types.ReviewResult {
 	shown := *result
 	shown.Issues = pr.withSources(language)
+	shown.Metadata = make(map[string]string, len(result.Metadata)+1)
+	for k, v := range result.Metadata {
+		shown.Metadata[k] = v
+	}
+	absorbed := 0
+	for _, issue := range pr.Absorbed {
+		if rule.Blocks(issue) {
+			absorbed++
+		}
+	}
+	if absorbed > 0 {
+		shown.Metadata[metaAbsorbedBlocking] = strconv.Itoa(absorbed)
+	}
 	return &shown
 }
 
-// withSources folds the merged occurrences' sources into each message, so a
-// consolidated finding stays traceable to every pass that reported it.
+// metaAbsorbedBlocking is the metadata key with how many blocking
+// occurrences were published inside another one (the same problem from a
+// second source).
+const metaAbsorbedBlocking = "published_absorbed_blocking"
+
+// withSources writes each published finding as a person reads it: its
+// short title and every pass that reported it (publishedMessage), so a
+// consolidated finding stays traceable to each source.
 func (pr presentation) withSources(language string) []types.ReviewIssue {
 	out := make([]types.ReviewIssue, len(pr.Issues))
 	for i, issue := range pr.Issues {
-		if i < len(pr.AlsoFrom) && len(pr.AlsoFrom[i]) > 0 {
-			sources := sourceList(append([]string{issue.Origin}, pr.AlsoFrom[i]...), language)
-			issue.Message = fmt.Sprintf("%s [%s]", issue.Message, i18n.Format(language, "review.presentation_sources", sources))
+		var also []string
+		if i < len(pr.AlsoFrom) {
+			also = pr.AlsoFrom[i]
 		}
+		issue.Message = publishedMessage(issue, also, language)
 		out[i] = issue
 	}
 	return out
 }
 
-// sourceList names each source once; the model has no origin and is named
-// in the review's language.
+// sourceList names each source once, in a sentence of the review's
+// language; the model has no origin.
 func sourceList(origins []string, language string) string {
 	seen := map[string]bool{}
 	var names []string
 	for _, o := range origins {
-		name := o
-		if name == "" {
-			name = i18n.Text(language, "review.presentation_model_source")
-		}
+		name := sourceName(o, language)
 		if !seen[name] {
 			seen[name] = true
 			names = append(names, name)
 		}
 	}
-	return strings.Join(names, ", ")
+	return joinNames(names, language)
 }
 
 // presentationNotice is the details note of what was merged and what the

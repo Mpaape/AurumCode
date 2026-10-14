@@ -52,12 +52,22 @@ type reviewCopy struct {
 	// toolVersion is the details' line naming the AurumCode that reviewed
 	// (%s is the stamped version; AUR-611).
 	toolVersion string
+	// contextReducedNote says the codebase context was reduced and that
+	// this does not touch the reviewed code.
+	contextReducedNote string
+	// rulesHeading and ruleOrigin head and phrase the details' list of
+	// each finding's rule and origin.
+	rulesHeading, ruleOrigin, ruleCount string
 }
 
 // reviewCopyFor reads the review's texts for language from the catalog.
 func reviewCopyFor(language string) reviewCopy {
 	return reviewCopy{
 		title:                    i18n.Text(language, "review.title"),
+		contextReducedNote:       i18n.Text(language, "review.context_reduced_note"),
+		rulesHeading:             i18n.Text(language, "review.rules_heading"),
+		ruleOrigin:               i18n.Text(language, "review.rule_origin"),
+		ruleCount:                i18n.Text(language, "review.rule_count"),
 		verdict:                  i18n.Text(language, "review.verdict"),
 		summary:                  i18n.Text(language, "review.summary"),
 		strengths:                i18n.Text(language, "review.strengths"),

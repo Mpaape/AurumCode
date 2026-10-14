@@ -180,8 +180,10 @@ func TestAUR494AC001SameDiffTwiceNoDuplicateComment(t *testing.T) {
 	if second.Event != first.Event {
 		t.Fatalf("decision changed between identical rounds: %s then %s", first.Event, second.Event)
 	}
-	if !aur494InEitherLanguage(second.Body, "review.round_repeated", 1) {
-		t.Fatalf("the second round does not say the finding was not commented again:\n%s", second.Body)
+	// A finding not commented again is still listed in the parecer: saying
+	// so is noise for the reader.
+	if aur494InEitherLanguage(second.Body, "review.round_repeated", 1) {
+		t.Fatalf("the second round repeats a bookkeeping note:\n%s", second.Body)
 	}
 }
 

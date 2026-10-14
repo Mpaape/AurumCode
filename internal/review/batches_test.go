@@ -55,7 +55,7 @@ func TestMergeResultsConsolidatesBatches(t *testing.T) {
 	if m["code_files_total"] != "4" || m["code_files_complete"] != "3" || m["code_files_omitted"] != "1" || m[MetaOmittedPaths] != "c.go" {
 		t.Fatalf("counts not consolidated: %v", m)
 	}
-	if m["discard_warning"] != "x; y" || m["quality_degraded"] != "true" || len(merged.Issues) != 2 || merged.Summary != "um\n\ndois" {
+	if m["discard_warning"] != "x; y" || m["quality_degraded"] != "true" || len(merged.Issues) != 2 || merged.Summary != "um dois" {
 		t.Fatalf("result not consolidated: %+v", merged)
 	}
 }

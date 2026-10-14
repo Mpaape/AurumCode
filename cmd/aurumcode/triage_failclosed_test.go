@@ -184,9 +184,9 @@ func TestAUR608CentralPolicyUnchanged(t *testing.T) {
 }
 
 // AC-001 and AC-004, parecer half: the demotion line (naming the source)
-// and the fail-closed notice join the review's limitations, which the
-// published parecer renders; the notice needs triageable evidence and a
-// model that did not answer.
+// and the fail-closed notice join the review's limitations; the parecer
+// renders the notice as a sentence and leaves the refuted finding out. The
+// notice needs triageable evidence and a model that did not answer.
 func TestAUR608TriageLinesReachTheParecer(t *testing.T) {
 	finding := types.ReviewIssue{File: "app.go", Line: 4, Severity: "error", RuleID: "analysis/hardcoded-secret", Origin: gateOriginAnalysis}
 	newState := func(model modelOutcome) (*reviewState, *strings.Builder) {
@@ -201,8 +201,10 @@ func TestAUR608TriageLinesReachTheParecer(t *testing.T) {
 	s, _ := newState(modelReviewed)
 	s.reportTriage([]gate.Demotion{{Source: config.GateSourceAnalysis, Issue: finding}})
 	body := formatPublishedReviewBody(s.result, &types.Diff{}, "pt-BR", false, "")
-	if !strings.Contains(body, "gate.triage (analysis: model): app.go:4 analysis/hardcoded-secret contestado pelo modelo deixou de contar") {
-		t.Errorf("the parecer must name the triaged source:\n%s", body)
+	// A finding the model refuted leaves the parecer; the line stays on
+	// stderr and in the review's limitations for the audit.
+	if strings.Contains(body, "gate.triage") || !strings.Contains(strings.Join(s.result.Limitations, "\n"), "gate.triage (analysis: model): app.go:4 analysis/hardcoded-secret contestado pelo modelo deixou de contar") {
+		t.Errorf("the refuted finding must leave the parecer and stay in the limitations:\n%s", body)
 	}
 
 	// Without the model (none configured, or one that failed) the finding

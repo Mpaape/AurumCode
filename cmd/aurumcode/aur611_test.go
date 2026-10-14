@@ -37,7 +37,7 @@ func aur611Result() *types.ReviewResult {
 // The parecer of aur611Result and of an empty result as the formatter wrote
 // them before AUR-611 (captured from the unchanged code).
 const (
-	aur611ParecerBefore = "<!-- aurumcode-review -->\n## AurumCode revisão de código\n\n> [!NOTE]\n> **Aprovado com 1 observação que não bloqueia o merge.**\n\nsem gate declarado\n\n### Observações (não bloqueiam)\n\n- `app.go:7` — ReadAll could say what it reads (`quality/poor-naming`)\n\n<details>\n<summary>Detalhes da revisão</summary>\n\n#### Limitações da revisão\n\n- diff grande\n\n</details>\n"
+	aur611ParecerBefore = "<!-- aurumcode-review -->\n## AurumCode revisão de código\n\n> [!NOTE]\n> **Aprovado com 1 observação que não bloqueia o merge.**\n\nsem gate declarado\n\n### Observações (não bloqueiam)\n\n- `app.go:7` — ReadAll could say what it reads\n\n<details>\n<summary>Detalhes da revisão</summary>\n\n#### Regras citadas\n\n- `quality/poor-naming`: `app.go:7`\n\n#### Limitações da revisão\n\n- diff grande\n\n</details>\n"
 	aur611EmptyBefore   = "<!-- aurumcode-review -->\n## AurumCode revisão de código\n\n> [!TIP]\n> **Aprovado: nenhum problema encontrado na mudança revisada.**\n\nsem gate declarado\n"
 )
 
@@ -72,7 +72,7 @@ func TestAUR611DetailsCarryToolVersionWhenNotDev(t *testing.T) {
 		t.Fatalf("an otherwise empty details block lacks the version line:\n%s", english)
 	}
 	stampVersion(t, "0123456789ab")
-	if body := formatReviewDocument(aur611Result(), nil, "pt-BR", blocking.Ungated()); !strings.Contains(detailsOf(body), "Revisado com AurumCode 0123456789ab") {
+	if body := formatReviewDocument(aur611Result(), nil, "pt-BR", blocking.Ungated()); !strings.Contains(detailsOf(body), "Revisado com AurumCode (commit 0123456789ab)") {
 		t.Fatalf("a short SHA version is not named:\n%s", body)
 	}
 }

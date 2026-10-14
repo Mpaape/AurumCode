@@ -83,7 +83,7 @@ func TestAUR453TerminalIneligibleSuggestion(t *testing.T) {
 // path: the posted review bodies carry the finding and the native GitHub
 // suggestion with the correct file, line range, current code and proposed code.
 func TestAUR453FormalReviewCarriesSuggestion(t *testing.T) {
-	fixture := `{"summary":"A mudança precisa de uma substituição.","issues":[{"file":"main.go","line":2,"severity":"warning","rule_id":"quality/style","message":"Linha longa.","impact":"Leitura difícil.","evidence":"A linha adicionada concentra tudo.","verification":"Rode o formatador."}],"suggestions":[{"title":"Quebrar a linha","description":"Extraia a chamada.","kind":"code","file":"main.go","start_line":2,"end_line":2,"current_code":"func main() { run(); persist() }","proposed_code":"func main() {\n\trun()\n\tpersist()\n}","rationale":"Melhora a leitura."}]}`
+	fixture := `{"summary":"A mudança precisa de uma substituição.","issues":[{"file":"main.go","line":2,"severity":"warning","rule_id":"quality/long-function","message":"Linha longa.","impact":"Leitura difícil.","evidence":"A linha adicionada concentra tudo.","verification":"Rode o formatador."}],"suggestions":[{"title":"Quebrar a linha","description":"Extraia a chamada.","kind":"code","file":"main.go","start_line":2,"end_line":2,"current_code":"func main() { run(); persist() }","proposed_code":"func main() {\n\trun()\n\tpersist()\n}","rationale":"Melhora a leitura."}]}`
 
 	var posted githubclient.PullRequestReview
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

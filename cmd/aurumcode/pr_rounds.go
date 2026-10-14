@@ -79,7 +79,10 @@ func (p *prReview) planRound() roundPlan {
 	if p.historyErr == nil {
 		previous = rounds.Published(earlierComments(p.historyEntries, p.env().publisherLogin))
 	}
-	plan := rounds.PlanRound(fps, p.fingerprintsOf(p.shown.Collapsed), previous)
+	// A finding condensed by a preference, or published inside another
+	// (the same problem from a second source), is still reported.
+	reported := append(append([]types.ReviewIssue(nil), p.shown.Collapsed...), p.shown.Absorbed...)
+	plan := rounds.PlanRound(fps, p.fingerprintsOf(reported), previous)
 	if !p.conclusiveForRounds() {
 		plan.Resolved = nil
 	}
@@ -121,28 +124,24 @@ func (r roundPlan) findingBody(i int, issue types.ReviewIssue, language string) 
 // maxResolvedNamed bounds the resolved findings named one by one.
 const maxResolvedNamed = 10
 
-// roundNotice is the details note of what this round did not repeat and
-// which earlier findings it no longer reports. Empty on a first round.
+// roundNotice is the details note of which earlier findings this round no
+// longer reports. Empty when none: a finding not commented again is still
+// listed in the parecer, so saying so adds nothing for the reader.
 func roundNotice(r roundPlan, language string) string {
-	if r.plan.Repeated == 0 && len(r.plan.Resolved) == 0 {
+	if len(r.plan.Resolved) == 0 {
 		return ""
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "#### %s\n\n", i18n.Text(language, "review.round_heading"))
-	if r.plan.Repeated > 0 {
-		fmt.Fprintf(&b, "- %s\n", countText(r.plan.Repeated, i18n.Text(language, "review.round_repeated_one"), i18n.Text(language, "review.round_repeated")))
-	}
-	if len(r.plan.Resolved) > 0 {
-		names := make([]string, 0, len(r.plan.Resolved))
-		for _, prev := range r.plan.Resolved {
-			if len(names) == maxResolvedNamed {
-				names = append(names, fmt.Sprintf("+%d", len(r.plan.Resolved)-maxResolvedNamed))
-				break
-			}
-			names = append(names, fmt.Sprintf("`%s` %s:%d", prev.RuleID, prev.Path, prev.Line))
+	names := make([]string, 0, len(r.plan.Resolved))
+	for _, prev := range r.plan.Resolved {
+		if len(names) == maxResolvedNamed {
+			names = append(names, fmt.Sprintf("+%d", len(r.plan.Resolved)-maxResolvedNamed))
+			break
 		}
-		fmt.Fprintf(&b, "- %s\n", i18n.Format(language, "review.round_resolved", strings.Join(names, ", ")))
+		names = append(names, fmt.Sprintf("`%s` %s:%d", prev.RuleID, prev.Path, prev.Line))
 	}
+	fmt.Fprintf(&b, "- %s\n", i18n.Format(language, "review.round_resolved", strings.Join(names, ", ")))
 	return b.String()
 }
 

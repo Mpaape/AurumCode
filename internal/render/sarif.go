@@ -9,6 +9,7 @@ package render
 import (
 	"encoding/json"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
@@ -195,7 +196,7 @@ func BuildSARIFLog(toolVersion string, findings []SARIFFinding, inconclusiveReas
 		result := sarifResult{
 			RuleID:    f.RuleID,
 			Level:     severityToSARIFLevel(f.Severity),
-			Message:   sarifMessage{Text: f.Message},
+			Message:   sarifMessage{Text: citationSafe(f.Message)},
 			Locations: []sarifLocation{{PhysicalLocation: physical}},
 			PartialFingerprints: map[string]string{
 				FindingFingerprintKey: fingerprint,
@@ -349,7 +350,7 @@ func redactSARIFFindings(filter *redaction.Filter, findings []SARIFFinding) []SA
 			Path:          filter.Redact(f.Path),
 			Line:          f.Line,
 			Severity:      filter.Redact(f.Severity),
-			Message:       filter.Redact(f.Message),
+			Message:       filter.Redact(citationSafe(f.Message)),
 			Context:       filter.Redact(f.Context),
 			Suppressed:    f.Suppressed,
 			Justification: filter.Redact(f.Justification),
@@ -379,4 +380,16 @@ func WriteSARIF(path, toolVersion string, findings []SARIFFinding, inconclusiveR
 		return err
 	}
 	return os.WriteFile(path, append(filter.RedactJSON(data), '\n'), 0o600)
+}
+
+// ruleCitationOpen matches the opening of the review's "(rule <id>: <title>)"
+// citation.
+var ruleCitationOpen = regexp.MustCompile(`\(rule ([^\s:()]+): `)
+
+// citationSafe spells the rule citation "(rule <id> - <title>)", as the gate
+// lines do (gate.FindingLine): with a colon, an id that ends in "secret"
+// reads to the redaction filter as a `secret: value` pair, and the catalog's
+// rule title ("Hardcoded Secrets") would be masked as if it were the value.
+func citationSafe(message string) string {
+	return ruleCitationOpen.ReplaceAllString(message, "(rule $1 - ")
 }

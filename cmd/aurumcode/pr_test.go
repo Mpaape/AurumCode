@@ -339,11 +339,11 @@ func TestFormalPublicationUsesReviewEndpointAndOptionalInlineComments(t *testing
 	if posted.Event != "REQUEST_CHANGES" || posted.CommitID != "head-sha" {
 		t.Fatalf("formal review metadata = %+v, want REQUEST_CHANGES at head-sha", posted)
 	}
-	if len(posted.Comments) != 2 || posted.Comments[0].Path != "main.go" || posted.Comments[0].Line != 2 || posted.Comments[0].Side != "RIGHT" {
-		t.Fatalf("formal inline comments = %+v, want finding and suggestion at main.go:2 on RIGHT", posted.Comments)
+	if len(posted.Comments) != 1 || posted.Comments[0].Path != "main.go" || posted.Comments[0].Line != 2 || posted.Comments[0].Side != "RIGHT" {
+		t.Fatalf("formal inline comments = %+v, want one comment, the finding with its fix, at main.go:2 on RIGHT", posted.Comments)
 	}
-	if !strings.Contains(posted.Comments[1].Body, "```suggestion\nfunc main() { run() }\n```") {
-		t.Fatalf("formal review did not contain a native GitHub suggestion: %+v", posted.Comments[1])
+	if !strings.Contains(posted.Comments[0].Body, "O corpo precisa ser dividido.") || !strings.Contains(posted.Comments[0].Body, "```suggestion\nfunc main() { run() }\n```") {
+		t.Fatalf("the finding's comment does not carry its applicable fix: %+v", posted.Comments[0])
 	}
 	if strings.Contains(posted.Body, "func main() { run() }") {
 		t.Fatalf("native suggestion was duplicated as a summary code block: %s", posted.Body)

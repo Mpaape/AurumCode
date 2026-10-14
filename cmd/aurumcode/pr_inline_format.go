@@ -17,8 +17,9 @@ func formatInlineIssue(issue types.ReviewIssue) string {
 
 func formatInlineIssueForLanguage(issue types.ReviewIssue, language string) string {
 	copy := reviewCopyFor(language)
+	issue = withAssessedFix(issue)
 	var b strings.Builder
-	fmt.Fprintf(&b, "**[%s] %s**", issue.Severity, issue.Message)
+	fmt.Fprintf(&b, "**[%s] %s**", issue.Severity, readableText(issue.Message))
 	if issue.Side == "LEFT" {
 		fmt.Fprintf(&b, "\n\n%s: `%s:%d`", i18n.Text(language, "inline.removed_line"), issue.File, issue.Line)
 	}
