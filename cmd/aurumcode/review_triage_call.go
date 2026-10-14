@@ -6,9 +6,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Mpaape/AurumCode/internal/config"
+	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
@@ -35,7 +37,7 @@ func (s *reviewState) triageUnassessed() {
 	triager := &review.EvidenceTriager{Caller: s.verifyCaller, Language: s.reviewLanguage, Redact: s.redactText}
 	assessments, err := triager.Assess(s.ctx, items)
 	if err != nil {
-		s.triageFailure = gateReasonProviderFailure
+		s.triageFailure = triageFailureReason(err)
 		fmt.Fprintf(s.stderr, "aurumcode review: gate.triage: %s\n", s.redactText(err.Error()))
 		return
 	}
@@ -91,4 +93,14 @@ func (s *reviewState) unassessedEvidence(sources map[string]bool) ([]prompt.Evid
 		}
 	}
 	return items, keys
+}
+
+// triageFailureReason is the model's own reason for a triage without an
+// answer: the provider that never answered, or a reply that was not the
+// JSON asked for.
+func triageFailureReason(err error) string {
+	if errors.Is(err, llm.ErrAllProvidersFailed) {
+		return gateReasonProviderFailure
+	}
+	return gateReasonModelParse
 }

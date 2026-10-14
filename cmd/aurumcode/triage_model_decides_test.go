@@ -75,7 +75,7 @@ func TestModelWithoutAnswerLeavesEvidenceAwaiting(t *testing.T) {
 		name, fixture string
 		reason        string
 	}{
-		{"triage not answered", "", "[provider_failure]"},
+		{"triage not answered", "", "[model_parse_failure]"},
 	} {
 		aur579Repo(t)
 		aur608Config(t, triageGate)

@@ -44,6 +44,7 @@ const (
 	gateExitBehavioral = gate.ExitBehavioral
 
 	gateReasonAuditWriteFailed = gate.ReasonAuditWriteFailed
+	gateReasonModelParse       = string(gate.ReasonModelParseFailure)
 	gateReasonSARIFWriteFailed = gate.ReasonSARIFWriteFailed
 )
 
