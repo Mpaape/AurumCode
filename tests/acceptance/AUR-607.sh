@@ -127,7 +127,7 @@ ac002() {
     TestAUR607DTrackReasonFollowsTheLanguage TestAUR607AuditAndSARIFIgnoreTheLanguage TestAUR607AuditLinesIgnoreTheLanguage
 }
 ac003() {
-  ac AC-003 '^TestAUR607(PolicyGateStatusInPortuguese|PolicyGateStatusCutsAtAWord|PolicyGateStatusEnglishUnchanged|BreachWithoutFindingKeepsTheBreachAhead)$' \
+  ac AC-003 '^TestAUR607(PolicyGateStatusInPortuguese|PolicyGateStatusCutsAtAWord|PolicyGateStatusDefaultLanguageUnchanged|BreachWithoutFindingKeepsTheBreachAhead)$' \
     TestAUR607PolicyGateStatusInPortuguese TestAUR607PolicyGateStatusCutsAtAWord TestAUR607PolicyGateStatusDefaultLanguageUnchanged \
     TestAUR607BreachWithoutFindingKeepsTheBreachAhead
 }

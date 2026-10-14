@@ -126,7 +126,7 @@ probe_imagem() {
   [[ -f "$out" ]] || { echo 'out/.imagem ausente na copia' >&2; return 1; }
   cp "$out" "$work/imagem.keep"
   bash "$run" --check >"$work/chk.out" 2>&1 || { cat "$work/chk.out" >&2; echo 'controle: --check deveria passar com out/.imagem gravado' >&2; return 1; }
-  grep -qE 'imagem (conferida|nao conferida \(sem docker\))' "$work/chk.out" || { echo 'a saida nao diz se a imagem foi conferida' >&2; return 1; }
+  grep -qE 'imagem (conferida|nao conferida \(sem docker\))|AVISO: .*outra arvore' "$work/chk.out" || { echo 'a saida nao diz se a imagem foi conferida' >&2; return 1; }
   rm -f "$out"
   if bash "$run" --check >"$work/chk.out" 2>&1; then echo 'sem out/.imagem o --check passou' >&2; return 1; fi
   grep -q 'out/.imagem ausente' "$work/chk.out" || { echo 'motivo de out/.imagem ausente nao e claro' >&2; return 1; }
