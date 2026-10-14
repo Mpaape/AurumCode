@@ -37,7 +37,7 @@ func noStructureDiffPaths(p grammar.Provider, diff *types.Diff) []string {
 // applyStructuralCoverage is the one place both review paths (--base and --pr)
 // record what the review could not cover: files without a grammar are
 // declared (never a failure by themselves), and any file the review meant to
-// read and could not (generated, too large, no patch) withholds approval with
+// read and could not (generated, no patch) withholds approval with
 // the same
 // engine-owned marker the gate uses, which the model can neither set nor
 // erase (AUR-522: an unreviewed file never counts as approved). A binary or
@@ -54,10 +54,10 @@ func applyStructuralCoverage(p grammar.Provider, diff *types.Diff, c *reviewCove
 	result.Metadata[prompt.PolicyGateWithheldKey] = "true"
 }
 
-// maxInspectBytes bounds how much of a checked-out file is read for the
-// content check; one byte past the analyzer's own size limit is enough for it
-// to say "too large".
-const maxInspectBytes = (1 << 20) + 1
+// maxInspectBytes is how much of a checked-out file the content check reads:
+// the prefix analyzer.ClassifyBlob inspects. Size is never a reason to skip a
+// file, so reading more would only cost memory.
+const maxInspectBytes = analyzer.ClassifyInspectBytes
 
 // uninspectedPRNotices is the --pr counterpart of --base's blob classification.
 // It runs the SAME content check (analyzer.ClassifyBlob) over each changed

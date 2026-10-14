@@ -3,7 +3,7 @@ package analyzer
 import "github.com/Mpaape/AurumCode/internal/i18n"
 
 // noticeTextKeys maps a skipped file's Reason to its catalog text. A Reason
-// without one (too large, no patch) keeps its Message, which carries the
+// without one (no patch) keeps its Message, which carries the
 // measured detail.
 var noticeTextKeys = map[string]string{
 	NoticeReasonBinary:    "terminal.notice_binary",

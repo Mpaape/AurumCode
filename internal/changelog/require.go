@@ -63,7 +63,7 @@ const (
 	// FileChanged: both sides are known; Old is empty for a new file.
 	FileChanged
 	// FileUnreadable: the file changed but its content could not be read
-	// (binary, too large, deleted side unknown). Never a pass.
+	// (binary, generated, deleted side unknown). Never a pass.
 	FileUnreadable
 )
 
