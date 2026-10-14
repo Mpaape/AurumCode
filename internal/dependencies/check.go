@@ -49,13 +49,9 @@ func Check(ctx context.Context, in Inputs) Report {
 	if !ok || len(manifests) == 0 {
 		return report
 	}
-	raw, omitted, err := extractChanges(ctx, in.Model, in.Diff, manifests)
+	raw, err := extractChanges(ctx, in.Model, in.Diff, manifests)
 	if err != nil {
 		report.fail(ReasonModelFailed, err.Error())
-		return report
-	}
-	if len(omitted) > 0 {
-		report.fail(ReasonManifestsOmitted, "manifestos acima do limite: "+strings.Join(omitted, ", "))
 		return report
 	}
 	report.Changes, report.Discarded = ground(in.Diff, manifests, raw)

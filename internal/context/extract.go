@@ -10,11 +10,6 @@ import (
 	"github.com/Mpaape/AurumCode/internal/grammar"
 )
 
-// maxSymbolAlternation bounds how many distinct symbols are folded into the
-// single reference-scan regex. Beyond it the symbol scan is skipped and the
-// omission is recorded, keeping the scan linear in file bytes.
-const maxSymbolAlternation = 4096
-
 // structureOf asks the grammar runtime (internal/grammar) for the structure of
 // one file. No language is named here: which grammar applies, and whether one
 // exists at all, is the runtime's answer. Binary content never reaches a
@@ -86,9 +81,6 @@ func normalizeImport(imp string) string {
 func symbolAlternation(symbolFiles map[string][]string) (*regexp.Regexp, string) {
 	if len(symbolFiles) == 0 {
 		return nil, ""
-	}
-	if len(symbolFiles) > maxSymbolAlternation {
-		return nil, "symbol reference scan skipped: " + itoa(len(symbolFiles)) + " symbols exceed limit " + itoa(maxSymbolAlternation)
 	}
 	names := make([]string, 0, len(symbolFiles))
 	for name := range symbolFiles {
