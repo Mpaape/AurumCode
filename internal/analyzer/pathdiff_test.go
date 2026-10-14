@@ -36,6 +36,8 @@ func TestPathDiffsFromObjects(t *testing.T) {
 	}
 	runGit(t, dir, "add", "-A")
 	runGit(t, dir, "commit", "-q", "-m", "head")
+	// A CI checkout is packed: read the range from packs, not loose objects.
+	runGit(t, dir, "gc", "-q")
 
 	repo, err := OpenRepo(dir)
 	if err != nil {
