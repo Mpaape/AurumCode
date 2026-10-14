@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	maxLLMCandidates  = 300
 	maxDescriptionLen = 500
 	minLLMNameLen     = 3
 	llmPropertyPrefix = "aurumcode:xbom:llm:"
@@ -60,17 +59,11 @@ type promptCandidate struct {
 
 func buildPrompt(base string, cands []*Candidate, redact func(string) string) (string, error) {
 	var pcs []promptCandidate
-	for i, c := range cands {
-		if i >= maxLLMCandidates {
-			break
-		}
+	for _, c := range cands {
 		o := c.Component.Occurrences[0]
 		text := c.Line
 		if redact != nil {
 			text = redact(text)
-		}
-		if len(text) > 300 {
-			text = text[:300]
 		}
 		pcs = append(pcs, promptCandidate{c.ID, c.Entry, c.Component.Type, c.Component.Name, c.Component.Version, o.Location, o.Line, text, c.Component.Crypto})
 	}
