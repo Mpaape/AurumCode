@@ -161,6 +161,6 @@ func appendAuditVerification(path string, records []verify.Record, filter *redac
 		return err
 	}
 	head := strings.TrimRight(strings.TrimSuffix(body, "}"), "\n")
-	out := head + ",\n  \"verification\": " + filter.Redact(string(extra)) + "\n}\n"
+	out := head + ",\n  \"verification\": " + string(filter.RedactJSON(extra)) + "\n}\n"
 	return os.WriteFile(path, []byte(out), 0o600)
 }

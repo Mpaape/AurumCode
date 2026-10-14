@@ -378,6 +378,5 @@ func WriteSARIF(path, toolVersion string, findings []SARIFFinding, inconclusiveR
 	if err != nil {
 		return err
 	}
-	redacted := filter.Redact(string(data))
-	return os.WriteFile(path, []byte(redacted+"\n"), 0o600)
+	return os.WriteFile(path, append(filter.RedactJSON(data), '\n'), 0o600)
 }
