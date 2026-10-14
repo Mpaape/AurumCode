@@ -60,18 +60,47 @@ var (
 	// Anthropic, when the prompt plus the reply cap crosses the window:
 	// "input length and `max_tokens` exceed context limit: A + B > C".
 	anthropicCap = regexp.MustCompile("exceed context limit: (\\d+) \\+ (\\d+) > (\\d+)")
+	// OpenAI Responses, through a LiteLLM proxy, when one input text is
+	// longer than the API takes, in characters: "Invalid
+	// 'input[0].content[0].text': string too long. Expected a string with
+	// maximum length N, but got a string with length M instead."
+	stringTooLong = regexp.MustCompile(`string too long.{0,80}?maximum length (\d+)(?:.{0,40}?with length (\d+))?`)
+	// Anthropic, when this request alone is larger than the organization's
+	// input tokens per minute: "This request would exceed your rate limit of
+	// N input tokens per minute". A request larger than N is never accepted,
+	// however long it waits, so it is a refusal for length with window N.
+	perMinuteWindow = regexp.MustCompile(`request would exceed (?:your|the) rate limit of ([\d,]+) input tokens per minute`)
 )
+
+// charsPerToken is the product's own estimate of characters per token
+// (internal/prompt/estimator.go), used to read a limit given in characters.
+const charsPerToken = 4
 
 // DetectPromptTooLong classifies a non-200 answer: it is a refusal for length
 // when the status is 413 (the request is too large; a gateway says no more
 // than that) or 400 with a message that says the prompt is longer than the
 // context window. text is the redacted summary of the provider's message,
 // before it is bounded for a log line, so the sizes are still in it.
+//
+// Two more answers are refusals for length with a window the message states:
+// a 400 saying one input string is longer than the API takes (the limit is
+// in characters and is converted to tokens with the product's estimate), and
+// a 429 saying this very request is larger than the input tokens per minute
+// allowed (a plain 429, without that text, stays a transient error).
 func DetectPromptTooLong(status int, text string) *PromptTooLong {
+	lower := strings.ToLower(text)
+	if status == 429 {
+		if m := perMinuteWindow.FindStringSubmatch(lower); m != nil {
+			return &PromptTooLong{Limit: atoi(strings.ReplaceAll(m[1], ",", ""))}
+		}
+		return nil
+	}
 	if status != 400 && status != 413 {
 		return nil
 	}
-	lower := strings.ToLower(text)
+	if m := stringTooLong.FindStringSubmatch(lower); m != nil {
+		return &PromptTooLong{Limit: atoi(m[1]) / charsPerToken, Requested: atoi(m[2]) / charsPerToken}
+	}
 	marked := status == 413
 	for _, marker := range promptTooLongMarkers {
 		if strings.Contains(lower, marker) {

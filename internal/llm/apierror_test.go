@@ -25,6 +25,9 @@ func TestDetectPromptTooLongOnWhatProvidersAnswer(t *testing.T) {
 		{"another bad request", 400, "invalid_request_error: max_tokens is too large: 9000000", nil},
 		{"bad key", 401, "invalid_api_key: prompt is too long", nil},
 		{"rate limit", 429, "rate_limit_exceeded: too many requests", nil},
+		{"openai responses through litellm, limit in characters", 400, "invalid_request_error: litellm.BadRequestError: OpenAIException - Invalid 'input[0].content[0].text': string too long. Expected a string with maximum length 10485760, but got a string with length 15213664 instead.", &PromptTooLong{Limit: 2621440, Requested: 3803416}},
+		{"anthropic, this request alone exceeds the tokens per minute", 429, "rate_limit_error: This request would exceed your rate limit of 2,000,000 input tokens per minute (org: 00000000-0000-0000-0000-000000000000, model: claude-haiku-5-5). For details, refer to: https://docs.claude.com/en/api/rate-limits.", &PromptTooLong{Limit: 2000000}},
+		{"anthropic, an ordinary rate limit", 429, "rate_limit_error: Number of request tokens has exceeded your per-minute rate limit (org: 00000000-0000-0000-0000-000000000000, model: claude-haiku-5-5).", nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
