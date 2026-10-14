@@ -75,12 +75,22 @@ func (r *Reviewer) prepareWithinWindow(diff *types.Diff, reviewContext ReviewCon
 		return preparedPrompt{}, err
 	}
 	allowance := (r.promptBudget() - metaCount(base.parts.Meta, "estimated_tokens")) / 2
+	noteFits := true
 	for {
 		text, reduction := r.fitContext(reviewContext.CodebaseContext, allowance)
+		if text == "" && reduction.Discarded && noteFits {
+			// Left out whole, the context still says so to the model, as a
+			// partial reduction does in the pack.
+			text = omittedContextNote
+		}
 		withContext := reviewContext
 		withContext.CodebaseContext = text
 		prepared, err := r.assemblePrompt(diff, withContext)
 		var noRoom *prompt.NoRoomError
+		if errors.As(err, &noRoom) && text == omittedContextNote {
+			noteFits = false
+			continue
+		}
 		if errors.As(err, &noRoom) && text != "" {
 			allowance /= 2
 			continue
@@ -143,6 +153,10 @@ func (r *Reviewer) fitEvidence(reviewContext ReviewContext) (ReviewContext, prep
 		return reviewContext, base, err
 	}
 }
+
+// omittedContextNote takes the codebase context's place when it was left
+// out whole to fit the window.
+const omittedContextNote = "codebase context omitted to fit the model's context window"
 
 // fitContext reduces text to allowance tokens, once per text and share: a
 // split review prepares the same prompt many times while it plans its

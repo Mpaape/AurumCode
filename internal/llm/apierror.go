@@ -85,8 +85,12 @@ const charsPerToken = 4
 // Two more answers are refusals for length with a window the message states:
 // a 400 saying one input string is longer than the API takes (the limit is
 // in characters and is converted to tokens with the product's estimate), and
-// a 429 saying this very request is larger than the input tokens per minute
-// allowed (a plain 429, without that text, stays a transient error).
+// a 429 saying this request would exceed the input tokens per minute allowed
+// (a plain 429, without that text, stays a transient error). The same 429
+// text also comes when the request only exceeds what is left of the minute,
+// so the provider that holds the request confirms it against the request's
+// own size before treating it as a refusal for length
+// (internal/llm/provider/litellm/retry.go, confirmSize).
 func DetectPromptTooLong(status int, text string) *PromptTooLong {
 	lower := strings.ToLower(text)
 	if status == 429 {

@@ -2,6 +2,7 @@ package litellm
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/Mpaape/AurumCode/internal/llm"
@@ -194,8 +195,8 @@ func (p *Provider) post(reqBody any) ([]byte, error) {
 }
 
 // send makes one attempt: the status, the headers and the body.
-func (p *Provider) send(url string, jsonData []byte) (int, http.Header, []byte, error) {
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+func (p *Provider) send(ctx context.Context, url string, jsonData []byte) (int, http.Header, []byte, error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return 0, nil, nil, fmt.Errorf("failed to create request: %w", err)
 	}

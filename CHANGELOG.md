@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Corrigido: a revisão termina quando o prompt passa da janela do modelo; o 400 de texto longo demais e o 429 de pedido maior que os tokens por minuto viram recusa por tamanho, e o contexto do código é reduzido para caber, declarado.
+- Corrigido: a revisão termina quando o prompt passa da janela; o 400 de texto longo demais e o 429 de pedido que sozinho excede os tokens por minuto viram recusa por tamanho, e o contexto do código é reduzido para caber, declarado.
 - Corrigido: o contexto do código só traz arquivos que alcançam a mudança (mesma linguagem, que importam ou estão no pacote, sem nome ambíguo nem comando de shell); 429 comum espera o retry-after ou recua e tenta de novo.
 - Corrigido: nenhum arquivo de texto fica de fora por tamanho; diff grande demais para a busca exata sai como substituição inteira. No --pr, arquivo sem patch na API tem o diff refeito do checkout verificado.
 - Corrigido: sem teto de bytes nem de contagem. MCP, scanner, manifestos, OSV, Dependency-Track, verificação, contexto, ferramentas, linha redigida e commits do changelog entram inteiros, sem recusa nem inconclusivo (#179).

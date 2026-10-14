@@ -152,3 +152,20 @@ func TestTheIncidentRefusalsSplitTheReviewUntilItFinishes(t *testing.T) {
 		t.Fatal("the context reduction is not declared")
 	}
 }
+
+// A context left out whole still tells the model so.
+func TestContextLeftOutWholeIsDeclaredToTheModel(t *testing.T) {
+	model := &windowCompleter{limit: 20000}
+	reviewer := NewReviewer(model, DefaultConfig())
+	reviewer.learnedBudget = 12000
+	prepared, err := reviewer.preparePrompt(manyFilesDiff(1, 1, 10), ReviewContext{CodebaseContext: strings.Repeat("not a pack ", 20000)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(prepared.parts.User, omittedContextNote) {
+		t.Fatal("the prompt does not say the codebase context was left out")
+	}
+	if reduction, ok := reviewer.ContextReduction(); !ok || !reduction.Discarded {
+		t.Fatalf("ContextReduction() = %+v, %v: the omission is not declared", reduction, ok)
+	}
+}

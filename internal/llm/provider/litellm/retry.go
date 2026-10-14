@@ -1,6 +1,7 @@
 package litellm
 
 import (
+	"context"
 	"errors"
 	"math/rand"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/llm"
+	"github.com/Mpaape/AurumCode/internal/llm/tokens"
 )
 
 // A plain rate limit (429 without the text that says this request alone is
@@ -17,8 +19,8 @@ import (
 // provider asks for (retry-after-ms, then retry-after in seconds or as a
 // date), or else an exponential backoff with jitter. The attempts end when
 // the next wait would pass the provider timeout the review already has
-// (llm.ProviderTimeout, counted from the first attempt); no size or count
-// is capped.
+// (llm.ProviderTimeout, counted from the first attempt), and every attempt
+// has only what is left of that time; no size or count is capped.
 
 // firstBackoff is the backoff of the first retry when the provider names
 // no wait; each next retry doubles it.
@@ -28,21 +30,43 @@ const firstBackoff = time.Second
 // non-transient error, or the provider timeout would be passed.
 func (p *Provider) postRetrying(url string, jsonData []byte) ([]byte, error) {
 	deadline := time.Now().Add(llm.ProviderTimeout())
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
 	for attempt := 0; ; attempt++ {
-		status, header, body, err := p.send(url, jsonData)
+		status, header, body, err := p.send(ctx, url, jsonData)
 		if err != nil {
 			return nil, err
 		}
 		if status == http.StatusOK {
 			return body, nil
 		}
-		apiErr := p.apiError(status, body)
+		apiErr := confirmSize(p.apiError(status, body), status, jsonData)
 		wait, retry := retryWait(status, header, apiErr, attempt)
 		if !retry || time.Now().Add(wait).After(deadline) {
 			return nil, apiErr
 		}
 		p.sleep(wait)
 	}
+}
+
+// confirmSize keeps a 429 as a refusal for length only when this request
+// alone does not fit the limit it names. Anthropic says "this request would
+// exceed your rate limit of N input tokens per minute" both when the request
+// is larger than N and when it is only larger than what is left of the
+// minute; the request's own size, by the product's estimate, tells the two
+// apart. The second is a plain rate limit: waited out and retried.
+func confirmSize(err error, status int, jsonData []byte) error {
+	var apiErr *llm.APIError
+	if status != http.StatusTooManyRequests || !errors.As(err, &apiErr) || apiErr.TooLong == nil {
+		return err
+	}
+	requested := tokens.Estimate(string(jsonData))
+	if requested < apiErr.TooLong.Limit {
+		apiErr.TooLong = nil
+		return apiErr
+	}
+	apiErr.TooLong.Requested = requested
+	return apiErr
 }
 
 // retryWait says whether an answer is a plain rate limit worth retrying, and

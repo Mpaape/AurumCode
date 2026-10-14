@@ -2,8 +2,10 @@ package litellm
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -79,15 +81,44 @@ func TestPlainRateLimitBacksOffWithoutRetryAfter(t *testing.T) {
 	}
 }
 
-// The 429 that says this request alone is larger than the limit is a
-// refusal for length: it is never retried.
+// The 429 that says this request would exceed the per-minute limit is a
+// refusal for length only when the request alone is larger than the limit:
+// it is never retried, and carries the request's size.
 func TestRequestLargerThanTheRateLimitIsNotRetried(t *testing.T) {
-	server, calls := rateLimitedServer(t, 5, "Retry-After", "1", "This request would exceed your rate limit of 2,000,000 input tokens per minute")
+	server, calls := rateLimitedServer(t, 5, "Retry-After", "1", "This request would exceed your rate limit of 10 input tokens per minute")
 	p := NewProvider("test-key", server.URL, "test-model")
 	p.sleep = func(time.Duration) { t.Fatal("a refusal for length was waited on") }
+	_, err := p.Complete(strings.Repeat("a long prompt ", 20), llm.Options{})
+	got, ok := llm.AsPromptTooLong(err)
+	if !ok || got.Limit != 10 || got.Requested <= 10 || atomic.LoadInt32(calls) != 1 {
+		t.Fatalf("err %v, refusal %+v, calls %d: want one refusal for length with the request's size", err, got, atomic.LoadInt32(calls))
+	}
+}
+
+// The same text for a request that fits the limit means the minute's usage
+// so far crossed it: a plain rate limit, waited out and retried.
+func TestAccumulatedRateLimitWithTheSameTextIsWaitedOut(t *testing.T) {
+	server, calls := rateLimitedServer(t, 1, "Retry-After", "3", "This request would exceed your rate limit of 2,000,000 input tokens per minute")
+	p := NewProvider("test-key", server.URL, "test-model")
+	var waits []time.Duration
+	p.sleep = func(d time.Duration) { waits = append(waits, d) }
+	resp, err := p.Complete("hello", llm.Options{})
+	if err != nil || resp.Text != "ok" || atomic.LoadInt32(calls) != 2 || len(waits) != 1 || waits[0] != 3*time.Second {
+		t.Fatalf("resp %+v, err %v, calls %d, waits %v: want one wait of 3s and the answer", resp, err, atomic.LoadInt32(calls), waits)
+	}
+}
+
+// Waited out until the provider timeout, the accumulated rate limit comes
+// back as a plain 429, never as a refusal for length a fallback chain could
+// read as one.
+func TestAccumulatedRateLimitIsNeverARefusalForLength(t *testing.T) {
+	t.Setenv("AURUMCODE_LLM_TIMEOUT_SECONDS", "5")
+	server, _ := rateLimitedServer(t, 100, "Retry-After", "60", "This request would exceed your rate limit of 2,000,000 input tokens per minute")
+	p := NewProvider("test-key", server.URL, "test-model")
+	p.sleep = func(time.Duration) {}
 	_, err := p.Complete("hello", llm.Options{})
-	if _, ok := llm.AsPromptTooLong(err); !ok || atomic.LoadInt32(calls) != 1 {
-		t.Fatalf("err %v, calls %d: want one refusal for length", err, atomic.LoadInt32(calls))
+	if _, ok := llm.AsPromptTooLong(fmt.Errorf("all providers failed: %w", err)); ok || err == nil {
+		t.Fatalf("err %v: an accumulated rate limit was read as a refusal for length", err)
 	}
 }
 
