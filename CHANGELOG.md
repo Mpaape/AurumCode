@@ -2,14 +2,30 @@
 
 ## Unreleased
 
-- Corrigido: nenhum arquivo de texto fica de fora por tamanho; diff grande demais para a busca exata sai como substituição inteira. No --pr, arquivo sem patch na API tem o diff refeito do checkout verificado.
-- Corrigido: sem teto de bytes nem de contagem. MCP, scanner, manifestos, OSV, Dependency-Track, verificação, contexto, ferramentas, linha redigida e commits do changelog entram inteiros, sem recusa nem inconclusivo (#179).
-- Tutoriais regravados com o produto atual; a cópia do workflow de dados de análise voltou a ser idêntica à original e o caso agora falha se as duas divergirem.
-- Corrigido: sem teto de token por padrão. Prompt, evidência, ferramentas, lotes e custo da deliberação não têm mais teto; um modelo que recusa o prompt por ser longo demais faz a revisão se dividir em lotes (#179).
-- Corrigido: uma política grande não derruba mais a revisão. Os tetos do catálogo de regras (512 tokens), do texto das skills (4000) e dos arquivos curados do repositório (64 KiB) saíram: tudo entra inteiro no prompt (#179).
-- Workflow reutilizável: a revisão que não terminou escreve o motivo como anotação e no resumo do job; grupos de concorrência viraram `aurumcode/...` (colidiam com o chamador); o job de SARIF dos exemplos tolera revisão sem artefato (#179).
-- QA no consumidor: o cenário de changelog ausente usa o fixture `sem-changelog` (mudança de código válida sem entrada), pois `bug-sql-corrigido` passou a trazer a entrada que a correção precisa (AUR-512).
-- Testes: aceites de AUR-452, 580, 591 e 594 acompanham o código atual: mutações reapontadas, config sem teto de custo e lista de ignore fora da conta de linhas, dependências do E2E derivadas de `go list -deps`.
+## 2.0.1 - 2026-10-14
+
+Nenhum limite de tamanho derruba a revisão: política grande, PR grande e arquivo grande são revisados inteiros, e o modelo só divide a revisão em partes quando ele próprio recusa o tamanho.
+
+### Entregue
+
+- Sem teto de token por padrão: prompt, evidência, ferramentas, lotes e custo da deliberação. Um modelo que recusa o prompt por ser longo demais faz a revisão se dividir em lotes até caber, e o terminal narra cada recusa (#179).
+- Política grande não derruba mais a revisão: catálogo de regras, texto das skills e arquivos curados do repositório entram inteiros (#179).
+- Sem teto de bytes nem de contagem na revisão e no gate: fonte MCP, saída de scanner, manifestos, OSV, Dependency-Track, verificação, contexto de código, ferramentas, linha do filtro de segredos e commits do changelog entram inteiros, sem recusa nem inconclusivo.
+- Arquivo de texto grande não fica de fora por tamanho: a busca exata do diff tem orçamento de memória e cai para substituição inteira. No `--pr`, arquivo que a API mandou sem linhas tem o diff refeito do checkout verificado; cópia é arquivo novo e mudança só no fim de linha retém a aprovação.
+- Workflow reutilizável: a revisão que não terminou escreve o motivo como anotação e no resumo do job; grupos de concorrência viraram `aurumcode/...`, porque colidiam com os do chamador; o job de SARIF dos exemplos tolera revisão sem artefato (#179).
+- Tutoriais regravados com o produto atual; uma gravação de outra árvore é aviso, e só o tutorial cuja saída muda é regravado.
+
+### Limites
+
+- Uma recusa por tamanho durante as rodadas de ferramenta da deliberação é contada como do prompt base, e a auditoria da tentativa recusada se perde (falha fechada).
+- Resultado de ferramenta inteiro pode passar da janela do modelo nas rodadas da deliberação; a revisão então falha em vez de ser cortada.
+- Renomeação pura para um caminho que executa (como `.github/workflows`) não é mostrada ao modelo, como na 2.0.0.
+- Um valor positivo declarado na configuração (`prompt_max_tokens`, `batches`, `max_read_bytes`, `verification.max_calls` e os demais) continua valendo, com a mesma mensagem de antes.
+
+### Migração do v1
+
+- Nada novo além da 2.0.0. Da 2.0.0 para a 2.0.1, troque `@v2.0.0` por `@v2.0.1` no workflow; quem dependia dos tetos padrão e quer mantê-los deve declará-los em `.aurumcode/config.yml`.
+
 ## 2.0.0 - 2026-10-13
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate
