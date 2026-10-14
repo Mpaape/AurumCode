@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Corrigido: nenhum arquivo de texto fica de fora por tamanho; diff grande demais para a busca exata sai como substituição inteira. No --pr, arquivo sem patch na API tem o diff refeito do checkout verificado.
-- Corrigido: sem teto de bytes nem de contagem na revisão, no gate e no changelog (todos os commits contam para a versão). Fonte MCP, scanner, manifestos, OSV, Dependency-Track, verificação, contexto, ferramentas e linha redigida vão inteiros, sem recusa nem inconclusivo (#179).
+- Corrigido: sem teto de bytes nem de contagem. MCP, scanner, manifestos, OSV, Dependency-Track, verificação, contexto, ferramentas, linha redigida e commits do changelog entram inteiros, sem recusa nem inconclusivo (#179).
 - Tutoriais regravados com o produto atual; a cópia do workflow de dados de análise voltou a ser idêntica à original e o caso agora falha se as duas divergirem.
 - Corrigido: sem teto de token por padrão. Prompt, evidência, ferramentas, lotes e custo da deliberação não têm mais teto; um modelo que recusa o prompt por ser longo demais faz a revisão se dividir em lotes (#179).
 - Corrigido: uma política grande não derruba mais a revisão. Os tetos do catálogo de regras (512 tokens), do texto das skills (4000) e dos arquivos curados do repositório (64 KiB) saíram: tudo entra inteiro no prompt (#179).
