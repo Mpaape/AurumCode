@@ -1949,6 +1949,9 @@ antes paravam a revisão:
   revisão falha (saída 1) sem enviar nada ao modelo nem publicar. O
   workflow reutilizável já faz o checkout do head com histórico completo. Com
   a API respondendo o diff, nada muda: o diff local é só o caminho da recusa.
+  No diff local há um limite que não é de token: um arquivo cujo conteúdo passa
+  de 1 MiB ou de 10000 linhas por lado não entra na revisão e é declarado como
+  não revisado (`diff too large`), e a aprovação é retida.
 - **O modelo recusa o diff por ser longo demais.** O produto não põe teto no
   prompt: a primeira tentativa manda o diff inteiro. Quando o provedor
   responde que o pedido passa da janela de contexto do modelo (HTTP 400 ou
