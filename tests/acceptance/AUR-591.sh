@@ -5,7 +5,8 @@
 # Selectors:
 #   all       AC-003, MUT-001, MUT-002
 #   AC-003    .aurumcode/config.yml has at most 30 useful lines (not blank,
-#             not comment), declares gate, scanners and deliberation, passes
+#             not comment, not an ignore: path glob), sets no deliberation
+#             max_cost_tokens ceiling, declares gate, scanners and deliberation, passes
 #             the strict Parse (a typo key is a named load error), and a local
 #             `review --base HEAD~1` with an offline provider fixture sends the
 #             directory skills selected by path to the model (none listed in
@@ -180,16 +181,31 @@ no_scanners() {
 }
 
 run_ac003() {
+  # Useful lines are settings: not blank, not comment, and not an entry of
+  # the top-level ignore: list (paths left out of the review are data that
+  # grows with the repository, not configuration). Every ignore entry must
+  # be a single quoted glob, so no setting hides among them.
   local useful
-  useful="$(grep -cvE '^[[:space:]]*(#|$)' "$config")"
-  printf 'useful lines: %s\n' "$useful" >&2
+  useful="$(awk '
+    /^[[:space:]]*(#|$)/ { next }
+    /^ignore:/ { inignore = 1; n++; next }
+    /^[^[:space:]]/ { inignore = 0 }
+    inignore && /^  - "[^"]+"[[:space:]]*(#.*)?$/ { next }
+    inignore { print "ignore-entry-not-a-glob: " $0 > "/dev/stderr"; bad = 1 }
+    { n++ }
+    END { print n; exit bad }
+  ' "$config")" || fail 'config-ignore-entry-not-a-glob'
+  printf 'useful lines (ignore entries aside): %s\n' "$useful" >&2
   (( useful <= 30 )) || fail "config-too-long:$useful"
   for key in '^gate:' '^  fail_on: \[error\]' '^  inconclusive: block' '^quality_gates:' '^  scanners:' \
              '^    - engine: gitleaks' '^      required: true' '^    - engine: semgrep' '^    - engine: govet' \
-             '^deliberation:' '^  enabled: true' '^  max_rounds: ' '^  max_cost_tokens: ' '^  per_tool_timeout_seconds: ' \
+             '^deliberation:' '^  enabled: true' '^  max_rounds: ' '^  per_tool_timeout_seconds: ' \
              '^  - "tests/\*\*"' '^  - "docs/assets/capturas/\*\*"' '^  language: pt-BR'; do
     grep -Eq "$key" "$config" || fail "config-lacks:$key"
   done
+  # No token ceiling by default (#179, #181): the repository's own review
+  # sets no deliberation cost ceiling that could abort it.
+  grep -Eq '^  max_cost_tokens: ' "$config" && fail 'config-sets-cost-ceiling'
   build
 
   # Strict Parse: the real file loads; the gate section is enforced (the
@@ -240,10 +256,10 @@ run_mut001() {
   grep -q 'parsing .*config.yml' "$err" && infra 'mutation-config-did-not-parse'
   [[ -s "$prompt" ]] || infra 'mutation-did-not-reach-model'
   grep -q '## TAM-001 ' "$prompt" && fail 'mutation-not-applied'
-  grep -qF "citing an unknown rule_id ($skill_rule)" "$err" || fail 'finding-survived-without-skill'
+  grep -qF "citando rule_id desconhecido ($skill_rule)" "$err" || fail 'finding-survived-without-skill'
   grep -qF "rule $skill_rule" "$out" && fail 'finding-survived-without-skill'
   [[ "$rc" == 0 ]] || fail "check-not-green-without-finding:$rc"
-  grep -F 'unknown rule_id' "$err" >&2
+  grep -F 'rule_id desconhecido' "$err" >&2
 }
 
 # guard_script WORKFLOW DEST: the provider guard step, between its markers.
