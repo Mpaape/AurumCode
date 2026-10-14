@@ -5,12 +5,13 @@ import (
 	"time"
 )
 
-// Conservative defaults of the deliberation limits: a few rounds, a token
-// ceiling of the order of one review prompt, and a tool timeout that fits a
-// local scan.
+// Defaults of the limits that guard the conversation itself: a few rounds,
+// which guarantees it ends, and a tool timeout that fits a local scan. There
+// is no default token ceiling: max_cost_tokens bounds the deliberation only
+// when the configuration declares a positive value (zero or absent means no
+// ceiling).
 const (
 	DefaultDeliberationMaxRounds         = 3
-	DefaultDeliberationMaxCostTokens     = 60000
 	DefaultDeliberationToolTimeoutSecond = 120
 )
 
@@ -21,10 +22,14 @@ const (
 // Absent or `enabled: false`, nothing is offered and every enabled scanner
 // runs before the model exactly as before.
 type DeliberationConfig struct {
-	Enabled               bool `yaml:"enabled"`
-	MaxRounds             int  `yaml:"max_rounds"`
-	MaxCostTokens         int  `yaml:"max_cost_tokens"`
-	PerToolTimeoutSeconds int  `yaml:"per_tool_timeout_seconds"`
+	Enabled   bool `yaml:"enabled"`
+	MaxRounds int  `yaml:"max_rounds"`
+	// MaxCostTokens bounds the tokens the deliberation adds beyond the base
+	// prompt (Transcript.CostTokens). Absent or 0 means no ceiling; a positive
+	// value is an explicit ceiling, and exceeding it makes the review
+	// inconclusive (deliberation_limit:max_cost_tokens).
+	MaxCostTokens         int `yaml:"max_cost_tokens"`
+	PerToolTimeoutSeconds int `yaml:"per_tool_timeout_seconds"`
 	// MaxReadBytes bounds what the repository tools (AUR-526) return to the
 	// model over one review; 0 means DefaultDeliberationMaxReadBytes.
 	MaxReadBytes int `yaml:"max_read_bytes"`
@@ -44,16 +49,16 @@ type DeliberationConfig struct {
 // Active reports whether the model may ask for tools.
 func (d *DeliberationConfig) Active() bool { return d != nil && d.Enabled }
 
-// EffectiveLimits returns the limits with each absent value defaulted.
+// EffectiveLimits returns the limits with max_rounds and the tool timeout
+// defaulted. maxCostTokens is 0, which means no ceiling, unless
+// max_cost_tokens declares a positive one.
 func (d *DeliberationConfig) EffectiveLimits() (maxRounds, maxCostTokens int, perTool time.Duration) {
-	maxRounds, maxCostTokens, seconds := DefaultDeliberationMaxRounds, DefaultDeliberationMaxCostTokens, DefaultDeliberationToolTimeoutSecond
+	maxRounds, seconds := DefaultDeliberationMaxRounds, DefaultDeliberationToolTimeoutSecond
 	if d != nil {
 		if d.MaxRounds != 0 {
 			maxRounds = d.MaxRounds
 		}
-		if d.MaxCostTokens != 0 {
-			maxCostTokens = d.MaxCostTokens
-		}
+		maxCostTokens = d.MaxCostTokens
 		if d.PerToolTimeoutSeconds != 0 {
 			seconds = d.PerToolTimeoutSeconds
 		}
@@ -61,7 +66,8 @@ func (d *DeliberationConfig) EffectiveLimits() (maxRounds, maxCostTokens int, pe
 	return maxRounds, maxCostTokens, time.Duration(seconds) * time.Second
 }
 
-// Validate refuses a negative limit (zero means the default).
+// Validate refuses a negative limit. Zero is valid for every key: the
+// default for the others, and no ceiling for max_cost_tokens.
 func (d *DeliberationConfig) Validate() error {
 	if d == nil {
 		return nil

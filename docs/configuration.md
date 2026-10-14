@@ -1718,7 +1718,7 @@ de a evidência existir nunca é reaproveitado.
 deliberation:
   enabled: true                  # padrão: false (nada é oferecido)
   max_rounds: 3                  # chamadas ao modelo, a resposta final incluída
-  max_cost_tokens: 60000         # tokens da deliberação além do prompt base
+  max_cost_tokens: 0             # padrão: sem teto; um valor positivo é um teto explícito (tokens além do prompt base)
   per_tool_timeout_seconds: 120  # teto de cada execução de ferramenta
   max_read_bytes: 262144         # bytes que as ferramentas do repositório devolvem na revisão
   max_cache_bytes: 67108864      # bytes de arquivos que as ferramentas mantêm em memória
@@ -1768,21 +1768,22 @@ chamada, os argumentos redigidos, a duração e o resultado resumido. Os
 argumentos de toda chamada são conferidos contra o schema da ferramenta antes
 de executar; uma chamada inválida é recusada e o modelo é avisado.
 
-`max_cost_tokens` mede o custo da deliberação, não o do prompt base: a
-entrada da primeira rodada (o prompt base, como o provedor a conta) fica
-registrada em `deliberation.base_tokens` da auditoria e continua sob o
-orçamento do prompt; contam no teto a saída de cada rodada e o que a
-entrada de cada rodada seguinte traz além do prompt base (as chamadas e os
-resultados das ferramentas), somados em `deliberation.cost_tokens`. Uma PR
-média cujo prompt base passa de 60000 tokens e que não pede ferramenta não
-estoura o teto; três rodadas com resultados de ferramenta de até 8 KiB cada
-cabem com folga no padrão.
+`max_cost_tokens` é opcional: ausente (ou `0`), a deliberação não tem teto de
+tokens e só `max_rounds` e `per_tool_timeout_seconds` a limitam. Um valor
+positivo vira um teto explícito. Ele mede o custo da deliberação, não o do
+prompt base: a entrada da primeira rodada (o prompt base, como o provedor a
+conta) fica registrada em `deliberation.base_tokens` da auditoria e nunca
+entra na conta do teto; contam a saída de cada rodada e o que a entrada de
+cada rodada seguinte traz além do prompt base (as chamadas e os resultados
+das ferramentas), somados em `deliberation.cost_tokens`, que a auditoria
+registra mesmo sem teto. Com um teto declarado, uma PR cujo prompt base passa
+dele e que não pede ferramenta não o estoura.
 
 A última rodada permitida não oferece ferramenta: o modelo recebe a instrução
 de entregar o parecer com a evidência já reunida. Só quando ele ainda pede
 ferramenta nessa rodada a deliberação estoura o limite.
 
-Estourar `max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds`,
+Estourar `max_rounds`, um `max_cost_tokens` declarado, `per_tool_timeout_seconds`,
 `max_read_bytes` ou `max_cache_bytes` (a revisão fica parcial: o resultado
 que passaria do teto não é devolvido) torna a revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado
 com os demais motivos do gate: a saída é 1 (a revisão conta como não feita
@@ -1791,7 +1792,8 @@ SARIF são gravados, no `--pr` o status `aurumcode/policy-gate` sai em failure
 sob `gate.inconclusive: block`, e nenhum texto do modelo é publicado (o
 parecer é só "inconclusivo: limite de deliberação"). O custo de cada rodada é reservado
 antes da chamada e confirmado depois, então `--limite` vale por rodada. Um
-valor ausente usa o padrão acima; um valor negativo ou uma chave desconhecida
+valor ausente usa o padrão acima (`max_rounds` e `per_tool_timeout_seconds`) ou
+não impõe teto (`max_cost_tokens`); um valor negativo ou uma chave desconhecida
 é erro de configuração.
 
 Com `dependency_reachability: true` e a seção `dependencies` declarada,
@@ -1823,14 +1825,15 @@ analista recebe as mesmas ferramentas da passada única e decide sozinha o que
 pedir; os achados continuam com o rótulo do analista. O teto é da revisão,
 não de cada analista: as rodadas que pedem ferramenta somam `max_rounds - 1`
 entre todos os analistas (cada um sempre faz a sua resposta final, que não
-conta nesse total) e os tokens de deliberação de todas as passadas somam
-`max_cost_tokens`. Selecionar analistas nunca multiplica o custo além do
-teto. Um analista que começa depois de as rodadas com ferramenta acabarem é
+conta nesse total) e, com `max_cost_tokens` declarado, os tokens de
+deliberação de todas as passadas somam esse teto. Selecionar analistas nunca
+multiplica o custo além do teto declarado. Um analista que começa depois de as rodadas com ferramenta acabarem é
 avisado no terminal (`deliberation: analista <nome> sem ferramentas: as
 rodadas com ferramenta da revisão (max_rounds) já foram gastas ...`) e
 responde com a evidência já reunida pelos anteriores; um analista cuja
-passada estoura o teto somado de tokens torna a revisão inconclusiva com
-`deliberation_limit:max_cost_tokens`, exatamente como na passada única.
+passada estoura o teto somado de tokens (quando há um) torna a revisão
+inconclusiva com `deliberation_limit:max_cost_tokens`, exatamente como na
+passada única.
 `per_tool_timeout_seconds` continua valendo por execução de ferramenta, igual
 para todos. Um scanner pedido por mais de um analista, ou mais de uma vez na
 mesma conversa, roda uma só vez na revisão e responde a todos com o mesmo
@@ -1978,9 +1981,10 @@ negativo é erro de configuração; zero, ou a ausência da chave, não limita.
 Sob política central, uma seção `batches` da política decide sozinha (a do
 repositório é ignorada com aviso). Os tetos de custo somam todos os lotes:
 `max_prompt_tokens` é a soma estimada dos prompts, e `--limite` usa um só
-rastreador de custo para a revisão inteira. Um teto que não admite nenhum
-lote (um `max_prompt_tokens` menor que um prompt) é uma revisão de modelo que
-não rodou: não revisada (saída 1) sem gate e inconclusiva com gate, nunca
+rastreador de custo para a revisão inteira; só `deliberation.max_cost_tokens`,
+quando declarado, vale por lote. Um teto que não admite nenhum lote (um
+`max_prompt_tokens` menor que um prompt) é uma revisão de modelo que não
+rodou: não revisada (saída 1) sem gate e inconclusiva com gate, nunca
 aprovada. Tutorial: [Revisão, caso 5](tutorials/revisao.md).
 
 ## xBOM além do SBOM: Build BOM e CBOM (AUR-552)

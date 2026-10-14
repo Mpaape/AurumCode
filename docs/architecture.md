@@ -269,8 +269,8 @@ ferramentas (`internal/deliberation.Session`) em vez de uma única chamada:
   evidências e entra nas varreduras da sessão: seus achados contam no gate com
   a sua origem, e um binário ausente ou uma varredura que falhou é o motivo
   inconclusivo da varredura.
-- Exceder `max_rounds`, `max_cost_tokens`, `per_tool_timeout_seconds` ou
-  `max_read_bytes` é o
+- Exceder `max_rounds`, um `max_cost_tokens` declarado (ausente ou `0` não
+  impõe teto), `per_tool_timeout_seconds` ou `max_read_bytes` é o
   resultado de modelo `gate.ModelDeliberationLimit`, nunca revisado em nenhuma
   das fontes (saída 1); o gate ainda roda com o motivo inconclusivo
   `deliberation_limit:<limit>` (`gate.RankReason`, classificado em primeiro),

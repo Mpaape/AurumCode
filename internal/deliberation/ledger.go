@@ -12,13 +12,15 @@ type ledger interface {
 	exceeded(round int, askedWithoutTools bool) *LimitError
 	// offersTools reports whether round may offer tools.
 	offersTools(round int) bool
-	// charge books the round the transcript just counted and reports a
-	// cost ceiling crossed; toolRound is a round that asked for a tool.
+	// charge books the round the transcript just counted and reports the
+	// explicit cost ceiling it crossed (none is crossed without a ceiling);
+	// toolRound is a round that asked for a tool.
 	charge(t *Transcript, toolRound bool) *LimitError
 }
 
 // ownLedger is the single session's own limits: MaxRounds calls, the
-// final answer included, with no tool offered on the last allowed round.
+// final answer included, with no tool offered on the last allowed round,
+// and the cost ceiling MaxCostTokens when it is positive (0 sets none).
 type ownLedger struct{ limits Limits }
 
 func (l ownLedger) exceeded(round int, _ bool) *LimitError {
@@ -33,7 +35,7 @@ func (l ownLedger) offersTools(round int) bool {
 }
 
 func (l ownLedger) charge(t *Transcript, _ bool) *LimitError {
-	if t.CostTokens > l.limits.MaxCostTokens {
+	if l.limits.MaxCostTokens > 0 && t.CostTokens > l.limits.MaxCostTokens {
 		return &LimitError{Limit: LimitMaxCostTokens, Detail: fmt.Sprintf("%d tokens de deliberacao alem do prompt base de %d, teto %d", t.CostTokens, t.BaseTokens, l.limits.MaxCostTokens)}
 	}
 	return nil
@@ -43,7 +45,7 @@ func (l ownLedger) charge(t *Transcript, _ bool) *LimitError {
 // Budget: a round may offer tools while the budget has a tool round left,
 // a session whose model still asks for a tool after the budget is spent
 // exceeds max_rounds, and the cost of every session is summed against
-// max_cost_tokens.
+// max_cost_tokens when the budget has a ceiling (Budget.addCost).
 type sharedLedger struct {
 	budget *Budget
 	// charged is the transcript's cost already booked in the budget.

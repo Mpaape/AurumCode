@@ -142,9 +142,9 @@ quality_gates:
 - Saída gravada por script (logs de tutorial, golden files, capturas) repete
   de propósito exemplos de injeção e canários de segredo: ponha-a em `ignore`
   e revise a fonte que a gera.
-- Com `deliberation`, o teto `max_cost_tokens` mede só o que as rodadas de
-  ferramenta acrescentam ao prompt base; um prompt base grande, sozinho, não
-  estoura o teto.
+- Com `deliberation`, não há teto de tokens por padrão. Se você declarar
+  `max_cost_tokens`, ele mede só o que as rodadas de ferramenta acrescentam ao
+  prompt base; um prompt base grande, sozinho, não o estoura.
 - O próprio AurumCode se revisa assim: o
   [`.aurumcode/config.yml`](https://github.com/Mpaape/AurumCode/blob/main/.aurumcode/config.yml)
   do repositório acrescenta deliberação e seis skills de convenção, em menos
