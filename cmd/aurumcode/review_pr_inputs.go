@@ -9,6 +9,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review/session"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // resolveInputs gathers everything the analyses need: the pull request's
@@ -202,7 +203,11 @@ func (p *prReview) resolveCheckout() (int, bool) {
 	}
 	p.checkoutMismatch = mismatch
 	if mismatch == "" {
-		p.codebaseText = resolveVerifiedCodebaseContext(p.deps.resolveFiles, p.diff, p.verifiedDir, includedFiles(verifiedFiles, p.cfg))
+		included := includedFiles(verifiedFiles, p.cfg)
+		p.codebaseText = resolveVerifiedCodebaseContext(p.deps.resolveFiles, p.diff, p.verifiedDir, included)
+		p.codebaseFor = func(files []types.DiffFile) string {
+			return resolveVerifiedCodebaseContext(p.deps.resolveFiles, &types.Diff{Files: files}, p.verifiedDir, included)
+		}
 	} else {
 		p.codebaseLimitation = codebaseContextOmittedNotice(p.reviewLanguage, mismatch)
 	}

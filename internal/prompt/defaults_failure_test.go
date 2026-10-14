@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"testing/fstest"
 
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 	"github.com/Mpaape/AurumCode/pkg/types"
@@ -13,33 +12,14 @@ import (
 // The embedded defaults are compiled into the binary, so their failure is a
 // build defect. These tests pin that such a defect is returned as an error
 // at every assembly entry point -- never a panic at package initialization
-// and never a prompt assembled with zero, unbounded ceilings.
+// and never a prompt assembled with an empty rule catalog.
 
 func TestEmbeddedDefaultsLoad(t *testing.T) {
 	if err := EmbeddedDefaultsErr(); err != nil {
 		t.Fatalf("embedded defaults failed to load: %v", err)
 	}
-	if DefaultLimits().PromptMaxTokens <= 0 || len(DefaultRuleCatalog) == 0 {
-		t.Fatalf("embedded defaults are empty: %+v, %d rules", DefaultLimits(), len(DefaultRuleCatalog))
-	}
-}
-
-func TestLoadSlotLimitsReturnsErrors(t *testing.T) {
-	cases := map[string]fstest.MapFS{
-		"missing":      {},
-		"malformed":    {limitsFile: {Data: []byte("prompt_max_tokens: [unclosed\n")}},
-		"non-positive": {limitsFile: {Data: []byte("prompt_max_tokens: 0\nevidence_max_tokens: 1\ntools_max_tokens: 1\n")}},
-	}
-	for name, fsys := range cases {
-		t.Run(name, func(t *testing.T) {
-			limits, err := loadSlotLimits(fsys)
-			if err == nil {
-				t.Fatalf("loadSlotLimits accepted a %s limits file: %+v", name, limits)
-			}
-			if !strings.Contains(err.Error(), limitsFile) {
-				t.Fatalf("error does not name %s: %v", limitsFile, err)
-			}
-		})
+	if len(DefaultRuleCatalog) == 0 {
+		t.Fatal("embedded rule catalog is empty")
 	}
 }
 

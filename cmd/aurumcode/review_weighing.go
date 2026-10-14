@@ -108,6 +108,7 @@ func (s *reviewState) offerEvidence() {
 // sends the same way: the evidence offered and the repository context block.
 func (s *reviewState) reviewContext(base review.ReviewContext) review.ReviewContext {
 	base.Evidence = s.evidence
+	base.CodebaseContextFor = s.codebaseFor
 	base.RepositoryContext = s.repositoryContext
 	base.Tools = s.manifestOrNil()
 	return base

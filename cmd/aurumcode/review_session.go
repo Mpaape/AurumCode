@@ -157,10 +157,13 @@ type reviewState struct {
 	changelogSuggestion string
 	changelogLimitation string
 	codebaseText        string
-	memoryStore         memory.Store
-	memoryNotes         []memory.Note
-	memoryNotesText     string
-	profileIdentity     string
+	// codebaseFor renders the codebase context of just some files: a batch
+	// of a split review carries the context of its own files.
+	codebaseFor     func(files []types.DiffFile) string
+	memoryStore     memory.Store
+	memoryNotes     []memory.Note
+	memoryNotesText string
+	profileIdentity string
 
 	// model pass
 	provider           llm.Provider

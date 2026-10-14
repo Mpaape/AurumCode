@@ -36,13 +36,14 @@ func (e *LimitError) Unwrap() error { return ErrLimit }
 // Reason is the motive a caller records: deliberation_limit:<limit>.
 func (e *LimitError) Reason() string { return ReasonLimit + ":" + e.Limit }
 
-// Validate refuses a non-positive limit, naming it.
+// Validate refuses a non-positive limit, naming it. MaxCostTokens is the
+// exception: 0 means no ceiling, so only a negative value is refused.
 func (l Limits) Validate() error {
 	switch {
 	case l.MaxRounds <= 0:
 		return fmt.Errorf("%s must be positive (got %d)", LimitMaxRounds, l.MaxRounds)
-	case l.MaxCostTokens <= 0:
-		return fmt.Errorf("%s must be positive (got %d)", LimitMaxCostTokens, l.MaxCostTokens)
+	case l.MaxCostTokens < 0:
+		return fmt.Errorf("%s must not be negative (got %d)", LimitMaxCostTokens, l.MaxCostTokens)
 	case l.PerToolTimeout <= 0:
 		return fmt.Errorf("%s must be positive (got %s)", LimitPerToolTimeout, l.PerToolTimeout)
 	}

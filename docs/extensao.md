@@ -134,7 +134,8 @@ nunca pede uma ferramenta sozinho; o modelo decide pelo que o prompt mostra.
 - `deliberation.Limits` limita a conversa: `deliberation.Limits.MaxRounds`,
   `deliberation.Limits.MaxCostTokens` e `deliberation.Limits.PerToolTimeout`
   (`deliberation.max_rounds`, `max_cost_tokens` e `per_tool_timeout_seconds`
-  na configuração). Estourar um limite é um `deliberation.LimitError`: a
+  na configuração); `MaxCostTokens` igual a `0` não impõe teto de tokens.
+  Estourar um limite é um `deliberation.LimitError`: a
   revisão é **inconclusiva** (`deliberation_limit:<limite>`), nunca um
   parecer.
 - `deliberation.Transcript` é o registro na auditoria (campo `deliberation`):

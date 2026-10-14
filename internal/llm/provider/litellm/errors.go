@@ -2,9 +2,9 @@ package litellm
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
+	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -36,10 +36,13 @@ func (p *Provider) apiError(status int, body []byte) error {
 	// Redact before bounding: a cut could split a secret and hide it from
 	// the filter.
 	summary := redaction.NewFilter(p.apiKey).Redact(summarizeErrorBody(body))
+	// The refusal for length is read from the whole message: the sizes may
+	// sit past the bound a log line gets.
+	tooLong := llm.DetectPromptTooLong(status, summary)
 	if len(summary) > errorSummaryLimit {
 		summary = summary[:errorSummaryLimit] + "... (truncated)"
 	}
-	return fmt.Errorf("%s API error (status %d): %s", p.dialect.Name, status, summary)
+	return &llm.APIError{Provider: p.dialect.Name, Status: status, Message: summary, TooLong: tooLong}
 }
 
 // summarizeErrorBody extracts the provider's message from a known envelope,

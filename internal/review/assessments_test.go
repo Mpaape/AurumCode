@@ -64,8 +64,7 @@ func TestAssessmentOfEvidenceOmittedByTheCeilingIsDiscarded(t *testing.T) {
 		`{"evidence_id":"ev-39","status":"disputed","justification":"nunca lido"}]}`
 	provider := &messagesCaptureProvider{FakeProvider: FakeProvider{Response: reply}}
 	reviewer := NewReviewer(llm.NewOrchestrator(provider, nil, nil), DefaultConfig())
-	limits := prompt.DefaultLimits()
-	limits.EvidenceMaxTokens = 400
+	limits := prompt.SlotLimits{EvidenceMaxTokens: 400}
 	if err := reviewer.promptBuilder.SetSlotLimits(limits); err != nil {
 		t.Fatal(err)
 	}

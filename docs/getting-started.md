@@ -134,16 +134,20 @@ quality_gates:
   `inconclusive: block`; o motivo inconclusivo de uma engine traz o detalhe
   da falha, resumido e redigido (`[detalhe: ...]`), no parecer e na auditoria.
 - PR grande também é revisado: quando o GitHub recusa o diff por tamanho, o
-  diff sai do checkout verificado do PR; quando ele não cabe num prompt, a
-  revisão é feita em lotes por diretório, com um parecer e um gate. Só no teto
-  de lotes (`batches`, padrão 4) a revisão fica parcial, listando os arquivos
-  que ficaram fora (ver "PR grande" em docs/configuration.md).
+  diff sai do checkout verificado do PR; quando o modelo recusa o prompt por
+  ser maior que a janela dele, a revisão é feita em lotes por diretório, com
+  um parecer e um gate. O produto não põe teto de token: a revisão só fica
+  parcial, listando o que ficou fora, num teto de lotes que você escreveu
+  (`batches`), quando um único arquivo é maior que a janela do modelo ou
+  quando o diff local de um arquivo passa de 1 MiB ou de 10000 linhas (o
+  arquivo é declarado como não revisado; ver "PR grande" em
+  docs/configuration.md).
 - Saída gravada por script (logs de tutorial, golden files, capturas) repete
   de propósito exemplos de injeção e canários de segredo: ponha-a em `ignore`
   e revise a fonte que a gera.
-- Com `deliberation`, o teto `max_cost_tokens` mede só o que as rodadas de
-  ferramenta acrescentam ao prompt base; um prompt base grande, sozinho, não
-  estoura o teto.
+- Com `deliberation`, não há teto de tokens por padrão. Se você declarar
+  `max_cost_tokens`, ele mede só o que as rodadas de ferramenta acrescentam ao
+  prompt base; um prompt base grande, sozinho, não o estoura.
 - O próprio AurumCode se revisa assim: o
   [`.aurumcode/config.yml`](https://github.com/Mpaape/AurumCode/blob/main/.aurumcode/config.yml)
   do repositório acrescenta deliberação e seis skills de convenção, em menos
