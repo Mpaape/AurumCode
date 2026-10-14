@@ -561,6 +561,7 @@ jobs:
             # nothing in them can open another workflow command.
             if [ "${review_rc}" -ne 3 ]; then
               reason="$(grep -a '^aurumcode review: ' "${review_log}" | tail -n 6 | cut -c1-700 || true)"
+              reason="${reason//$'\r'/ }"
               if [ -z "${reason}" ]; then
                 reason="aurumcode review saiu com o código ${review_rc} sem diagnóstico; veja o log deste passo."
               fi
