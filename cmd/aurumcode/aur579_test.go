@@ -232,7 +232,7 @@ func TestAUR579PolicyFloorAndRepositoryTriage(t *testing.T) {
 	if code != exitFindings {
 		t.Fatalf("policy: a disputed policy finding must still fail the gate: exit=%d\nstderr=%s", code, errOut)
 	}
-	for _, want := range []string{"Excecoes propostas pelo modelo", `rule: "analysis/hardcoded-secret"`, `path: "app.go"`, `owner: "<dono a definir>"`} {
+	for _, want := range []string{"Exceções propostas pelo modelo", `rule: "analysis/hardcoded-secret"`, `path: "app.go"`, `owner: "<dono a definir>"`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("policy: the dispute must become a proposed exception (%q):\n%s", want, out)
 		}
@@ -266,7 +266,7 @@ func TestAUR579PolicyFloorAndRepositoryTriage(t *testing.T) {
 	if !strings.Contains(errOut, "gate.triage (analysis: model): app.go:4 analysis/hardcoded-secret") {
 		t.Errorf("a demotion is never silent:\n%s", errOut)
 	}
-	if strings.Contains(out, "Excecoes propostas") {
+	if strings.Contains(out, "Exceções propostas") {
 		t.Errorf("a demoted finding needs no proposed exception:\n%s", out)
 	}
 }

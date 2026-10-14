@@ -6,8 +6,11 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/gate"
 	"github.com/Mpaape/AurumCode/internal/gate/facts"
+	"github.com/Mpaape/AurumCode/internal/git/githubclient"
 	"github.com/Mpaape/AurumCode/internal/review/blocking"
 	"github.com/Mpaape/AurumCode/internal/review/consolidate"
+	"github.com/Mpaape/AurumCode/internal/review/rounds"
+	"github.com/Mpaape/AurumCode/internal/security/redaction"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -91,5 +94,42 @@ func TestBlockingFindingCommentCarriesItsFix(t *testing.T) {
 	}
 	if c := findingComment(aur620Diff(), nil, issue, "RIGHT", "x"); c.Body != "x" {
 		t.Fatalf("no fix, no block: %+v", c)
+	}
+}
+
+// A finding an earlier round commented on alone, now published inside
+// another (the same secret from a second source), is still reported: the
+// round never calls it resolved nor marks its comment.
+func TestAbsorbedFindingIsNotResolvedNextRound(t *testing.T) {
+	diff := aur620Diff()
+	gitleaks := types.ReviewIssue{File: "app.py", Line: 10, Severity: "error", RuleID: "gitleaks:generic-api-key", Origin: "gitleaks", Message: "segredo"}
+	analysis := types.ReviewIssue{File: "app.py", Line: 10, Severity: "error", RuleID: "analysis/hardcoded-secret", Origin: "analysis", Message: "segredo"}
+	filter := redaction.NewFilter()
+	line := 10
+	earlier := githubclient.ReviewHistoryEntry{Kind: "review_comment", ID: 5, Author: "aurum-bot", Path: "app.py", Line: &line,
+		Body: "**segredo**\n\n" + rounds.Marker(roundFingerprint(diff, gitleaks, filter), gitleaks.RuleID)}
+	p := &prReview{historyEntries: []githubclient.ReviewHistoryEntry{earlier}}
+	p.diff, p.filter = diff, filter
+	p.deps.env = &reviewEnv{publisherLogin: "aurum-bot"}
+	p.shown = presentation{consolidate.Apply([]types.ReviewIssue{analysis, gitleaks}, consolidate.Options{})}
+	if len(p.shown.Absorbed) != 1 {
+		t.Fatalf("the gitleaks occurrence was not absorbed: %+v", p.shown)
+	}
+	if plan := p.planRound(); len(plan.plan.Resolved) != 0 {
+		t.Fatalf("an absorbed finding was called resolved: %+v", plan.plan.Resolved)
+	}
+}
+
+// The aurumcode/review status counts problems in Portuguese: one secret two
+// sources reported is one; another rule on the line is another problem.
+func TestReviewStatusCountsProblems(t *testing.T) {
+	issues := []types.ReviewIssue{
+		{File: "a.py", Line: 3, Severity: "error", RuleID: "analysis/hardcoded-secret"},
+		{File: "a.py", Line: 3, Severity: "error", RuleID: "gitleaks:generic-api-key"},
+		{File: "a.py", Line: 3, Severity: "error", RuleID: "security/sql-injection"},
+	}
+	all := func(types.ReviewIssue) bool { return true }
+	if got := repeatedProblems(issues, all); got != 1 {
+		t.Fatalf("repeated = %d, want 1", got)
 	}
 }

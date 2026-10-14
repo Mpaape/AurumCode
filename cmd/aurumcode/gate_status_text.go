@@ -14,6 +14,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/gate/reasons"
 	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/review/consolidate"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // minTitleRunes is the shortest finding title worth keeping in a capped
@@ -192,4 +193,22 @@ func lastSpace(runes []rune) int {
 		}
 	}
 	return -1
+}
+
+// repeatedProblems is how many of the findings counts keeps are a second
+// report of a problem already counted (same place, same rule family).
+func repeatedProblems(issues []types.ReviewIssue, counts func(types.ReviewIssue) bool) int {
+	seen := map[string]bool{}
+	repeated := 0
+	for _, issue := range issues {
+		if !counts(issue) {
+			continue
+		}
+		key := fmt.Sprintf("%s\x00%d\x00%s\x00%s", issue.File, issue.Line, strings.ToUpper(issue.Side), consolidate.Family(issue.RuleID))
+		if seen[key] {
+			repeated++
+		}
+		seen[key] = true
+	}
+	return repeated
 }

@@ -79,7 +79,9 @@ func mergeResults(results []*types.ReviewResult) *types.ReviewResult {
 		}
 		mergeMetadata(merged.Metadata, res.Metadata)
 	}
-	merged.Summary = strings.Join(summaries, "\n\n")
+	// One summary, one paragraph: the parts' summaries are sentences of the
+	// same change, never one paragraph per part.
+	merged.Summary = strings.Join(summaries, " ")
 	return merged
 }
 

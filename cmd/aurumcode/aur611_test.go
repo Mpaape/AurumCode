@@ -72,7 +72,7 @@ func TestAUR611DetailsCarryToolVersionWhenNotDev(t *testing.T) {
 		t.Fatalf("an otherwise empty details block lacks the version line:\n%s", english)
 	}
 	stampVersion(t, "0123456789ab")
-	if body := formatReviewDocument(aur611Result(), nil, "pt-BR", blocking.Ungated()); !strings.Contains(detailsOf(body), "Revisado com AurumCode 0123456789ab") {
+	if body := formatReviewDocument(aur611Result(), nil, "pt-BR", blocking.Ungated()); !strings.Contains(detailsOf(body), "Revisado com AurumCode (commit 0123456789ab)") {
 		t.Fatalf("a short SHA version is not named:\n%s", body)
 	}
 }

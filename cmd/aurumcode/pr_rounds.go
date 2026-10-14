@@ -79,7 +79,10 @@ func (p *prReview) planRound() roundPlan {
 	if p.historyErr == nil {
 		previous = rounds.Published(earlierComments(p.historyEntries, p.env().publisherLogin))
 	}
-	plan := rounds.PlanRound(fps, p.fingerprintsOf(p.shown.Collapsed), previous)
+	// A finding condensed by a preference, or published inside another
+	// (the same problem from a second source), is still reported.
+	reported := append(append([]types.ReviewIssue(nil), p.shown.Collapsed...), p.shown.Absorbed...)
+	plan := rounds.PlanRound(fps, p.fingerprintsOf(reported), previous)
 	if !p.conclusiveForRounds() {
 		plan.Resolved = nil
 	}

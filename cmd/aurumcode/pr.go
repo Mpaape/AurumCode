@@ -123,7 +123,18 @@ func publishCheckStatusIn(ctx context.Context, language string, client *githubcl
 	if providerFailed || qualityRequiredButIncomplete || grave > 0 {
 		status.State = "failure"
 	}
-	status.Description = reviewCheckDescription(language, prNumber, grave, qualityRequiredButIncomplete, providerFailed)
+	shown := grave
+	if i18n.LocaleOf(language) != i18n.English {
+		// The description counts problems, as the parecer does: one secret
+		// two sources reported is one. The state reads the findings.
+		shown = grave - repeatedProblems(issues, func(issue types.ReviewIssue) bool {
+			if rule.Gated() {
+				return rule.Blocks(issue)
+			}
+			return severityRank(issue.Severity) >= rankError
+		})
+	}
+	status.Description = reviewCheckDescription(language, prNumber, shown, qualityRequiredButIncomplete, providerFailed)
 
 	if err := client.SetStatus(ctx, owner, repoName, commitID, status); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: publishing check status: %s\n", publishError(language, publishStatus, err))

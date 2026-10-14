@@ -62,7 +62,7 @@ func RenderProposedExceptions(proposals []ProposedException) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("Excecoes propostas pelo modelo (nao aplicadas; o gate continua contando estes achados).\n")
+	b.WriteString("Exceções propostas pelo modelo (não aplicadas; o gate continua contando estes achados).\n")
 	b.WriteString("Para aceitar, um humano copia o bloco para `exceptions` com dono e validade:\n")
 	b.WriteString("exceptions:\n")
 	for _, p := range proposals {

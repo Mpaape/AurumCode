@@ -529,7 +529,7 @@ aurumcode review: policy gate: analysis/hardcoded-secret - Segredo ou credencial
 app.go:6: [error] Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret)
   origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O valor e a senha do banco de exemplo descartavel da demonstracao, nao uma credencial real.
   sugestao: Mover o exemplo para um arquivo de teste.
-Excecoes propostas pelo modelo (nao aplicadas; o gate continua contando estes achados).
+Exceções propostas pelo modelo (não aplicadas; o gate continua contando estes achados).
 Para aceitar, um humano copia o bloco para `exceptions` com dono e validade:
 exceptions:
   - repo: "<owner/repo a definir>"

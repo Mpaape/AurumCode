@@ -379,7 +379,8 @@ inválida de [politica-central.md](politica-central.md).
 - **"skill … ignorada: já existe uma skill com esse nome na … camada de
   cima"**: não é erro. Duas camadas declararam o mesmo nome de diretório de
   skill; valeu a de cima. Renomeie a de baixo ou apague-a.
-- **"policy skill … overrides repository skill …: same selector"**: uma skill
+- **"a skill da política … prevalece sobre a skill do repositório …: mesmo
+  seletor"** (em inglês, "policy skill … overrides repository skill …"): uma skill
   da política tem o mesmo seletor (`languages`/`paths`) de uma skill de baixo,
   e a de baixo não foi enviada ao modelo. Dê seletores diferentes às skills de
   cada camada.
