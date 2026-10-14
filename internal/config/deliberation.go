@@ -7,9 +7,9 @@ import (
 
 // Defaults of the limits that guard the conversation itself: a few rounds,
 // which guarantees it ends, and a tool timeout that fits a local scan. There
-// is no default token ceiling: max_cost_tokens bounds the deliberation only
-// when the configuration declares a positive value (zero or absent means no
-// ceiling).
+// are no default size ceilings: max_cost_tokens, max_read_bytes and
+// max_cache_bytes bound the work only when the configuration declares a
+// positive value (zero or absent means no ceiling).
 const (
 	DefaultDeliberationMaxRounds         = 3
 	DefaultDeliberationToolTimeoutSecond = 120
@@ -31,10 +31,12 @@ type DeliberationConfig struct {
 	MaxCostTokens         int `yaml:"max_cost_tokens"`
 	PerToolTimeoutSeconds int `yaml:"per_tool_timeout_seconds"`
 	// MaxReadBytes bounds what the repository tools (AUR-526) return to the
-	// model over one review; 0 means DefaultDeliberationMaxReadBytes.
+	// model over one review. Absent or 0 means no ceiling; a positive value is
+	// an explicit one (deliberation_limit:max_read_bytes).
 	MaxReadBytes int `yaml:"max_read_bytes"`
 	// MaxCacheBytes bounds the file bytes the repository tools keep in
-	// memory over one review; 0 means DefaultDeliberationMaxCacheBytes.
+	// memory over one review. Absent or 0 means no ceiling; a positive value is
+	// an explicit one (deliberation_limit:max_cache_bytes).
 	MaxCacheBytes int `yaml:"max_cache_bytes"`
 	// SecretPaths are globs of secret files the repository tools refuse,
 	// added to the embedded catalog (secret_paths.yml), never replacing it.
@@ -67,7 +69,8 @@ func (d *DeliberationConfig) EffectiveLimits() (maxRounds, maxCostTokens int, pe
 }
 
 // Validate refuses a negative limit. Zero is valid for every key: the
-// default for the others, and no ceiling for max_cost_tokens.
+// default for max_rounds and per_tool_timeout_seconds, and no ceiling for
+// max_cost_tokens, max_read_bytes and max_cache_bytes.
 func (d *DeliberationConfig) Validate() error {
 	if d == nil {
 		return nil

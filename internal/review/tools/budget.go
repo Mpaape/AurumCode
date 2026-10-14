@@ -15,26 +15,25 @@ const LimitMaxReadBytes = "max_read_bytes"
 // keep in memory over one review (deliberation.max_cache_bytes).
 const LimitMaxCacheBytes = "max_cache_bytes"
 
-// defaultMaxReadBytes applies when a budget is built without a ceiling.
-const defaultMaxReadBytes = 256 * 1024
-
 // ByteBudget bounds the bytes the repository tools return to the model over
-// one review. Once a result would cross it, nothing more is returned and
-// the review is partial: the caller turns Exhausted into a deliberation
-// limit, so the gate is inconclusive as the policy configures it.
+// one review, when it has a ceiling. Once a result would cross it, nothing
+// more is returned and the review is partial: the caller turns Exhausted
+// into a deliberation limit, so the gate is inconclusive as the policy
+// configures it. A budget without a ceiling never refuses a result.
 type ByteBudget struct {
-	mu        sync.Mutex
+	mu sync.Mutex
+	// max is the ceiling in bytes; 0 means none.
 	max, used int
 	exhausted bool
 	// limit and detail name what exhausted the budget.
 	limit, detail string
 }
 
-// NewByteBudget is a budget of max bytes (a non-positive max takes the
-// default).
+// NewByteBudget is a budget of max bytes; a non-positive max sets no
+// ceiling.
 func NewByteBudget(max int) *ByteBudget {
-	if max <= 0 {
-		max = defaultMaxReadBytes
+	if max < 0 {
+		max = 0
 	}
 	return &ByteBudget{max: max}
 }
@@ -46,7 +45,7 @@ func (b *ByteBudget) Charge(n int) error {
 	if b.exhausted {
 		return fmt.Errorf("teto de %s atingido; a revisão fica parcial", b.limit)
 	}
-	if b.used+n > b.max {
+	if b.max > 0 && b.used+n > b.max {
 		b.exhausted, b.limit = true, LimitMaxReadBytes
 		b.detail = fmt.Sprintf("%d de %d bytes devolvidos pelas ferramentas do repositório", b.used, b.max)
 		return fmt.Errorf("teto de %s atingido (%d de %d bytes já devolvidos); a revisão fica parcial", LimitMaxReadBytes, b.used, b.max)

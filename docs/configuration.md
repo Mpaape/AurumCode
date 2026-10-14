@@ -1720,8 +1720,8 @@ deliberation:
   max_rounds: 3                  # chamadas ao modelo, a resposta final incluída
   max_cost_tokens: 0             # padrão: sem teto; um valor positivo é um teto explícito (tokens além do prompt base)
   per_tool_timeout_seconds: 120  # teto de cada execução de ferramenta
-  max_read_bytes: 262144         # bytes que as ferramentas do repositório devolvem na revisão
-  max_cache_bytes: 67108864      # bytes de arquivos que as ferramentas mantêm em memória
+  max_read_bytes: 0              # padrão: sem teto; positivo = teto de bytes que as ferramentas do repositório devolvem na revisão
+  max_cache_bytes: 0             # padrão: sem teto; positivo = teto de bytes de arquivos que as ferramentas mantêm em memória
   secret_paths: []               # globs de segredo somados ao catálogo embutido
   dependency_reachability: false # AUR-531: explicar o uso da parte vulnerável
 ```
@@ -1779,12 +1779,21 @@ das ferramentas), somados em `deliberation.cost_tokens`, que a auditoria
 registra mesmo sem teto. Com um teto declarado, uma PR cujo prompt base passa
 dele e que não pede ferramenta não o estoura.
 
+`max_read_bytes` (os bytes que as ferramentas do repositório devolvem ao modelo
+na revisão inteira) e `max_cache_bytes` (os bytes de arquivos que elas mantêm
+em memória) também são opcionais: ausentes ou `0`, não há teto. Um valor
+positivo vira um teto explícito: o resultado que o ultrapassaria não é
+devolvido e a revisão fica parcial (`deliberation_limit:max_read_bytes` ou
+`deliberation_limit:max_cache_bytes`). Fora desses tetos, um único arquivo
+acima de 1 MiB continua sendo recusado na leitura (o `read_file` falha e as
+buscas pulam o arquivo), sem deixar a revisão parcial.
+
 A última rodada permitida não oferece ferramenta: o modelo recebe a instrução
 de entregar o parecer com a evidência já reunida. Só quando ele ainda pede
 ferramenta nessa rodada a deliberação estoura o limite.
 
-Estourar `max_rounds`, um `max_cost_tokens` declarado, `per_tool_timeout_seconds`,
-`max_read_bytes` ou `max_cache_bytes` (a revisão fica parcial: o resultado
+Estourar `max_rounds`, `per_tool_timeout_seconds` ou um teto declarado em
+`max_cost_tokens`, `max_read_bytes` ou `max_cache_bytes` (a revisão fica parcial: o resultado
 que passaria do teto não é devolvido) torna a revisão inconclusiva com o motivo `deliberation_limit:<limite>`, ranqueado
 com os demais motivos do gate: a saída é 1 (a revisão conta como não feita
 nos dois caminhos), a auditoria (com o campo `deliberation` e seu `limit`) e o
@@ -1793,8 +1802,8 @@ sob `gate.inconclusive: block`, e nenhum texto do modelo é publicado (o
 parecer é só "inconclusivo: limite de deliberação"). O custo de cada rodada é reservado
 antes da chamada e confirmado depois, então `--limite` vale por rodada. Um
 valor ausente usa o padrão acima (`max_rounds` e `per_tool_timeout_seconds`) ou
-não impõe teto (`max_cost_tokens`); um valor negativo ou uma chave desconhecida
-é erro de configuração.
+não impõe teto (`max_cost_tokens`, `max_read_bytes` e `max_cache_bytes`); um
+valor negativo ou uma chave desconhecida é erro de configuração.
 
 Com `dependency_reachability: true` e a seção `dependencies` declarada,
 cada advisory introduzido ou pré-existente da verificação de dependências

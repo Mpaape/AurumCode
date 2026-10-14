@@ -33,16 +33,14 @@ type RevisionOptions struct {
 	Secret func(string) bool
 	// MaxFileBytes bounds one file read; 0 means grammarMaxFileBytes.
 	MaxFileBytes int64
-	// Budget bounds the bytes returned to the model over the review.
+	// Budget bounds the bytes returned to the model over the review; nil
+	// means a budget without a ceiling.
 	Budget *ByteBudget
 	// MaxCacheBytes bounds the file bytes kept in memory over the review;
-	// 0 means defaultMaxCacheBytes. Crossing it exhausts Budget with
-	// max_cache_bytes: the review is partial.
+	// 0 means no ceiling. Crossing it exhausts Budget with max_cache_bytes:
+	// the review is partial.
 	MaxCacheBytes int
 }
-
-// defaultMaxCacheBytes is the default in-memory ceiling of read files.
-const defaultMaxCacheBytes = 64 << 20
 
 // grammarMaxFileBytes is the default per-file read bound.
 const grammarMaxFileBytes = 1 << 20
@@ -74,9 +72,6 @@ func NewRevision(opts RevisionOptions) (*Revision, error) {
 	}
 	if opts.Budget == nil {
 		opts.Budget = NewByteBudget(0)
-	}
-	if opts.MaxCacheBytes <= 0 {
-		opts.MaxCacheBytes = defaultMaxCacheBytes
 	}
 	return &Revision{opts: opts, realRoot: real, cache: map[string][]byte{}}, nil
 }
@@ -155,7 +150,7 @@ func (r *Revision) Read(rel string) ([]byte, error) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.cached+len(data) > r.opts.MaxCacheBytes {
+	if r.opts.MaxCacheBytes > 0 && r.cached+len(data) > r.opts.MaxCacheBytes {
 		r.opts.Budget.Exhaust(LimitMaxCacheBytes, fmt.Sprintf("%d de %d bytes de arquivos já em memória", r.cached, r.opts.MaxCacheBytes))
 		return nil, fmt.Errorf("teto de %s atingido; a revisão fica parcial", LimitMaxCacheBytes)
 	}

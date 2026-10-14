@@ -81,3 +81,37 @@ func TestMaxCostTokensIsOptionalAndZeroMeansNoCeiling(t *testing.T) {
 		t.Fatalf("err = %v, want a negative max_cost_tokens refused by name", err)
 	}
 }
+
+// max_read_bytes and max_cache_bytes are optional too: an absent section, an
+// absent key and an explicit 0 all mean no ceiling. A positive value is an
+// explicit ceiling, handed on as written; a negative one is refused by name.
+func TestByteLimitsAreOptionalAndZeroMeansNoCeiling(t *testing.T) {
+	var absent *DeliberationConfig
+	if absent.EffectiveMaxReadBytes() != 0 || absent.EffectiveMaxCacheBytes() != 0 {
+		t.Fatalf("absent section: read=%d cache=%d, want no ceiling", absent.EffectiveMaxReadBytes(), absent.EffectiveMaxCacheBytes())
+	}
+	for name, body := range map[string]string{
+		"key absent":    "deliberation:\n  enabled: true\n",
+		"explicit zero": "deliberation:\n  enabled: true\n  max_read_bytes: 0\n  max_cache_bytes: 0\n",
+	} {
+		cfg, err := Parse([]byte(body), "c.yml")
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if read, cache := cfg.Deliberation.EffectiveMaxReadBytes(), cfg.Deliberation.EffectiveMaxCacheBytes(); read != 0 || cache != 0 {
+			t.Errorf("%s: read=%d cache=%d, want no ceiling", name, read, cache)
+		}
+	}
+	cfg, err := Parse([]byte("deliberation:\n  enabled: true\n  max_read_bytes: 4096\n  max_cache_bytes: 8192\n"), "c.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if read, cache := cfg.Deliberation.EffectiveMaxReadBytes(), cfg.Deliberation.EffectiveMaxCacheBytes(); read != 4096 || cache != 8192 {
+		t.Fatalf("read=%d cache=%d, want the explicit ceilings 4096 and 8192", read, cache)
+	}
+	for _, key := range []string{"max_read_bytes", "max_cache_bytes"} {
+		if _, err := Parse([]byte("deliberation:\n  "+key+": -1\n"), "c.yml"); err == nil || !strings.Contains(err.Error(), "deliberation."+key) {
+			t.Errorf("a negative %s: err = %v, want it refused by name", key, err)
+		}
+	}
+}

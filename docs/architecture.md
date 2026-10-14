@@ -254,7 +254,7 @@ ferramentas (`internal/deliberation.Session`) em vez de uma única chamada:
   `changed_file_diff`), que leem só a revisão revisada
   (`internal/review/tools.Revision`: caminho da árvore do commit, bytes com o
   mesmo id de blob, sem link simbólico, `ignore` nem arquivo de segredo) e
-  dividem o teto `max_read_bytes`. O manifesto vai para o slot de ferramentas do prompt com o
+  dividem o teto `max_read_bytes`, quando declarado. O manifesto vai para o slot de ferramentas do prompt com o
   custo declarado e o tamanho de resultado de cada ferramenta. O modelo decide;
   o código nunca pede uma ferramenta por conta própria.
 - Cada rodada é uma chamada a `Orchestrator.CompleteWithTools`: seu custo é
@@ -269,8 +269,9 @@ ferramentas (`internal/deliberation.Session`) em vez de uma única chamada:
   evidências e entra nas varreduras da sessão: seus achados contam no gate com
   a sua origem, e um binário ausente ou uma varredura que falhou é o motivo
   inconclusivo da varredura.
-- Exceder `max_rounds`, um `max_cost_tokens` declarado (ausente ou `0` não
-  impõe teto), `per_tool_timeout_seconds` ou `max_read_bytes` é o
+- Exceder `max_rounds`, `per_tool_timeout_seconds` ou um teto declarado em
+  `max_cost_tokens`, `max_read_bytes` ou `max_cache_bytes` (ausente ou `0` não
+  impõe teto) é o
   resultado de modelo `gate.ModelDeliberationLimit`, nunca revisado em nenhuma
   das fontes (saída 1); o gate ainda roda com o motivo inconclusivo
   `deliberation_limit:<limit>` (`gate.RankReason`, classificado em primeiro),
