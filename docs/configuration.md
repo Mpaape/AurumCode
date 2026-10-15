@@ -2678,6 +2678,14 @@ Comandos:
 - `aurumcode plugin destino --visibilidade V [--code-scanning]` imprime
   `security` ou `issues`; com `--destino issues` num repositório público,
   recusa (exit 1).
+- `aurumcode plugin issues --name N --sarif P --repo OWNER/REPO` (AUR-623):
+  destino `issues` de repositório privado sem Code Security. Sincroniza os
+  achados do SARIF com issues do próprio repositório (marcador oculto com o
+  fingerprint e rótulo `aurumcode-plugin:<nome>`): abre, mantém sem
+  duplicar, fecha o que sumiu e reabre o que voltou. Recusa (exit 1, nada
+  publicado) repositório público ou visibilidade ilegível; SARIF ausente
+  (ingest inconclusivo) não faz nenhuma chamada. Usa `GITHUB_TOKEN` com
+  `issues: write` e `AURUMCODE_GITHUB_API_URL`; imprime só contagens.
 
 ## Realimentação da política (AUR-532)
 

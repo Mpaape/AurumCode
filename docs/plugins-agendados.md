@@ -4,7 +4,10 @@ A validação agendada pode rodar **plugins externos**: programas que o
 AurumCode não embute nem clona, cada um no próprio container, sobre a branch
 padrão. O primeiro exemplo pronto é um harness agêntico de vulnerabilidade
 público (Apache-2.0, Python): `demo/plugins/vvah/`. Os achados de um plugin
-vão **só para a aba Security** (code scanning) do repositório.
+vão para a aba Security (code scanning) do repositório; num repositório
+**privado sem GitHub Code Security**, viram issues do próprio repositório
+(só colaboradores veem). Em repositório público, nunca issue: só a aba
+Security.
 
 Tutorial executável: [plugin agendado](tutorials/plugin-agendado.md).
 Referência da configuração: [configuração](configuration.md), seção
@@ -25,6 +28,7 @@ Security) exige permissão de escrita no repositório. Por isso o job
 | Resumo do job, anotações, artefatos | nunca |
 | PR (comentário, status, gate) | nunca; em `pull_request*` os jobs de plugin são pulados pelo `if:` |
 | Aba Security (code scanning) | sim: SARIF com categoria `aurumcode/plugin/<nome>` |
+| Issues do próprio repositório | só em repositório privado (ou interno) sem Code Security; nunca em público |
 
 Arquivos que o harness deixa em `security-scan/` além do `findings.json` (o
 relatório em Markdown e o texto cru do modelo, `*_s8_raw.txt`) ficam na cópia
@@ -139,6 +143,7 @@ jobs:
       contents: read
       actions: read            # o upload-sarif precisa em repositório privado
       security-events: write
+      issues: write            # só repositório privado sem Code Security (destino issues)
     uses: Mpaape/AurumCode/.github/workflows/review.yml@<sha>
     secrets: inherit   # repassa ANTHROPIC_API_KEY, VVAH_MODEL e os LLM_*
 ```
@@ -153,14 +158,43 @@ os secrets que declara, e os nomes de `env` de cada plugin são livres.
 ## Repositório privado
 
 Repositório privado **com** GitHub Code Security: igual ao público. **Sem**
-Code Security, a decisão do dono é que os achados virem issues no próprio
-repositório privado (só colaboradores veem), uma por achado, com fingerprint
-estável no corpo. Hoje o job decide o destino (`aurumcode plugin destino`,
-pela visibilidade lida da API; só um 403 da API de code scanning conta como
-"sem Code Security", um 404 de repositório ainda sem análise não) e, quando o destino seria issues, **falha antes
-de rodar o plugin** e não publica nada: a sincronização de issues ainda não
-foi entregue. Em repositório público o destino é sempre a aba Security; o
-comando recusa issue ali.
+Code Security, os achados viram **issues do próprio repositório privado**
+(só colaboradores veem), uma por achado. O passo "Choose destination" decide
+o destino (`aurumcode plugin destino`, pela visibilidade lida da API; só um
+403 da API de code scanning conta como "sem Code Security", um 404 de
+repositório ainda sem análise não). No destino `issues` o job roda o plugin
+e o ingest como no destino `security` e, só depois de um ingest conclusivo,
+o passo "Sync issues" roda:
+
+```bash
+aurumcode plugin issues --name <nome> --sarif plugin-<nome>.sarif --repo OWNER/REPO
+```
+
+O comando, com `GITHUB_TOKEN` (o `github.token` do job, com `issues: write`
+concedido pelo chamador):
+
+1. lê o SARIF localmente; ausente (ingest inconclusivo), malformado, de uma
+   execução sem sucesso ou de outro plugin: **nenhuma** chamada ao GitHub,
+   exit 1, as issues ficam como estão;
+2. confere a visibilidade pela API: repositório público, ou visibilidade
+   que não pode ser lida, é recusado (exit 1) **antes de qualquer escrita**;
+3. garante o rótulo `aurumcode-plugin:<nome>` e lista **todas** as issues
+   com ele (abertas e fechadas, página por página, sem teto);
+4. sincroniza por fingerprint: cada issue leva na primeira linha do corpo o
+   marcador oculto `<!-- aurumcode-plugin:<nome>:<fingerprint> -->`. Achado
+   novo abre issue; achado que continua não duplica (o corpo é atualizado se
+   mudou); issue aberta cujo achado sumiu da varredura é fechada com um
+   comentário; issue fechada cujo achado volta é reaberta.
+
+Título só com campos estruturados (regra, arquivo, linha, severidade); o
+corpo, em pt-BR, traz esses campos, a descrição **redigida** de novo (num
+bloco de código, sem markdown nem menção) e uma sugestão. Uma issue cuja
+primeira linha não é o marcador deste plugin nunca é tocada. A saída do
+comando é só a linha de contagens (abertas, mantidas, fechadas, reabertas):
+nenhum título, arquivo ou descrição vai para o log. Exit: 0 sincronizado; 1
+recusa, varredura inconclusiva ou falha da API (só o código HTTP, nunca o
+corpo da resposta); 2 uso inválido. Uma falha no meio para na primeira
+escrita que falhou; a próxima varredura converge a partir do estado atual.
 
 ## O exemplo do harness
 
