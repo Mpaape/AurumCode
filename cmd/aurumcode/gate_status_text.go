@@ -195,20 +195,14 @@ func lastSpace(runes []rune) int {
 	return -1
 }
 
-// repeatedProblems is how many of the findings counts keeps are a second
-// report of a problem already counted (same place, same rule family).
-func repeatedProblems(issues []types.ReviewIssue, counts func(types.ReviewIssue) bool) int {
+// distinctIssueProblems counts the problems among the issues counts selects: one
+// per place and rule family, however many sources or analysts reported it.
+func distinctIssueProblems(issues []types.ReviewIssue, counts func(types.ReviewIssue) bool) int {
 	seen := map[string]bool{}
-	repeated := 0
 	for _, issue := range issues {
-		if !counts(issue) {
-			continue
+		if counts(issue) {
+			seen[fmt.Sprintf("%s\x00%d\x00%s\x00%s", issue.File, issue.Line, strings.ToUpper(issue.Side), consolidate.Family(issue.RuleID))] = true
 		}
-		key := fmt.Sprintf("%s\x00%d\x00%s\x00%s", issue.File, issue.Line, strings.ToUpper(issue.Side), consolidate.Family(issue.RuleID))
-		if seen[key] {
-			repeated++
-		}
-		seen[key] = true
 	}
-	return repeated
+	return len(seen)
 }

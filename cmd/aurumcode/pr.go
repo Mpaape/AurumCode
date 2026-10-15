@@ -124,15 +124,19 @@ func publishCheckStatusIn(ctx context.Context, language string, client *githubcl
 		status.State = "failure"
 	}
 	shown := grave
-	if i18n.LocaleOf(language) != i18n.English {
-		// The description counts problems, as the parecer does: one secret
-		// two sources reported is one. The state reads the findings.
-		shown = grave - repeatedProblems(issues, func(issue types.ReviewIssue) bool {
+	if i18n.LocaleOf(language) != i18n.English && grave > 0 {
+		// The description counts distinct problems, as the parecer does: one
+		// secret two sources reported, or one finding two analysts reported,
+		// is one. It never reads zero while the state fails.
+		shown = distinctIssueProblems(issues, func(issue types.ReviewIssue) bool {
 			if rule.Gated() {
 				return rule.Blocks(issue)
 			}
 			return severityRank(issue.Severity) >= rankError
 		})
+		if shown < 1 {
+			shown = 1
+		}
 	}
 	status.Description = reviewCheckDescription(language, prNumber, shown, qualityRequiredButIncomplete, providerFailed)
 
