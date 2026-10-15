@@ -858,8 +858,10 @@ jobs:
 
   # External plugins of the scheduled run (scheduled.plugins, see
   # docs/plugins-agendados.md). Each plugin runs in its own container, never
-  # inside AurumCode, and its findings go ONLY to code scanning (the Security
-  # tab, visible only to who has write access). In a public repository the
+  # inside AurumCode, and its findings go to code scanning (the Security
+  # tab, visible only to who has write access) or, in a private repository
+  # without GitHub Code Security, to issues of that repository (one per
+  # finding, visible only to its collaborators; never in a public one). In a public repository the
   # Actions log, the job summary, annotations and run artifacts are public:
   # the plugin's output is redirected to a file in $RUNNER_TEMP that is never
   # printed nor uploaded, there is no upload-artifact, no summary and no
@@ -870,7 +872,8 @@ jobs:
   # workflow_dispatch:
   #   - grant `permissions: {contents: read, actions: read,
   #     security-events: write}` (upload-sarif needs actions: read in a
-  #     private repository). These
+  #     private repository), plus `issues: write` in a private repository
+  #     without GitHub Code Security (the issues destination). These
   #     two jobs declare no `permissions:` of their own on purpose: a job of a
   #     reusable workflow that asks for security-events: write would make
   #     every caller that does not grant it (the pull request review
@@ -879,8 +882,9 @@ jobs:
   #   - pass the provider secrets each plugin lists in `env` (only names are
   #     in the configuration); `secrets: inherit` passes them, since a
   #     workflow_call can only receive by name the secrets it declares.
-  # Private repository without GitHub Code Security: the upload fails and the
-  # job fails; it never falls back to a public channel.
+  # Private repository without GitHub Code Security: the findings become
+  # issues of the repository itself; without issues: write the sync fails
+  # and the job fails. It never falls back to a public channel.
   plugins-list:
     name: Scheduled plugins (configuration)
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch)
@@ -1028,10 +1032,11 @@ jobs:
           fetch-depth: 1
 
       # Public repository: always the Security tab. Private or internal
-      # without code scanning: the decision is issues in the repository
-      # itself, whose synchronization is not delivered yet, so the job fails
-      # before running the plugin and publishes nothing.
+      # without code scanning: issues in the repository itself (only its
+      # collaborators see them); `plugin issues` checks the visibility again
+      # through the API and refuses a public repository before any write.
       - name: Choose destination
+        id: destination
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -1047,11 +1052,12 @@ jobs:
             }
           fi
           destination="$(docker run --rm aurumcode-review plugin destino --visibilidade "${visibility}" "${scanning[@]}")"
-          if [ "${destination}" != security ]; then
-            echo "Repositório ${visibility} sem GitHub Code Security: o destino seria issues no próprio repositório, ainda não entregue. Nada foi publicado."
-            exit 1
+          echo "destino=${destination}" >> "$GITHUB_OUTPUT"
+          if [ "${destination}" = issues ]; then
+            echo "Destino: issues no próprio repositório ${visibility} (sem GitHub Code Security; visíveis só a colaboradores)."
+          else
+            echo "Destino: aba Security (code scanning)."
           fi
-          echo "Destino: aba Security (code scanning)."
 
       - name: Build plugin image
         env:
@@ -1145,7 +1151,7 @@ jobs:
       # empty document would close every open alert of the category.
       - name: Upload to code scanning
         id: upload
-        if: success()
+        if: success() && steps.destination.outputs.destino == 'security'
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: ${{ runner.temp }}/aurumcode-plugin-out/plugin-${{ matrix.plugin.name }}.sarif
@@ -1158,13 +1164,31 @@ jobs:
           exit 1
 
       - name: Count sent alerts
-        if: success()
+        if: success() && steps.destination.outputs.destino == 'security'
         env:
           PLUGIN_NAME: ${{ matrix.plugin.name }}
         run: |
           set -euo pipefail
           n="$(jq '.runs[0].results | length' "${RUNNER_TEMP}/aurumcode-plugin-out/plugin-${PLUGIN_NAME}.sarif")"
           echo "${n} alertas enviados para a aba Security (visível só para quem tem escrita)."
+
+      # Private repository without code scanning, only after a conclusive
+      # ingest (an inconclusive one failed the job above and wrote no SARIF:
+      # no issue is touched). The caller grants issues: write; the command
+      # refuses a public repository or an unreadable visibility before any
+      # write and prints only counts (opened, kept, closed, reopened).
+      - name: Sync issues
+        if: success() && steps.destination.outputs.destino == 'issues'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PLUGIN_NAME: ${{ matrix.plugin.name }}
+        run: |
+          set -euo pipefail
+          docker run --rm --user "$(id -u):$(id -g)" -e GITHUB_TOKEN \
+            -v "${RUNNER_TEMP}/aurumcode-plugin-out:/aurumcode-out:ro" \
+            aurumcode-review plugin issues --name "${PLUGIN_NAME}" --repo "${REPOSITORY}" \
+            --sarif "/aurumcode-out/plugin-${PLUGIN_NAME}.sarif"
 
       - name: Clean up
         if: always()

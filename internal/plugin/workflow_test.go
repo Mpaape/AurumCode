@@ -105,7 +105,7 @@ func TestAUR622WorkflowPluginsJob(t *testing.T) {
 			ran = strings.Contains(s.Run, `if [ "${rc}" -eq 124 ]; then`) && strings.Contains(s.Run, `>"${RUNNER_TEMP}/plugin-${PLUGIN_NAME}.log" 2>&1`) && strings.Contains(s.Run, `-v "${copy}:/alvo:ro"`)
 		}
 		if strings.HasPrefix(s.Uses, "github/codeql-action/upload-sarif") {
-			uploaded = pinnedUpload.MatchString(strings.Fields(s.Uses)[0]) && s.If == "success()" &&
+			uploaded = pinnedUpload.MatchString(strings.Fields(s.Uses)[0]) && s.If == "success() && steps.destination.outputs.destino == 'security'" &&
 				s.With["category"] == "aurumcode/plugin/${{ matrix.plugin.name }}"
 		}
 		if s.Name == "Count sent alerts" {
