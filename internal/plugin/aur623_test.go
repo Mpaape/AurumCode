@@ -48,6 +48,7 @@ type aur623Issue struct {
 	Title  string   `json:"title"`
 	Body   string   `json:"body"`
 	State  string   `json:"state"`
+	Reason string   `json:"state_reason"`
 	Labels []string `json:"-"`
 }
 
@@ -72,7 +73,7 @@ func (f *aur623Fake) wire(is *aur623Issue) map[string]any {
 	for _, l := range is.Labels {
 		labels = append(labels, map[string]string{"name": l})
 	}
-	return map[string]any{"number": is.Number, "title": is.Title, "body": is.Body, "state": is.State, "labels": labels}
+	return map[string]any{"number": is.Number, "title": is.Title, "body": is.Body, "state": is.State, "state_reason": is.Reason, "labels": labels}
 }
 
 var aur623Route = regexp.MustCompile(`^/repos/dono/repo(/.*)?$`)
@@ -124,7 +125,8 @@ func (f *aur623Fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.issues = append(f.issues, is)
 		send(201, f.wire(is))
 	default:
-		f.patchOrComment(r.Method, route, in, send)
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		f.patchOrComment(r.Method, route, page, in, send)
 	}
 }
 
@@ -152,7 +154,24 @@ func (f *aur623Fake) list(_ http.ResponseWriter, r *http.Request, send func(int,
 
 var aur623IssueRoute = regexp.MustCompile(`^/issues/(\d+)(/comments)?$`)
 
-func (f *aur623Fake) patchOrComment(method, route string, in map[string]any, send func(int, any)) {
+// commentPage serves an issue's comments 2 per page, oldest first.
+func (f *aur623Fake) commentPage(n, page int) []map[string]string {
+	all := f.comments[n]
+	lo, hi := (page-1)*2, page*2
+	if lo > len(all) {
+		lo = len(all)
+	}
+	if hi > len(all) {
+		hi = len(all)
+	}
+	out := []map[string]string{}
+	for _, c := range all[lo:hi] {
+		out = append(out, map[string]string{"body": c})
+	}
+	return out
+}
+
+func (f *aur623Fake) patchOrComment(method, route string, page int, in map[string]any, send func(int, any)) {
 	m := aur623IssueRoute.FindStringSubmatch(route)
 	if m == nil {
 		send(404, map[string]string{})
@@ -165,6 +184,8 @@ func (f *aur623Fake) patchOrComment(method, route string, in map[string]any, sen
 	}
 	is := f.issues[n-1]
 	switch {
+	case method == "GET" && m[2] != "":
+		send(200, f.commentPage(n, page))
 	case method == "POST" && m[2] != "":
 		f.comments[n] = append(f.comments[n], fmt.Sprint(in["body"]))
 		send(201, map[string]string{})
@@ -177,6 +198,9 @@ func (f *aur623Fake) patchOrComment(method, route string, in map[string]any, sen
 		}
 		if v, ok := in["state"]; ok {
 			is.State = fmt.Sprint(v)
+		}
+		if v, ok := in["state_reason"]; ok {
+			is.Reason = fmt.Sprint(v)
 		}
 		send(200, f.wire(is))
 	default:
@@ -422,5 +446,38 @@ func TestAUR623RateLimitRetried(t *testing.T) {
 	rc, _, e := aur623Sync(t, fake, aur623SARIF(t, t.TempDir(), "vvah", true, aur623A))
 	if rc != 0 || len(fake.issues) != 1 {
 		t.Fatalf("rc=%d issues=%d err=%q", rc, len(fake.issues), e)
+	}
+}
+
+// AC-002: only an issue the plugin closed (its closed marker is the last
+// comment) is reopened. One a person closed (no marker after the plugin's
+// reopen comment, or "not planned") stays closed, counted as dismissed,
+// with no write on it.
+func TestAUR623HumanCloseStands(t *testing.T) {
+	fake := newAUR623Fake("private", true)
+	dir := t.TempDir()
+	marker := func(fp string) string { return IssueMarker("vvah", fp) + "\n" }
+	fake.issues = []*aur623Issue{
+		{Number: 1, State: "closed", Reason: "completed", Labels: []string{"aurumcode-plugin:vvah"}, Body: marker("caso-a")},
+		{Number: 2, State: "closed", Reason: "not_planned", Labels: []string{"aurumcode-plugin:vvah"}, Body: marker("caso-b")},
+		{Number: 3, State: "closed", Reason: "completed", Labels: []string{"aurumcode-plugin:vvah"}, Body: marker("caso-c")},
+	}
+	fake.comments[1] = []string{closeComment("vvah"), "O achado voltou numa varredura conclusiva do plugin; a issue foi reaberta pelo AurumCode."}
+	fake.comments[2] = []string{closeComment("vvah")}
+	fake.comments[3] = []string{"x", "y", closeComment("vvah")}
+	rc, out, e := aur623Sync(t, fake, aur623SARIF(t, dir, "vvah", true, aur623A, aur623B, aur623C))
+	if rc != 0 || !strings.Contains(out, "abertas 0, mantidas 0, fechadas 0, reabertas 1, dispensadas por pessoa 2") {
+		t.Fatalf("rc=%d out=%q err=%q", rc, out, e)
+	}
+	if fake.issues[0].State != "closed" || fake.issues[1].State != "closed" || fake.issues[2].State != "open" {
+		t.Fatalf("states: %+v", fake.issues)
+	}
+	for _, w := range fake.writes() {
+		if strings.Contains(w, "/issues/1") || strings.Contains(w, "/issues/2") {
+			t.Fatalf("write on a dismissed issue: %v", fake.writes())
+		}
+	}
+	if len(fake.comments[1]) != 2 || len(fake.comments[2]) != 1 {
+		t.Fatal("a dismissed issue got a comment")
 	}
 }

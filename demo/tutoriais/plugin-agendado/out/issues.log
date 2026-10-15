@@ -6,7 +6,7 @@ $ aurumcode plugin ingest --name vvah --format vvah-findings --input /work/secur
 plugin vvah: 2 alertas enviados para a aba Security (visível só para quem tem escrita); fora do envio: falso positivo 1, outro canal 0, sem veredito 0; não verificados enviados como aviso: 0
 exit_code=0
 $ aurumcode plugin issues --name vvah --sarif /work/.saida/plugin-vvah.sarif --repo dono/privado
-plugin vvah: issues no próprio repositório privado (visíveis só a colaboradores): abertas 2, mantidas 0, fechadas 0, reabertas 0
+plugin vvah: issues no próprio repositório privado (visíveis só a colaboradores): abertas 2, mantidas 0, fechadas 0, reabertas 0, dispensadas por pessoa 0
 exit_code=0
 RESULTADO: abre uma issue por achado, com marcador oculto e rotulo
 saida do ingest: so contagens, nenhum titulo, arquivo ou descricao
@@ -23,7 +23,7 @@ $ aurumcode plugin ingest --name vvah --format vvah-findings --input /work/secur
 plugin vvah: 1 alerta enviado para a aba Security (visível só para quem tem escrita); fora do envio: falso positivo 1, outro canal 1, sem veredito 1; não verificados enviados como aviso: 0
 exit_code=0
 $ aurumcode plugin issues --name vvah --sarif /work/.saida/plugin-vvah.sarif --repo dono/privado
-plugin vvah: issues no próprio repositório privado (visíveis só a colaboradores): abertas 0, mantidas 1, fechadas 1, reabertas 0
+plugin vvah: issues no próprio repositório privado (visíveis só a colaboradores): abertas 0, mantidas 1, fechadas 1, reabertas 0, dispensadas por pessoa 0
 exit_code=0
 RESULTADO: mantem a que continua sem duplicar e fecha a que sumiu, com comentario
 issue #1 open | [plugin vvah] plugin/vvah/cwe-89 em app.py:11 (severidade crítica)
@@ -39,7 +39,7 @@ $ aurumcode plugin ingest --name vvah --format vvah-findings --input /work/secur
 plugin vvah: 5 alertas enviados para a aba Security (visível só para quem tem escrita); fora do envio: falso positivo 0, outro canal 0, sem veredito 0; não verificados enviados como aviso: 1
 exit_code=0
 $ aurumcode plugin issues --name vvah --sarif /work/.saida/plugin-vvah.sarif --repo dono/privado
-plugin vvah: issues no próprio repositório privado (visíveis só a colaboradores): abertas 3, mantidas 1, fechadas 0, reabertas 1
+plugin vvah: issues no próprio repositório privado (visíveis só a colaboradores): abertas 3, mantidas 1, fechadas 0, reabertas 1, dispensadas por pessoa 0
 exit_code=0
 RESULTADO: reabre a issue cujo achado voltou e abre as novas
 saida do ingest: so contagens, nenhum titulo, arquivo ou descricao
@@ -53,6 +53,26 @@ issue #3 open | [plugin vvah] plugin/vvah/nao-verificado/sql_injection em app.py
   rotulos aurumcode-plugin:vvah | marcador <!-- aurumcode-plugin:vvah:74b2e5039a981ac4b9f7a87932efbcfb72a6c98d04eb17d74de901e8253631a6 -->
   comentarios 0 | segredo redigido: sim
 issue #4 open | [plugin vvah] plugin/vvah/cwe-306 em app.py:7 (severidade média)
+  rotulos aurumcode-plugin:vvah | marcador <!-- aurumcode-plugin:vvah:vvaf1_ffffffffffffffffffffffffffffffff -->
+  comentarios 0 | segredo redigido: sim
+issue #5 open | [plugin vvah] plugin/vvah/cwe-798 em app.py:4 (severidade alta)
+  rotulos aurumcode-plugin:vvah | marcador <!-- aurumcode-plugin:vvah:vvaf1_gggggggggggggggggggggggggggggggg -->
+  comentarios 0 | segredo redigido: sim
+-- uma pessoa fecha a issue #4 (decisao de dispensar); varredura 4 com o achado ainda presente
+$ aurumcode plugin issues --name vvah --sarif /work/.saida/plugin-vvah.sarif --repo dono/privado
+plugin vvah: issues no próprio repositório privado (visíveis só a colaboradores): abertas 0, mantidas 4, fechadas 0, reabertas 0, dispensadas por pessoa 1
+exit_code=0
+RESULTADO: issue fechada por pessoa fica fechada e conta como dispensada
+issue #1 open | [plugin vvah] plugin/vvah/cwe-89 em app.py:11 (severidade crítica)
+  rotulos aurumcode-plugin:vvah | marcador <!-- aurumcode-plugin:vvah:vvaf1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->
+  comentarios 0 | segredo redigido: sim
+issue #2 open | [plugin vvah] plugin/vvah/cwe-209 em app.py:9 (severidade média)
+  rotulos aurumcode-plugin:vvah | marcador <!-- aurumcode-plugin:vvah:vvaf1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb -->
+  comentarios 2 | segredo redigido: sim
+issue #3 open | [plugin vvah] plugin/vvah/nao-verificado/sql_injection em app.py:11 (severidade média)
+  rotulos aurumcode-plugin:vvah | marcador <!-- aurumcode-plugin:vvah:74b2e5039a981ac4b9f7a87932efbcfb72a6c98d04eb17d74de901e8253631a6 -->
+  comentarios 0 | segredo redigido: sim
+issue #4 closed | [plugin vvah] plugin/vvah/cwe-306 em app.py:7 (severidade média)
   rotulos aurumcode-plugin:vvah | marcador <!-- aurumcode-plugin:vvah:vvaf1_ffffffffffffffffffffffffffffffff -->
   comentarios 0 | segredo redigido: sim
 issue #5 open | [plugin vvah] plugin/vvah/cwe-798 em app.py:4 (severidade alta)

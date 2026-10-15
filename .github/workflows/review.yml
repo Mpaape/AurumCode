@@ -867,7 +867,7 @@ jobs:
   # printed nor uploaded, there is no upload-artifact, no summary and no
   # ::error with a finding's text, and the log says only how many alerts
   # were sent (or, on the issues destination, how many issues were opened,
-  # kept, closed and reopened).
+  # kept, closed, reopened and dismissed by a person).
   #
   # The CALLER must, in the job that calls this workflow on schedule or
   # workflow_dispatch:

@@ -9,6 +9,9 @@ import (
 // IssueCounts is what a sync reports: numbers only, never a finding's text.
 type IssueCounts struct {
 	Opened, Kept, Closed, Reopened int
+	// Dismissed are closed issues whose finding is still there but that a
+	// person closed: the human decision stands, nothing is written on them.
+	Dismissed int
 }
 
 // issueAction is one planned write.
@@ -21,17 +24,11 @@ type issueAction struct {
 // planIssues compares the findings of a CONCLUSIVE scan with the plugin's
 // issues. Issues whose first line is not this plugin's marker are never
 // touched; two issues with the same marker keep the first (lowest number).
-func planIssues(name string, findings []IssueFinding, issues []RemoteIssue) ([]issueAction, IssueCounts) {
-	byFP := map[string]RemoteIssue{}
-	for _, is := range issues {
-		fp := markerOf(name, is.Body)
-		if fp == "" {
-			continue
-		}
-		if prev, ok := byFP[fp]; !ok || is.Number < prev.Number {
-			byFP[fp] = is
-		}
-	}
+// A closed issue whose finding is back is reopened only when pluginClosed
+// says the plugin closed it; otherwise a person dismissed it and it stays
+// closed, counted, with no write.
+func planIssues(name string, findings []IssueFinding, issues []RemoteIssue, pluginClosed map[int]bool) ([]issueAction, IssueCounts) {
+	byFP := issuesByFingerprint(name, issues)
 	var plan []issueAction
 	var c IssueCounts
 	present := map[string]bool{}
@@ -42,6 +39,8 @@ func planIssues(name string, findings []IssueFinding, issues []RemoteIssue) ([]i
 		case !ok:
 			plan = append(plan, issueAction{kind: "open", finding: f})
 			c.Opened++
+		case is.State == "closed" && !pluginClosed[is.Number]:
+			c.Dismissed++
 		case is.State == "closed":
 			plan = append(plan, issueAction{kind: "reopen", number: is.Number, finding: f})
 			c.Reopened++
@@ -66,6 +65,49 @@ func planIssues(name string, findings []IssueFinding, issues []RemoteIssue) ([]i
 	return plan, c
 }
 
+// reopenCandidates are the closed issues whose finding is back. One closed
+// as "not planned" is a person's decision and is never a candidate.
+func reopenCandidates(name string, findings []IssueFinding, issues []RemoteIssue) []int {
+	byFP := issuesByFingerprint(name, issues)
+	var out []int
+	for _, f := range findings {
+		if is, ok := byFP[f.Fingerprint]; ok && is.State == "closed" && is.StateReason != "not_planned" {
+			out = append(out, is.Number)
+		}
+	}
+	return out
+}
+
+// closedByPluginSet reads the last comment of each candidate: only an issue
+// the plugin itself closed (its closed marker is the last comment) may be
+// reopened; one a person closed stays closed.
+func closedByPluginSet(ctx context.Context, api IssuesAPI, name string, candidates []int) (map[int]bool, error) {
+	out := map[int]bool{}
+	for _, n := range candidates {
+		last, err := api.LastComment(ctx, n)
+		if err != nil {
+			return nil, err
+		}
+		out[n] = closedByPlugin(name, last)
+	}
+	return out, nil
+}
+
+// issuesByFingerprint maps each fingerprint to its issue.
+func issuesByFingerprint(name string, issues []RemoteIssue) map[string]RemoteIssue {
+	byFP := map[string]RemoteIssue{}
+	for _, is := range issues {
+		fp := markerOf(name, is.Body)
+		if fp == "" {
+			continue
+		}
+		if prev, ok := byFP[fp]; !ok || is.Number < prev.Number {
+			byFP[fp] = is
+		}
+	}
+	return byFP
+}
+
 // applyIssues performs the plan. It stops at the first failed write: the
 // next run converges from whatever state the repository is in.
 func applyIssues(ctx context.Context, api IssuesAPI, name string, plan []issueAction) error {
@@ -83,7 +125,7 @@ func applyIssues(ctx context.Context, api IssuesAPI, name string, plan []issueAc
 				err = api.Comment(ctx, a.number, "O achado voltou numa varredura conclusiva do plugin; a issue foi reaberta pelo AurumCode.")
 			}
 		case "close":
-			if err = api.Comment(ctx, a.number, closeComment); err == nil {
+			if err = api.Comment(ctx, a.number, closeComment(name)); err == nil {
 				err = api.CloseIssue(ctx, a.number)
 			}
 		}

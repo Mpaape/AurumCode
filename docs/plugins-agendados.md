@@ -184,13 +184,20 @@ concedido pelo chamador):
    marcador oculto `<!-- aurumcode-plugin:<nome>:<fingerprint> -->`. Achado
    novo abre issue; achado que continua não duplica (o corpo é atualizado se
    mudou); issue aberta cujo achado sumiu da varredura é fechada com um
-   comentário; issue fechada cujo achado volta é reaberta.
+   comentário que leva o marcador oculto
+   `<!-- aurumcode-plugin:<nome>:fechado -->`; issue fechada cujo achado
+   volta é reaberta **só se foi o plugin que a fechou** (esse marcador é o
+   último comentário dela). Issue que uma pessoa fechou (sem o marcador por
+   último, ou "close as not planned") fica fechada: o fechamento humano é a
+   decisão de dispensar, nada é escrito nela e ela conta como "dispensada
+   por pessoa".
 
 Título só com campos estruturados (regra, arquivo, linha, severidade); o
 corpo, em pt-BR, traz esses campos, a descrição **redigida** de novo (num
 bloco de código, sem markdown nem menção) e uma sugestão. Uma issue cuja
 primeira linha não é o marcador deste plugin nunca é tocada. A saída do
-comando é só a linha de contagens (abertas, mantidas, fechadas, reabertas):
+comando é só a linha de contagens (abertas, mantidas, fechadas, reabertas,
+dispensadas por pessoa):
 nenhum título, arquivo ou descrição vai para o log. Exit: 0 sincronizado; 1
 recusa, varredura inconclusiva ou falha da API (só o código HTTP, nunca o
 corpo da resposta); 2 uso inválido. Uma falha no meio para na primeira

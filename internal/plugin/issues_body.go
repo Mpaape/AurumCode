@@ -155,5 +155,19 @@ func IssueBody(name string, f IssueFinding) string {
 	return b.String()
 }
 
+// ClosedMarker is the hidden first line of the comment the plugin leaves
+// when it closes an issue: only an issue whose last comment carries it was
+// closed by the plugin and may be reopened when its finding comes back.
+func ClosedMarker(name string) string { return "<!-- aurumcode-plugin:" + name + ":fechado -->" }
+
 // closeComment is the comment left on an issue whose finding disappeared.
-const closeComment = "O achado não apareceu na última varredura conclusiva do plugin; a issue foi fechada pelo AurumCode. Se ele voltar, ela é reaberta."
+func closeComment(name string) string {
+	return ClosedMarker(name) + "\nO achado não apareceu na última varredura conclusiva do plugin; a issue foi fechada pelo AurumCode. Se ele voltar, ela é reaberta."
+}
+
+// closedByPlugin is true when the last comment's first line is the
+// plugin's closed marker.
+func closedByPlugin(name, lastComment string) bool {
+	first, _, _ := strings.Cut(lastComment, "\n")
+	return strings.TrimRight(first, "\r") == ClosedMarker(name)
+}

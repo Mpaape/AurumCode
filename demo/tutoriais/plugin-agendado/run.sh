@@ -184,7 +184,23 @@ caso_issues() {
   expect_rc 0 "reabre a issue cujo achado voltou e abre as novas"
   sem_texto_de_achado
   mostra_issues
+  echo "-- uma pessoa fecha a issue #4 (decisao de dispensar); varredura 4 com o achado ainda presente"
+  pessoa_fecha 4
+  sincroniza dono/privado
+  expect_rc 0 "issue fechada por pessoa fica fechada e conta como dispensada"
+  mostra_issues
   tut_pr_parar
+}
+
+# pessoa_fecha N: fecha a issue no GitHub falso como uma pessoa (sem o
+# comentario-marcador do plugin).
+pessoa_fecha() {
+  python3 - "$TUT_PR_PORT" "$1" <<'PY'
+import json, sys, urllib.request
+req = urllib.request.Request("http://127.0.0.1:%s/repos/dono/privado/issues/%s" % (sys.argv[1], sys.argv[2]),
+                             data=json.dumps({"state": "closed", "state_reason": "completed"}).encode(), method="PATCH")
+urllib.request.urlopen(req).read()
+PY
 }
 
 # Falha 1: o harness conclui (exit 0) mas se declara degradado.

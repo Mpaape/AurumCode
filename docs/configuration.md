@@ -2682,7 +2682,8 @@ Comandos:
   destino `issues` de repositório privado sem Code Security. Sincroniza os
   achados do SARIF com issues do próprio repositório (marcador oculto com o
   fingerprint e rótulo `aurumcode-plugin:<nome>`): abre, mantém sem
-  duplicar, fecha o que sumiu e reabre o que voltou. Recusa (exit 1, nada
+  duplicar, fecha o que sumiu e reabre o que voltou se foi o plugin que
+  fechou (issue fechada por pessoa fica fechada, contada como dispensada). Recusa (exit 1, nada
   publicado) repositório público ou visibilidade ilegível; SARIF ausente
   (ingest inconclusivo) não faz nenhuma chamada. Usa `GITHUB_TOKEN` com
   `issues: write` e `AURUMCODE_GITHUB_API_URL`; imprime só contagens.

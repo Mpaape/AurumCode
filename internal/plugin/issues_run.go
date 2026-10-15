@@ -54,7 +54,11 @@ func SyncIssues(ctx context.Context, api IssuesAPI, o IssuesOptions) (IssueCount
 	if err != nil {
 		return IssueCounts{}, err
 	}
-	plan, counts := planIssues(o.Name, findings, issues)
+	pluginClosed, err := closedByPluginSet(ctx, api, o.Name, reopenCandidates(o.Name, findings, issues))
+	if err != nil {
+		return IssueCounts{}, err
+	}
+	plan, counts := planIssues(o.Name, findings, issues, pluginClosed)
 	if err := applyIssues(ctx, api, o.Name, plan); err != nil {
 		return IssueCounts{}, err
 	}
@@ -79,7 +83,7 @@ func RunIssues(ctx context.Context, api IssuesAPI, o IssuesOptions, language str
 	var usage *UsageError
 	switch {
 	case err == nil:
-		fmt.Fprintln(stdout, i18n.Format(language, "plugin.issues_summary", o.Name, c.Opened, c.Kept, c.Closed, c.Reopened))
+		fmt.Fprintln(stdout, i18n.Format(language, "plugin.issues_summary", o.Name, c.Opened, c.Kept, c.Closed, c.Reopened, c.Dismissed))
 		return 0
 	case errors.As(err, &usage):
 		fmt.Fprintf(stderr, "aurumcode plugin issues: %s\n", usage.Msg)

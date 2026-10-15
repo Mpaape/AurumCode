@@ -9,7 +9,8 @@ uso: github-falso-issues.py PORTA VISIBILIDADE LOG ESTADO
   GET  repos/O/R/labels/NOME          404 ate o POST repos/O/R/labels
   GET  repos/O/R/issues?labels=&page= 2 por pagina (a listagem cruza paginas)
   POST repos/O/R/issues               abre (com os rotulos pedidos)
-  PATCH repos/O/R/issues/N            muda titulo, corpo e estado
+  PATCH repos/O/R/issues/N            muda titulo, corpo, estado e state_reason
+  GET  repos/O/R/issues/N/comments    comentarios, 2 por pagina
   POST repos/O/R/issues/N/comments    comenta
 """
 import json
@@ -65,6 +66,11 @@ class H(BaseHTTPRequestHandler):
             rotulo, pagina = q.get("labels", [""])[0], int(q.get("page", ["1"])[0])
             todas = [self._issue(i) for i in issues if rotulo in i["labels"]]
             return self._send(200, todas[(pagina - 1) * POR_PAGINA:pagina * POR_PAGINA])
+        m = re.fullmatch(r"/issues/(\d+)/comments", rota or "")
+        if m:
+            pagina = int(q.get("page", ["1"])[0])
+            todos = [{"body": c} for c in comentarios.get(m.group(1), [])]
+            return self._send(200, todos[(pagina - 1) * POR_PAGINA:pagina * POR_PAGINA])
         self._send(404, {})
 
     def do_POST(self):
@@ -92,7 +98,7 @@ class H(BaseHTTPRequestHandler):
         if not m or int(m.group(1)) > len(issues):
             return self._send(404, {})
         i = issues[int(m.group(1)) - 1]
-        for campo in ("title", "body", "state"):
+        for campo in ("title", "body", "state", "state_reason"):
             if campo in corpo:
                 i[campo] = corpo[campo]
         grava_estado()
