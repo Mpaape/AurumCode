@@ -14,11 +14,8 @@ import (
 // SearchToolName is the literal text search over the reviewed revision.
 const SearchToolName = "search_text"
 
-// searchMaxHits bounds one search; maxHitLineBytes bounds each line shown.
-const (
-	searchMaxHits   = 50
-	maxHitLineBytes = 240
-)
+// A search returns every hit, each line whole: no count or length cuts the
+// evidence the model asked for (issue #179).
 
 type searchArgs struct {
 	Query      string `json:"query" desc:"texto literal a procurar (sem expressão regular)"`
@@ -72,12 +69,8 @@ func (t *SearchTool) Run(ctx context.Context, raw json.RawMessage) (deliberation
 			if !strings.Contains(line, args.Query) {
 				continue
 			}
-			if hits == searchMaxHits {
-				fmt.Fprintf(&b, "[busca truncada em %d ocorrências]\n", searchMaxHits)
-				return t.finish(b.String(), hits, skipped)
-			}
 			hits++
-			fmt.Fprintf(&b, "%s:%d: %s\n", p, i+1, clip(strings.TrimSpace(line)))
+			fmt.Fprintf(&b, "%s:%d: %s\n", p, i+1, strings.TrimSpace(line))
 		}
 	}
 	return t.finish(b.String(), hits, skipped)
@@ -89,16 +82,4 @@ func (t *SearchTool) finish(body string, hits, skipped int) (deliberation.Result
 		head += fmt.Sprintf("; %d arquivo(s) omitido(s) (binário, divergente da revisão ou ilegível)", skipped)
 	}
 	return charged(t.rev.Budget(), t.redact, head+"\n"+body, head)
-}
-
-// clip bounds a line shown in a hit on a rune boundary.
-func clip(line string) string {
-	if len(line) <= maxHitLineBytes {
-		return line
-	}
-	cut := maxHitLineBytes
-	for cut > 0 && (line[cut]&0xC0) == 0x80 {
-		cut--
-	}
-	return line[:cut] + "…"
 }

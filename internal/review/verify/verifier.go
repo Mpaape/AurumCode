@@ -27,7 +27,8 @@ type Verifier struct {
 	// Source is the reviewed revision; nil keeps every finding blocking.
 	Source   Source
 	Declared Declarer
-	// MaxCalls bounds the calls; a finding beyond it keeps blocking.
+	// MaxCalls bounds the calls; 0 means no ceiling. A finding beyond a
+	// positive ceiling keeps blocking.
 	MaxCalls int
 	// Language is the language of the verifier's reason.
 	Language string
@@ -82,7 +83,7 @@ func (v *Verifier) verifyOne(ctx context.Context, issue types.ReviewIssue, calls
 	if v.Source == nil || v.Caller == nil {
 		return v.kept(rec, OutcomeSourceUnavailable, reasonNoRevision)
 	}
-	if *calls >= v.MaxCalls {
+	if v.MaxCalls > 0 && *calls >= v.MaxCalls {
 		return v.kept(rec, OutcomeCallLimit, reasonCallLimit)
 	}
 	shown, files, err := excerpts(v.Source, v.Declared, issue)

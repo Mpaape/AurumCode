@@ -36,31 +36,42 @@ merge ler em dez segundos:
    declarado (ou, sem gate, a severidade), nunca o rótulo que o modelo se dá.
 2. **Uma linha de fatos**: gate passou ou reprovou, quantos arquivos foram
    revisados e em quantas partes.
-3. **Corrigir antes do merge**: cada problema bloqueante com onde, o quê, a
-   regra citada e os campos que ajudam a corrigir (impacto, evidência,
-   correção sugerida, verificação).
+3. **Corrigir antes do merge**: cada problema bloqueante uma vez, com onde,
+   um título curto em português, quem o apontou ("apontado por análise
+   estática e Gitleaks") e os campos que ajudam a corrigir (impacto,
+   evidência, correção sugerida, verificação). O texto em inglês do scanner,
+   a citação da regra e códigos internos não entram no corpo.
 4. **Observações (não bloqueiam)**: uma linha por achado abaixo do limiar,
    inclusive os provados fora das linhas alteradas.
 5. **Resumo** do modelo.
 6. **Detalhes da revisão**, recolhidos: sugestões, status do CI, testes (até
-   três do plano do modelo e a contagem dos testes afetados), limitações
-   (até três do modelo, mais os avisos do próprio Aurum), cobertura,
-   verificação, rodadas anteriores e consolidação. Pontos fortes não são
+   três do plano do modelo e uma linha com a contagem dos testes afetados),
+   as regras citadas com a origem, limitações (do modelo e os avisos do
+   próprio Aurum, sem repetir as linhas do gate sobre cada achado), cobertura
+   (arquivos ignorados só contados; o terminal os nomeia), a nota de contexto
+   reduzido, os achados de rodadas anteriores não reencontrados e a
+   consolidação. Pontos fortes não são
    publicados: elogio não é informação de que o leitor precise.
 
 A rodada seguinte **edita o mesmo parecer** em vez de publicar outro; só um
 achado **bloqueante** numa linha alterada ganha comentário na linha (com
-`inline_comments`), e o comentário de um achado que a rodada seguinte não
+`inline_comments`), uma vez por problema; quando o modelo propõe a correção
+daquelas linhas, ela vai no mesmo comentário como sugestão do GitHub que o
+autor aplica com um clique. Sugestão que não corrige um bloqueante fica só
+nos detalhes. O comentário de um achado que a rodada seguinte não
 reencontra recebe a nota *Resolvido*. O relatório do terminal (`--base`)
 abre com a mesma decisão e a mesma linha de fatos.
 
 ## Consolidação e preferências de apresentação
 
 No `--pr`, o mesmo problema no mesmo trecho (mesmo arquivo, linha, lado e
-regra) relatado por passes diferentes (modelo, análise determinística,
-passagem de segurança, scanner, lotes) é publicado uma vez: fica a ocorrência
-de origem determinística quando há uma, com a maior severidade do grupo, a
-evidência de cada passe e as fontes no texto (`[fontes: analysis, model]`).
+regra; todo segredo é o mesmo problema, seja da análise estática, da
+passagem de segurança ou do Gitleaks) relatado por passes diferentes
+(modelo, análise determinística, passagem de segurança, scanner, lotes) é
+publicado uma vez: fica a ocorrência de origem determinística quando há uma,
+com a maior severidade do grupo, a evidência de cada passe e as fontes no
+texto ("apontado por análise estática e Gitleaks"). A decisão do topo e o
+status contam problemas, não fontes.
 Regra diferente na mesma linha é outro problema, com uma exceção: um achado do
 **modelo** no mesmo trecho em que um scanner já apontou um problema da mesma
 categoria (o prefixo da regra do modelo, como `security`, aparece na regra do
@@ -153,9 +164,8 @@ nenhum marcador é lido e todo achado é comentado de novo. Então:
 
 - não comenta de novo um achado já comentado, nem quando o mesmo código só
   mudou de linha; outro defeito na mesma linha (outra regra) é comentado;
-- conta no parecer quantos achados não foram comentados de novo: eles
-  continuam no parecer, no gate e nos status, de modo que o veredito de duas
-  rodadas iguais é o mesmo;
+- um achado não comentado de novo continua no parecer, no gate e nos
+  status, de modo que o veredito de duas rodadas iguais é o mesmo;
 - lista, em "Rodadas anteriores" (nos detalhes do parecer), os achados de
   rodadas anteriores que esta execução não reencontrou (corrigidos ou não
   reencontrados), e edita cada um desses comentários com a nota *Resolvido*

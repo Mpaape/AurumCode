@@ -57,7 +57,7 @@ func BuildCategorizedSARIF(toolVersion, category string, findings []SARIFFinding
 	if err != nil {
 		return nil, err
 	}
-	return []byte(filter.Redact(string(data)) + "\n"), nil
+	return append(filter.RedactJSON(data), '\n'), nil
 }
 
 // WriteCategorizedSARIF writes BuildCategorizedSARIF's document to path.

@@ -43,7 +43,7 @@ func (c *Client) refreshMetrics(ctx context.Context, project string) error {
 		return fmt.Errorf("%w: refresh", ErrUnreachable)
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBytes))
+	io.Copy(io.Discard, resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return &StatusError{Op: "refresh", Status: resp.StatusCode}
 	}
@@ -76,11 +76,11 @@ func (c *Client) analysedSince(ctx context.Context, project string, uploadedAt t
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBytes))
+		io.Copy(io.Discard, resp.Body)
 		return false
 	}
 	var out projectAnalysis
-	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBytes)).Decode(&out); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return false
 	}
 	return out.LastVulnerabilityAnalysis != nil && *out.LastVulnerabilityAnalysis > uploadedAt.UnixMilli()

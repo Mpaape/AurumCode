@@ -5,9 +5,6 @@ import "strings"
 // Bounds. Every rendered entry is capped so hostile or accidental input cannot
 // grow the output without limit.
 const (
-	// MaxCommits is the number of commits considered by ClassifyCommits,
-	// NextVersion and Render. Extra commits are ignored.
-	MaxCommits = 256
 	// MaxSubjectLen is the maximum number of runes taken from a subject or
 	// hash before escaping.
 	MaxSubjectLen = 500
@@ -69,7 +66,7 @@ func bullet(cl Classification) string {
 // Inside a section, bullets keep input order, so the same []Commit always
 // yields byte-identical output.
 func Render(version Version, commits []Commit) string {
-	classes, truncated := classifyBounded(commits)
+	classes, truncated := ClassifyCommits(commits), false
 
 	var added, changed, fixed, removed []string
 	for _, cl := range classes {

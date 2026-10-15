@@ -465,10 +465,6 @@ type CommitInfo struct {
 	Body    string
 }
 
-// maxCommitWalk bounds the pure-Go first-parent walk so a hostile or
-// accidental history cannot make reading commit messages unbounded.
-const maxCommitWalk = 512
-
 // Commits returns the commit messages in the range baseRef..headRef, newest
 // first. It is read-only: it never writes the repository and never executes
 // commit text. A merge commit's message is included; the walk follows the
@@ -513,21 +509,18 @@ func (r *Repo) commitsViaGit(baseSHA, headSHA string) ([]CommitInfo, error) {
 			continue
 		}
 		commits = append(commits, info)
-		if len(commits) >= maxCommitWalk {
-			break
-		}
 	}
 	return commits, nil
 }
 
 // commitsViaObjects walks the first-parent chain from headSHA back to
 // baseSHA, collecting each commit's message. It stops at the base commit, a
-// root commit, a repeated object, or the walk bound.
+// root commit or a repeated object; no count cuts the range (issue #179).
 func (r *Repo) commitsViaObjects(baseSHA, headSHA string) ([]CommitInfo, error) {
 	var commits []CommitInfo
 	seen := map[string]bool{}
 	for sha := headSHA; sha != "" && sha != baseSHA; {
-		if seen[sha] || len(commits) >= maxCommitWalk {
+		if seen[sha] {
 			break
 		}
 		seen[sha] = true
@@ -688,4 +681,25 @@ func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) 
 	}
 
 	return diff, notices, nil
+}
+
+// FileAt returns the content of path in the commit ref resolves to, read
+// from the object database (a commit of the history, not the checkout).
+func (r *Repo) FileAt(ref, path string) ([]byte, error) {
+	tracked, err := r.TrackedFiles(ref)
+	if err != nil {
+		return nil, err
+	}
+	entry, ok := tracked[path]
+	if !ok {
+		return nil, fmt.Errorf("%s is not tracked at %s", path, ref)
+	}
+	kind, data, err := r.readObject(entry.SHA)
+	if err != nil {
+		return nil, err
+	}
+	if kind != "blob" {
+		return nil, fmt.Errorf("%s at %s is a %s, not a file", path, ref, kind)
+	}
+	return data, nil
 }

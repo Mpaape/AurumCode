@@ -109,8 +109,9 @@ jobs:
   review:
     name: Review pull request
     # A scheduled run of the caller has no pull request: it runs the
-    # dependency scan job below instead.
-    if: github.event_name != 'schedule'
+    # dependency scan job below instead; a manual workflow_dispatch run has
+    # none either and runs only the scheduled plugins.
+    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.review.outputs.version }}
@@ -854,3 +855,326 @@ jobs:
           name: aurumcode-dependencies-sarif
           path: ${{ runner.temp }}/aurumcode-out/aurumcode-dependencies.sarif
           if-no-files-found: error
+
+  # External plugins of the scheduled run (scheduled.plugins, see
+  # docs/plugins-agendados.md). Each plugin runs in its own container, never
+  # inside AurumCode, and its findings go ONLY to code scanning (the Security
+  # tab, visible only to who has write access). In a public repository the
+  # Actions log, the job summary, annotations and run artifacts are public:
+  # the plugin's output is redirected to a file in $RUNNER_TEMP that is never
+  # printed nor uploaded, there is no upload-artifact, no summary and no
+  # ::error with a finding's text, and the log says only how many alerts
+  # were sent.
+  #
+  # The CALLER must, in the job that calls this workflow on schedule or
+  # workflow_dispatch:
+  #   - grant `permissions: {contents: read, actions: read,
+  #     security-events: write}` (upload-sarif needs actions: read in a
+  #     private repository). These
+  #     two jobs declare no `permissions:` of their own on purpose: a job of a
+  #     reusable workflow that asks for security-events: write would make
+  #     every caller that does not grant it (the pull request review
+  #     included) fail to start. Without the grant the upload fails and the
+  #     job fails saying so.
+  #   - pass the provider secrets each plugin lists in `env` (only names are
+  #     in the configuration); `secrets: inherit` passes them, since a
+  #     workflow_call can only receive by name the secrets it declares.
+  # Private repository without GitHub Code Security: the upload fails and the
+  # job fails; it never falls back to a public channel.
+  plugins-list:
+    name: Scheduled plugins (configuration)
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      plugins: ${{ steps.list.outputs.plugins }}
+    steps:
+      - name: Refuse pull request events
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          case "${EVENT_NAME}" in
+            schedule|workflow_dispatch) ;;
+            *) echo "Plugins agendados rodam só em schedule ou workflow_dispatch na branch padrão, nunca em ${EVENT_NAME}."; exit 1 ;;
+          esac
+
+      - name: Verify tool version
+        env:
+          TOOL_REPOSITORY: ${{ job.workflow_repository }}
+          TOOL_SHA: ${{ job.workflow_sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TOOL_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ||
+                ! "$TOOL_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Cannot identify the AurumCode workflow version. This workflow requires GitHub.com job.workflow_sha support."
+            exit 1
+          fi
+
+      - name: Checkout AurumCode
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .aurumcode-tool
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Resolve AurumCode version
+        id: tool_version
+        env:
+          TOOL_SHA: ${{ job.workflow_sha }}
+          TOOL_DIR: .aurumcode-tool
+        run: bash "$TOOL_DIR/scripts/ci/resolve-tool-version.sh"
+
+      - name: Build AurumCode image
+        env:
+          AURUMCODE_VERSION: ${{ steps.tool_version.outputs.version }}
+        run: docker build --build-arg AURUMCODE_VERSION="$AURUMCODE_VERSION" --tag aurumcode-review .aurumcode-tool
+
+      # The configuration is read from the default branch, never from a
+      # pull request.
+      - name: Checkout default branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.repository.default_branch }}
+          path: .aurumcode-target
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Checkout central policy
+        if: ${{ inputs.policy_repository != '' }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ inputs.policy_repository }}
+          ref: ${{ inputs.policy_ref }}
+          path: .aurumcode-policy
+          token: ${{ secrets.AURUMCODE_POLICY_TOKEN || github.token }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: List plugins
+        id: list
+        env:
+          POLICY_REPOSITORY: ${{ inputs.policy_repository }}
+        run: |
+          set -euo pipefail
+          args=(plugin list --json --repo /github/workspace)
+          docker_args=(run --rm -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro" -w /github/workspace)
+          if [ -n "${POLICY_REPOSITORY}" ]; then
+            docker_args+=(-v "${GITHUB_WORKSPACE}/.aurumcode-policy:/github/policy:ro")
+            args+=(--politica /github/policy)
+          fi
+          plugins="$(docker "${docker_args[@]}" aurumcode-review "${args[@]}")"
+          echo "plugins=${plugins}" >> "$GITHUB_OUTPUT"
+          echo "$(jq 'length' <<<"${plugins}") plugin(s) configurado(s)."
+
+  plugins:
+    name: Scheduled plugin
+    needs: plugins-list
+    if: needs.plugins-list.outputs.plugins != '' && needs.plugins-list.outputs.plugins != '[]'
+    runs-on: ubuntu-latest
+    # The plugin's own timeout plus a fixed slack for the build, the ingest
+    # and the upload (job_timeout_minutes, computed by plugin list).
+    timeout-minutes: ${{ matrix.plugin.job_timeout_minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJSON(needs.plugins-list.outputs.plugins) }}
+    concurrency:
+      # Reserved prefix, as in the jobs above.
+      group: aurumcode/plugins/${{ github.repository }}/${{ matrix.plugin.name }}
+      cancel-in-progress: false
+    steps:
+      - name: Refuse pull request events
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          case "${EVENT_NAME}" in
+            schedule|workflow_dispatch) ;;
+            *) echo "Plugins agendados rodam só em schedule ou workflow_dispatch na branch padrão, nunca em ${EVENT_NAME}."; exit 1 ;;
+          esac
+
+      - name: Checkout AurumCode
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .aurumcode-tool
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Resolve AurumCode version
+        id: tool_version
+        env:
+          TOOL_SHA: ${{ job.workflow_sha }}
+          TOOL_DIR: .aurumcode-tool
+        run: bash "$TOOL_DIR/scripts/ci/resolve-tool-version.sh"
+
+      - name: Build AurumCode image
+        env:
+          AURUMCODE_VERSION: ${{ steps.tool_version.outputs.version }}
+        run: docker build --build-arg AURUMCODE_VERSION="$AURUMCODE_VERSION" --tag aurumcode-review .aurumcode-tool
+
+      - name: Checkout default branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.repository.default_branch }}
+          path: .aurumcode-target
+          persist-credentials: false
+          fetch-depth: 1
+
+      # Public repository: always the Security tab. Private or internal
+      # without code scanning: the decision is issues in the repository
+      # itself, whose synchronization is not delivered yet, so the job fails
+      # before running the plugin and publishes nothing.
+      - name: Choose destination
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          visibility="$(gh api "repos/${REPOSITORY}" --jq .visibility 2>/dev/null || echo public)"
+          # Only a 403 (code scanning not enabled) means unavailable; a 404
+          # (enabled, nothing uploaded yet) is available.
+          scanning=(--code-scanning)
+          if [ "${visibility}" != public ]; then
+            probe="$(gh api "repos/${REPOSITORY}/code-scanning/alerts?per_page=1" 2>&1 >/dev/null)" || {
+              case "${probe}" in *"HTTP 403"*) scanning=() ;; esac
+            }
+          fi
+          destination="$(docker run --rm aurumcode-review plugin destino --visibilidade "${visibility}" "${scanning[@]}")"
+          if [ "${destination}" != security ]; then
+            echo "Repositório ${visibility} sem GitHub Code Security: o destino seria issues no próprio repositório, ainda não entregue. Nada foi publicado."
+            exit 1
+          fi
+          echo "Destino: aba Security (code scanning)."
+
+      - name: Build plugin image
+        env:
+          PLUGIN_NAME: ${{ matrix.plugin.name }}
+          PLUGIN_IMAGE: ${{ matrix.plugin.image }}
+          PLUGIN_DOCKERFILE: ${{ matrix.plugin.dockerfile }}
+        run: |
+          set -euo pipefail
+          log="${RUNNER_TEMP}/plugin-${PLUGIN_NAME}-build.log"
+          if [ -n "${PLUGIN_IMAGE}" ]; then
+            docker pull "${PLUGIN_IMAGE}" >"${log}" 2>&1
+            docker tag "${PLUGIN_IMAGE}" "aurumcode-plugin-${PLUGIN_NAME}"
+          else
+            dockerfile=".aurumcode-target/${PLUGIN_DOCKERFILE}"
+            docker build -f "${dockerfile}" -t "aurumcode-plugin-${PLUGIN_NAME}" "$(dirname "${dockerfile}")" >"${log}" 2>&1
+          fi
+          echo "Imagem do plugin pronta."
+
+      # The plugin sees a disposable copy of the tree, read-only, with only
+      # the directory of output.path writable (emptied first, so a committed
+      # file can never pass for the plugin's output). No docker.sock, no
+      # capabilities. Its stdout and stderr go to a file in $RUNNER_TEMP that
+      # is never printed nor uploaded.
+      - name: Run plugin
+        id: run
+        env:
+          PLUGIN_NAME: ${{ matrix.plugin.name }}
+          PLUGIN_ARGS: ${{ toJSON(matrix.plugin.args) }}
+          PLUGIN_ENV: ${{ toJSON(matrix.plugin.env) }}
+          PLUGIN_OUTPUT: ${{ matrix.plugin.output.path }}
+          PLUGIN_TIMEOUT: ${{ matrix.plugin.timeout_minutes }}
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+        run: |
+          set -euo pipefail
+          copy="${RUNNER_TEMP}/plugin-tree-${PLUGIN_NAME}"
+          rm -rf "${copy}"
+          cp -a .aurumcode-target "${copy}"
+          outdir="$(dirname "${PLUGIN_OUTPUT}")"
+          if [ "${outdir}" = . ]; then
+            echo "output.path precisa de um diretório próprio dentro da árvore."; exit 1
+          fi
+          rm -rf "${copy:?}/${outdir}"
+          mkdir -p "${copy}/${outdir}"
+          chmod 0777 "${copy}/${outdir}"
+          docker_args=(run --rm --name "aurumcode-plugin-${PLUGIN_NAME}"
+            --cap-drop ALL --security-opt no-new-privileges
+            -v "${copy}:/alvo:ro" -v "${copy}/${outdir}:/alvo/${outdir}"
+            -w /tmp)
+          while IFS= read -r name; do
+            [ -n "${name}" ] || continue
+            value="$(jq -r --arg n "${name}" '.[$n] // empty' <<<"${SECRETS_JSON}")"
+            if [ -z "${value}" ]; then
+              echo "Secret ${name} ausente: repasse-o ao workflow (secrets: inherit)."; exit 1
+            fi
+            echo "::add-mask::${value}"
+            export "${name}=${value}"
+            docker_args+=(-e "${name}")
+          done < <(jq -r '.[]' <<<"${PLUGIN_ENV}")
+          mapfile -t args < <(jq -r '.[]' <<<"${PLUGIN_ARGS}")
+          rc=0
+          timeout --signal=TERM "${PLUGIN_TIMEOUT}m" docker "${docker_args[@]}" "aurumcode-plugin-${PLUGIN_NAME}" "${args[@]}" \
+            >"${RUNNER_TEMP}/plugin-${PLUGIN_NAME}.log" 2>&1 || rc=$?
+          docker rm -f "aurumcode-plugin-${PLUGIN_NAME}" >/dev/null 2>&1 || true
+          echo "exit=${rc}" >> "$GITHUB_OUTPUT"
+          if [ "${rc}" -eq 124 ]; then
+            echo "O plugin estourou o próprio timeout (${PLUGIN_TIMEOUT} min)."
+          fi
+          echo "Plugin terminou com exit ${rc} (saída guardada fora do log)."
+
+      - name: Ingest plugin output
+        env:
+          PLUGIN_NAME: ${{ matrix.plugin.name }}
+          PLUGIN_FORMAT: ${{ matrix.plugin.output.format }}
+          PLUGIN_OUTPUT: ${{ matrix.plugin.output.path }}
+          PLUGIN_EXIT: ${{ steps.run.outputs.exit }}
+        run: |
+          set -euo pipefail
+          copy="${RUNNER_TEMP}/plugin-tree-${PLUGIN_NAME}"
+          out_dir="${RUNNER_TEMP}/aurumcode-plugin-out"
+          mkdir -p "${out_dir}"
+          rm -f "${out_dir}/plugin-${PLUGIN_NAME}.sarif"
+          rc=0
+          docker run --rm --network none --user "$(id -u):$(id -g)" \
+            -v "${copy}:/alvo:ro" -v "${out_dir}:/aurumcode-out" \
+            aurumcode-review plugin ingest --name "${PLUGIN_NAME}" --format "${PLUGIN_FORMAT}" \
+            --input "/alvo/${PLUGIN_OUTPUT}" --repo /alvo --plugin-exit "${PLUGIN_EXIT}" \
+            --sarif "/aurumcode-out/plugin-${PLUGIN_NAME}.sarif" || rc=$?
+          exit "${rc}"
+
+      # Only after a conclusive ingest (success(), never always()): an
+      # empty document would close every open alert of the category.
+      - name: Upload to code scanning
+        id: upload
+        if: success()
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: ${{ runner.temp }}/aurumcode-plugin-out/plugin-${{ matrix.plugin.name }}.sarif
+          category: aurumcode/plugin/${{ matrix.plugin.name }}
+
+      - name: Code scanning unavailable
+        if: failure() && steps.upload.outcome == 'failure'
+        run: |
+          echo "O envio ao code scanning falhou: o chamador não concedeu security-events: write ou o repositório privado não tem GitHub Code Security. Nada foi publicado em outro canal."
+          exit 1
+
+      - name: Count sent alerts
+        if: success()
+        env:
+          PLUGIN_NAME: ${{ matrix.plugin.name }}
+        run: |
+          set -euo pipefail
+          n="$(jq '.runs[0].results | length' "${RUNNER_TEMP}/aurumcode-plugin-out/plugin-${PLUGIN_NAME}.sarif")"
+          echo "${n} alertas enviados para a aba Security (visível só para quem tem escrita)."
+
+      - name: Clean up
+        if: always()
+        env:
+          PLUGIN_NAME: ${{ matrix.plugin.name }}
+        run: |
+          # The plugin's user may have created files the runner cannot remove.
+          if [ -d "${RUNNER_TEMP}/plugin-tree-${PLUGIN_NAME}" ]; then
+            docker run --rm --entrypoint chown -v "${RUNNER_TEMP}/plugin-tree-${PLUGIN_NAME}:/arvore" aurumcode-review \
+              -R "$(id -u):$(id -g)" /arvore >/dev/null 2>&1 || true
+          fi
+          rm -rf "${RUNNER_TEMP}/plugin-tree-${PLUGIN_NAME}" || true
+          docker rmi -f "aurumcode-plugin-${PLUGIN_NAME}" >/dev/null 2>&1 || true

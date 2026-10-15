@@ -30,9 +30,6 @@ type Registry interface {
 // system: the registry cannot be asked about it.
 var ErrNoSystem = fmt.Errorf("dependencies: no registry system for the package")
 
-// maxRegistryBody bounds one registry answer.
-const maxRegistryBody = 4 << 20
-
 // DepsDev is the deps.dev v3 API: the package (its versions and their
 // publication dates) and the version (links, licenses, deprecation).
 type DepsDev struct {
@@ -139,9 +136,9 @@ func (d DepsDev) get(ctx context.Context, target string, out any) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("dependencies: registry answered HTTP %d", resp.StatusCode)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxRegistryBody+1))
-	if err != nil || len(data) > maxRegistryBody {
-		return fmt.Errorf("dependencies: registry answer unreadable or above %d bytes", maxRegistryBody)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("dependencies: registry answer unreadable: %w", err)
 	}
 	if err := json.Unmarshal(data, out); err != nil {
 		return fmt.Errorf("dependencies: registry answer is not JSON: %w", err)

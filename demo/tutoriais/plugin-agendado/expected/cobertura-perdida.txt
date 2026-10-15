@@ -1,0 +1,5 @@
+plugin terminou com exit 0 (saida guardada fora do log)
+aurumcode plugin ingest: plugin vvah inconclusivo [coverage_lost]: nenhum SARIF gravado, os alertas abertos ficam como estão
+exit_code=1
+RESULTADO: cobertura perdida com zero achados: inconclusivo, nunca zero falso
+nenhum SARIF gravado: os alertas abertos ficam como estao

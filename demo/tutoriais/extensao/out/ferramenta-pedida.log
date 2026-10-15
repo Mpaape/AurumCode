@@ -11,6 +11,7 @@ aurumcode review: policy gate: exemplo:marca - linha marcada para o exemplo de e
 
 policy gate: failed · 1 file reviewed
 app.py:2: [error] linha marcada para o exemplo de engine do guia de extensao (rule exemplo:marca)
+  origem: exemplo | avaliacao do modelo: confirmed [T1] - achado real no exemplo do tutorial
 exit_code=3
 RESULTADO: o modelo pediu scanner_exemplo, o achado contou no gate com origem exemplo
 auditoria deliberation: oferecidas=scanner_exemplo,codebase_context,read_file,search_text,find_symbol,changed_file_diff pedidas=scanner_exemplo rodadas=2 desfecho=answered

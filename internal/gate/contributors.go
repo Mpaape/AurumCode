@@ -104,7 +104,10 @@ func (c ScannerContributor) Apply(_ context.Context, run *Run, _ Result) (Result
 			issues = scan.Issues
 		}
 		if scan.Section != OriginPolicy {
-			issues = run.keep(scan.Source(), scan.Origin(), issues)
+			scan := scan
+			issues = run.keepWeighed(scan.Source(), scan.Origin(), issues, func(d *Result, w []types.ReviewIssue) error {
+				return ApplyScannerGateIn(run.Language, d, scan, w)
+			})
 		}
 		if err := ApplyScannerGateIn(run.Language, &part, scan, issues); err != nil {
 			return part, Fatal(err)
@@ -120,7 +123,10 @@ func (EmbeddedAnalysisContributor) Name() string   { return ContributorAnalysis 
 func (EmbeddedAnalysisContributor) Origin() string { return OriginAnalysis }
 func (EmbeddedAnalysisContributor) Apply(_ context.Context, run *Run, _ Result) (Result, error) {
 	var part Result
-	return part, Fatal(ApplyAnalysisGate(&part, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginAnalysis, analysis.LocalizeIssues(run.Language, AnalysisIssuesForGate(run.Diff, run.Cfg))), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
+	apply := func(d *Result, issues []types.ReviewIssue) error {
+		return ApplyAnalysisGate(d, run.Cfg.Gate, issues, run.Cfg.Exceptions, run.RepoIdentity, run.Clock())
+	}
+	return part, Fatal(apply(&part, run.keepWeighed(config.GateSourceAnalysis, OriginAnalysis, analysis.LocalizeIssues(run.Language, AnalysisIssuesForGate(run.Diff, run.Cfg)), apply)))
 }
 
 // SecurityPassContributor counts the --seguranca pass's deterministic findings
@@ -132,7 +138,10 @@ func (SecurityPassContributor) Name() string   { return ContributorSecurity }
 func (SecurityPassContributor) Origin() string { return OriginSecurity }
 func (SecurityPassContributor) Apply(_ context.Context, run *Run, _ Result) (Result, error) {
 	var part Result
-	return part, Fatal(ApplySecurityGate(&part, run.Cfg.Gate, run.keep(config.GateSourceAnalysis, OriginSecurity, config.ApplyRuleConfig(run.Security, run.Cfg)), run.Cfg.Exceptions, run.RepoIdentity, run.Clock()))
+	apply := func(d *Result, issues []types.ReviewIssue) error {
+		return ApplySecurityGate(d, run.Cfg.Gate, issues, run.Cfg.Exceptions, run.RepoIdentity, run.Clock())
+	}
+	return part, Fatal(apply(&part, run.keepWeighed(config.GateSourceAnalysis, OriginSecurity, config.ApplyRuleConfig(run.Security, run.Cfg), apply)))
 }
 
 // AnalysisDataContributor gates the analysis-data artifact (AUR-533).

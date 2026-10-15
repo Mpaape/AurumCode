@@ -196,18 +196,22 @@ func TestAUR498UntrustedText(t *testing.T) {
 		}
 	})
 
-	t.Run("input count is bounded", func(t *testing.T) {
-		commits := make([]Commit, MaxCommits+50)
+	t.Run("every commit is classified", func(t *testing.T) {
+		commits := make([]Commit, 306)
 		for i := range commits {
-			commits[i] = Commit{Subject: "fix: bounded"}
+			commits[i] = Commit{Subject: "fix: every one"}
 		}
-		if got := ClassifyCommits(commits); len(got) != MaxCommits {
-			t.Fatalf("ClassifyCommits len = %d, want %d", len(got), MaxCommits)
+		commits[len(commits)-1] = Commit{Subject: "feat!: the last one breaks"}
+		if got := ClassifyCommits(commits); len(got) != len(commits) {
+			t.Fatalf("ClassifyCommits len = %d, want %d", len(got), len(commits))
+		}
+		if got, _ := NextVersion(Version{1, 0, 0}, commits); got != (Version{2, 0, 0}) {
+			t.Fatalf("NextVersion ignored the breaking commit past the old 256 bound: %v", got)
 		}
 	})
 
 	t.Run("output length is bounded", func(t *testing.T) {
-		commits := make([]Commit, MaxCommits)
+		commits := make([]Commit, 256)
 		long := strings.Repeat("&", MaxSubjectLen*2)
 		for i := range commits {
 			commits[i] = Commit{Subject: "feat: " + long}

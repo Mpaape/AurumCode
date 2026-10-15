@@ -94,24 +94,14 @@ func Classify(c Commit) Classification {
 	return cl
 }
 
-// ClassifyCommits parses at most MaxCommits commits. The bound keeps a hostile
-// or accidental giant input from making classification unbounded.
+// ClassifyCommits parses every commit: none is ignored, so the version bump
+// and the entry always see the whole range.
 func ClassifyCommits(commits []Commit) []Classification {
-	bounded, _ := classifyBounded(commits)
-	return bounded
-}
-
-// classifyBounded reports whether the input exceeded MaxCommits.
-func classifyBounded(commits []Commit) ([]Classification, bool) {
-	n := len(commits)
-	if n > MaxCommits {
-		n = MaxCommits
+	out := make([]Classification, 0, len(commits))
+	for _, c := range commits {
+		out = append(out, Classify(c))
 	}
-	out := make([]Classification, 0, n)
-	for i := 0; i < n; i++ {
-		out = append(out, Classify(commits[i]))
-	}
-	return out, len(commits) > MaxCommits
+	return out
 }
 
 // hasBreakingFooter reports whether body contains a BREAKING CHANGE: or

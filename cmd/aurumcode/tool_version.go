@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 
 	toolversion "github.com/Mpaape/AurumCode/internal/version"
 )
@@ -23,7 +24,19 @@ func toolVersionLine(info toolversion.Info, copy reviewCopy) string {
 	if info.IsDev() {
 		return ""
 	}
-	return fmt.Sprintf(copy.toolVersion, info.Label())
+	return fmt.Sprintf(copy.toolVersion, readableVersion(info.Label()))
+}
+
+// commitStamp is a version stamped as a bare commit SHA.
+var commitStamp = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
+
+// readableVersion is a release as stamped ("v2.0.0") and a build from a
+// commit as "(commit <sha>)", so a reader tells a release from a build.
+func readableVersion(label string) string {
+	if commitStamp.MatchString(label) {
+		return "(commit " + label + ")"
+	}
+	return label
 }
 
 // joinDetails appends line, when there is one, after the details' sections,

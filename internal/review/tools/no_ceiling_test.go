@@ -6,6 +6,7 @@ package tools
 // same message and reason as always (AUR-526, AC-004).
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -121,5 +122,43 @@ func TestFileCacheKeepsNothingWithoutADeclaredCeiling(t *testing.T) {
 	}
 	if len(capped.cache) != 1 {
 		t.Fatalf("explicit ceiling: %d files kept, want the one read", len(capped.cache))
+	}
+}
+
+// Issue #179: a file past the old 1 MiB per-file read bound is read whole
+// when nothing declares a ceiling; an explicit MaxFileBytes still refuses.
+func TestFilePastTheOldReadBoundIsReadWhole(t *testing.T) {
+	big := strings.Repeat(strings.Repeat("b", 1023)+"\n", 2048)
+	root, tracked := revisionFixture(t, map[string]string{"big.txt": big})
+
+	data, err := openRevision(t, root, tracked, RevisionOptions{}).Read("big.txt")
+	if err != nil || len(data) != len(big) {
+		t.Fatalf("no ceiling: err=%v bytes=%d, want %d", err, len(data), len(big))
+	}
+	if _, err := openRevision(t, root, tracked, RevisionOptions{MaxFileBytes: 1 << 20}).Read("big.txt"); err == nil {
+		t.Fatal("an explicit MaxFileBytes of 1 MiB accepted a 2 MiB file")
+	}
+}
+
+// Issue #179: a search and a symbol lookup past the old 50 and 60 hits
+// return every hit, each line whole past the old 240 bytes, and the
+// definition in the last file is still found.
+func TestSearchAndSymbolReturnEveryHitWhole(t *testing.T) {
+	long := strings.Repeat("w", 300)
+	files := map[string]string{}
+	for n := 0; n < 70; n++ {
+		files[fmt.Sprintf("a/u%02d.go", n)] = "package a\n\nvar _ = Alvo() // " + long + "\n"
+	}
+	files["z/def.go"] = "package z\n\nfunc Alvo() int { return 1 }\n"
+	root, tracked := revisionFixture(t, files)
+	rev := openRevision(t, root, tracked, RevisionOptions{})
+
+	res, err := run(t, NewSearchTool(rev, nil), `{"query":"Alvo()"}`)
+	if err != nil || !strings.HasPrefix(res.Content, "71 ocorrência(s)") || !strings.Contains(res.Content, long) || strings.Contains(res.Content, "truncad") {
+		t.Fatalf("search: err=%v head=%q", err, strings.SplitN(res.Content, "\n", 2)[0])
+	}
+	res, err = run(t, NewSymbolTool(rev, grammar.Default(), nil), `{"name":"Alvo"}`)
+	if err != nil || !strings.Contains(res.Content, "z/def.go") || strings.Contains(res.Content, "truncad") || strings.Count(res.Content, long) != 70 {
+		t.Fatalf("symbol: err=%v content has %d long lines, def=%v", err, strings.Count(res.Content, long), strings.Contains(res.Content, "z/def.go"))
 	}
 }

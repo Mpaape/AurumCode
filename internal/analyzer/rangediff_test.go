@@ -40,6 +40,10 @@ func TestRangeDiffFromObjectsMatchesGit(t *testing.T) {
 	requireGitBinary(t)
 	dir := t.TempDir()
 	runGit(t, dir, "init", "-q", "-b", "main")
+	// This reader reads loose objects only: git must never pack them on its
+	// own while the test builds the history (seen once in CI).
+	runGit(t, dir, "config", "gc.auto", "0")
+	runGit(t, dir, "config", "maintenance.auto", "false")
 	writeFileOrFail(t, filepath.Join(dir, "a.txt"), lines(40, nil))
 	writeFileOrFail(t, filepath.Join(dir, "gone.txt"), "adeus\n")
 	runGit(t, dir, "add", "-A")

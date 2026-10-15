@@ -67,8 +67,9 @@ só `arguments` e, quando declarado, os caminhos alterados, tudo pela redação
 AUR-009; nada do repositório é enviado. O texto devolvido entra no contexto
 do repositório do prompt com a origem `mcp:<name>/<tool>`, como dado não
 confiável: não aprova o PR, não liga nem desliga regra e não muda gate nem
-permissão. Servidor ausente, lento, com resposta malformada ou acima de
-64 KiB vira aviso de omissão no stderr e a revisão segue sem ele.
+permissão. Servidor ausente, lento ou com resposta malformada vira aviso de
+omissão no stderr e a revisão segue sem ele. A resposta não tem teto de
+tamanho: chega inteira ao modelo.
 
 A fonte só existe em configuração confiável: a política central sempre; o
 `.aurumcode/config.yml` local no `--base` fora de CI; no `--pr`, o config
@@ -152,8 +153,9 @@ Indique contexto ausente sem presumir um defeito.
 ```
 
 As contribuições são contexto para o modelo. Não alteram permissões,
-redação de segredos nem opções do programa. A implementação atual aceita até
-64 KiB por contribuição e informa erro se esse tamanho for excedido.
+redação de segredos nem opções do programa. Nenhuma contribuição tem teto de
+tamanho: todas chegam inteiras ao modelo, e um prompt longo demais para ele
+faz a revisão se dividir em lotes.
 
 ## Modelo e credenciais
 
@@ -182,7 +184,7 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
   fora da conta de cobertura: o parecer o lista como **ignorado**, pelo nome, e a
   revisão não fica parcial por causa dele (`partial_coverage` não dispara, nem
   com `gate.inconclusive: block`). Continua parcial o que a revisão quis ler e
-  não conseguiu: arquivo gerado, grande demais, sem patch, cortado pelo
+  não conseguiu: arquivo gerado, sem patch, cortado pelo
   limite de tokens, e todo conteúdo binário fora do catálogo — um script,
   código ou config com um byte NUL (`deploy.sh`, `app.js`, `ci.yml`), um
   arquivo sem extensão, um executável, uma extensão desconhecida ou um
@@ -208,7 +210,7 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
   ou veredito.
 - Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`.
   Ele publica um status de commit; só bloqueia merge se exigido pela branch.
-- Action Docker direta: usa `Mpaape/AurumCode@v2.0.0` (a tag da release;
+- Action Docker direta: usa `Mpaape/AurumCode@v2.1.0` (a tag da release;
   `@main` recebe toda mudança sem aviso), exige
   `GITHUB_TOKEN`, `LLM_API_KEY`, `LLM_BASE_URL` no ambiente e evento de PR.
   Acrescenta inputs `check` e `fail-on`; não coleta CI automaticamente.
@@ -225,7 +227,7 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
   - uses: actions/checkout@v4
     with:
       ref: ${{ github.event.pull_request.head.sha }}
-  - uses: Mpaape/AurumCode@v2.0.0
+  - uses: Mpaape/AurumCode@v2.1.0
     env:
       GITHUB_TOKEN: ${{ github.token }}
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
@@ -928,9 +930,10 @@ ao processo filho, que lê conteúdo controlado pelo autor do PR. O ambiente é:
 
 Variáveis de proxy (`HTTPS_PROXY` etc.) não são repassadas: um runner atrás de
 proxy precisa de regras locais (veja os pacotes `p/...` acima). Limites de
-cada execução: 120 s (`scanner.Timeout`), 5 s para fechar a saída depois do
-cancelamento (`scanner.WaitDelay`) e 32 MiB por fluxo de saída
-(`scanner.MaxOutputBytes`); passar de qualquer um deles é inconclusivo.
+cada execução: 120 s (`scanner.Timeout`) e 5 s para fechar a saída depois do
+cancelamento (`scanner.WaitDelay`); passar de qualquer um deles é
+inconclusivo. A saída não tem teto de tamanho: um relatório grande é lido
+inteiro.
 
 ## Trilha de auditoria e SARIF (AUR-521)
 
@@ -1687,25 +1690,43 @@ review nomeiam cada achado rebaixado
 uma seção de SAST de origem da política nunca é rebaixada: nada muda em
 relação ao comportamento anterior ao padrão `model`.
 
-A triagem falha fechada. Quando o modelo não respondeu de forma limpa (sem
-provedor, falha do provedor, resposta que não passou no parser ou que só foi
-lida em modo degradado, limite de deliberação), nada é rebaixado, nem mesmo
-pela contestação justificada de um perfil ou lote saudável quando outro perfil
-ou lote da mesma execução saiu degradado. Se havia evidência de uma fonte
-triável, com gate declarado e sem política central, o stderr e as limitações
-do parecer dizem isso, no idioma de `review.language`:
+O modelo sempre decide. Um achado de fonte triável que a revisão (inteira ou
+em lotes) deixou sem avaliação vai ao modelo numa chamada de triagem dedicada:
+um prompt pequeno com a regra, o local e o trecho ao redor, cuja resposta passa
+pela mesma validação (contestação só vale com justificativa). Se o provedor
+recusar o prompt por tamanho, os achados são divididos em metades; não há teto
+de quantidade. Contestado com justificativa, o achado deixa de contar;
+confirmado, bloqueia como sempre.
+
+Um achado que o Gitleaks encontrou num commit do histórico é mostrado com o
+conteúdo daquele commit ao redor da linha, dizendo que o valor está no
+histórico (pode não existir mais no arquivo atual); se o commit não puder ser
+lido, nenhum trecho é mostrado, nunca o arquivo atual numa linha sem relação.
+Uma avaliação `needs_context` (ou uma contestação sem justificativa) é
+perguntada de novo uma vez, com o arquivo inteiro quando couber; se o modelo
+ainda não decidir, o achado aguarda a avaliação (`triage_needs_context`). Só
+bloqueia o que o modelo confirma. Um alarme contestado sai do parecer: uma
+linha nos detalhes conta os descartados, e o SARIF e a auditoria o guardam.
+
+Uma resposta da triagem que deixa achados de fora é repetida uma vez, só com
+os omitidos. Achado estático nunca reprova sozinho: quando o modelo não deu
+resposta utilizável (sem provedor configurado, falha do provedor, recusa sem
+espaço, resposta que não passou no parser ou só foi lida em modo degradado,
+limite de deliberação, ou a triagem sem resposta ou ainda omitindo achados),
+nada é rebaixado, nem mesmo pela contestação de um perfil ou lote saudável,
+e os achados que bloqueariam também não reprovam o gate: ficam aguardando a
+avaliação do modelo, numa linha só, e o gate fica inconclusivo pelo motivo
+do modelo (`quality_skipped`, `provider_failure`, `model_parse_failure`,
+`triage_unanswered`, `triage_needs_context`, ...) e falha, qualquer que seja `gate.inconclusive`:
 
 ```text
-aurumcode review: gate.triage: a triagem pelo modelo não ocorreu — revisão por modelo não executada (sem provedor configurado) [quality_skipped]; a evidência determinística contou integralmente e o bloqueio foi mantido
+aurumcode review: policy gate: gate.triage: achados determinísticos aguardando a avaliação do modelo: 29 — o modelo não deu uma resposta utilizável (o provedor de modelo não respondeu [provider_failure]); sem a decisão do modelo não há veredito
 ```
 
-Depois do travessão vai o motivo, em pt-BR como frase com o código entre
-colchetes e em inglês como o próprio código entre parênteses
-(`quality_skipped`, `provider_failure`, `model_parse_failure`,
-`degraded_parse`, ...); quando o gate passa mesmo assim, a linha termina
-em "contou integralmente", sem falar em bloqueio. Com todas as fontes da
+Um `--fail-on` explícito respeita a triagem do mesmo jeito: achado contestado
+pelo modelo ou aguardando a avaliação não conta. Com todas as fontes da
 evidência em `none`, sem gate declarado ou sob política central, nada é
-anunciado: a triagem não teria ocorrido de qualquer forma.
+anunciado nem aguarda: a evidência conta como sempre contou.
 
 Um review que ofereceu evidência não é servido do cache de modelo por arquivo
 (o cache guarda achados, não avaliações), e a chave de reaproveitamento do
@@ -1743,7 +1764,7 @@ modelo, num manifesto com custo e tamanho estimados de cada uma:
   `rule_id` que o catálogo de regras já lista.
 - Ferramentas do repositório, em qualquer linguagem: `read_file` (linhas
   numeradas de um arquivo, até 200 por chamada), `search_text` (texto
-  literal, até 50 ocorrências com `arquivo:linha`), `find_symbol` (onde um
+  literal, todas as ocorrências com `arquivo:linha`), `find_symbol` (onde um
   símbolo é definido, pela gramática tree-sitter do arquivo, e onde é usado
   fora de comentário) e `changed_file_diff` (o diff revisado de outro arquivo
   alterado).
@@ -1784,9 +1805,9 @@ na revisão inteira) e `max_cache_bytes` (os bytes de arquivos que elas mantêm
 em memória) também são opcionais: ausentes ou `0`, não há teto. Um valor
 positivo vira um teto explícito: o resultado que o ultrapassaria não é
 devolvido e a revisão fica parcial (`deliberation_limit:max_read_bytes` ou
-`deliberation_limit:max_cache_bytes`). Fora desses tetos, um único arquivo
-acima de 1 MiB continua sendo recusado na leitura (o `read_file` falha e as
-buscas pulam o arquivo), sem deixar a revisão parcial.
+`deliberation_limit:max_cache_bytes`). Fora desses tetos, nenhum arquivo é
+recusado por tamanho, e o resultado de cada ferramenta volta inteiro ao
+modelo, sem corte.
 
 A última rodada permitida não oferece ferramenta: o modelo recebe a instrução
 de entregar o parecer com a evidência já reunida. Só quando ele ainda pede
@@ -1912,7 +1933,7 @@ bloqueante sai da entrada do gate, uma observação é descartada, e os dois
 ficam nomeados nos detalhes do parecer ("Limitações da revisão"), no stderr e
 na chave `verification` da auditoria (`--auditoria`), com motivo e citação.
 Nunca somem sem registro. Confirmado, incerto, citação inexistente, resposta
-inválida, erro do provedor, teto de chamadas ou revisão revisada ilegível: o
+inválida, erro do provedor, teto de chamadas declarado ou revisão revisada ilegível: o
 achado continua contando e o stderr diz por quê (sem a revisão revisada, o
 aviso só aparece quando esta seção foi declarada). Achados dos scanners determinísticos (e a
 avaliação do modelo sobre eles) nunca são enviados, e o verificador não cria
@@ -1922,7 +1943,7 @@ achado novo.
 review:
   verification:
     enabled: true   # padrão; false desliga e todo achado bloqueante do modelo conta
-    max_calls: 8    # padrão; teto de chamadas por revisão, o excedente continua bloqueando
+    max_calls: 8    # opcional; ausente ou 0 = sem teto, todo achado é verificado; com teto, o excedente continua bloqueando
 ```
 
 Cada chamada passa pelo mesmo orquestrador da revisão, então conta no
@@ -1949,9 +1970,15 @@ antes paravam a revisão:
   revisão falha (saída 1) sem enviar nada ao modelo nem publicar. O
   workflow reutilizável já faz o checkout do head com histórico completo. Com
   a API respondendo o diff, nada muda: o diff local é só o caminho da recusa.
-  No diff local há um limite que não é de token: um arquivo cujo conteúdo passa
-  de 1 MiB ou de 10000 linhas por lado não entra na revisão e é declarado como
-  não revisado (`diff too large`), e a aprovação é retida.
+  O diff local não deixa arquivo de texto de fora por tamanho: um arquivo de
+  qualquer tamanho entra na revisão. Quando a busca do diff mínimo passaria do
+  orçamento de memória ou de trabalho, o arquivo sai como substituição inteira
+  (todas as linhas antigas removidas, todas as novas adicionadas), um diff
+  correto e mais grosseiro, com a memória limitada. Um arquivo que o diff da
+  API traz sem nenhuma linha (o git o marcou como binário, ou a API não deu o
+  patch) tem o diff refeito do checkout verificado e entra na revisão;
+  renomeação pura, troca de modo ou arquivo vazio é listado como ignorado
+  (nada a revisar); sem checkout verificado, ele fica não revisado.
 - **O modelo recusa o diff por ser longo demais.** O produto não põe teto no
   prompt: a primeira tentativa manda o diff inteiro. Quando o provedor
   responde que o pedido passa da janela de contexto do modelo (HTTP 400 ou
@@ -2321,15 +2348,14 @@ dependencies:
   (`dependencies_scanner_unavailable`), modelo ausente ou com resposta fora do
   contrato (`dependencies_no_model`, `dependencies_model_failed`), checkout
   não verificado do PR (`dependencies_unverified_checkout`), dependência sem
-  versão nem faixa legível (`dependencies_unresolved_version`), diff de
-  manifestos acima de 256 KiB (`dependencies_manifests_omitted`) e uma fase
+  versão nem faixa legível (`dependencies_unresolved_version`), manifesto
+  ilegível (`dependencies_manifests_omitted`) e uma fase
   anterior que encerrou a revisão antes da verificação
   (`dependencies_not_run`) tornam a revisão inconclusiva com o motivo; nunca
   são lidos como "sem vulnerabilidade". Com a seção declarada, o padrão de
   `gate.inconclusive` é `block`.
 - **Quando esperar inconclusivo.** Por desenho, falha fechada pesa em PRs
-  reais: uma atualização grande de lockfile (diff dos manifestos acima de
-  256 KiB) é `dependencies_manifests_omitted`; o `osv-scanner` roda sobre o
+  reais: o `osv-scanner` roda sobre o
   checkout inteiro em até 120 s, e um repositório muito grande pode passar
   disso (`dependencies_scanner_failed`); pacote que o deps.dev ainda não
   indexou (comum num typosquat recém-publicado) responde 404 e vira
@@ -2437,9 +2463,8 @@ aurumcode dependencies --repo . --sarif aurumcode-dependencies.sarif
   dependência é corrigida ou o advisory é retirado o resultado some do
   próximo upload e o code scanning fecha o alerta sozinho. Nenhum estado
   próprio é guardado: o estado é o do code scanning.
-- **Inconclusivo não apaga alerta.** Base inalcançável, scanner ausente,
-  modelo indisponível ou lista de arquivos rastreados acima do limite do
-  modelo (256 KiB de caminhos, por volta de 6 mil arquivos): o
+- **Inconclusivo não apaga alerta.** Base inalcançável, scanner ausente ou
+  modelo indisponível: o
   comando sai com 1, diz o motivo e **não grava SARIF**; o passo de upload do
   workflow só roda depois de uma varredura conclusiva (`if: success()`),
   então nenhum documento vazio fecha os alertas abertos. Código 2 é erro de
@@ -2612,6 +2637,47 @@ colar é do humano.
 Guia de escrita, com exemplos de `Unreleased` e de release:
 [Changelog](changelog.md). Passo a passo executável:
 [tutorial de changelog](tutorials/changelog.md).
+
+## Plugins externos da validação agendada (`aurumcode plugin`)
+
+AUR-622. A seção `scheduled.plugins` declara programas externos que o job
+agendado `plugins` do workflow reutilizável roda, cada um no próprio
+container (o binário do AurumCode não embute nenhum). Contrato completo, o
+que fica público e o que não fica: [plugins-agendados.md](plugins-agendados.md).
+
+```yaml
+scheduled:
+  plugins:
+    - name: vvah                      # [a-z0-9][a-z0-9_-]*, único
+      dockerfile: plugins/vvah/Dockerfile        # ou image: <ref>@sha256:<64 hex>
+      args: []                         # o entrypoint do exemplo já fixa scan, --config e --stop-after
+      env: [ANTHROPIC_API_KEY, VVAH_MODEL]       # só NOMES; valores vêm dos secrets
+      output:
+        format: vvah-findings          # sarif | vvah-findings
+        path: security-scan/findings.json        # relativo à árvore varrida
+      timeout_minutes: 60              # padrão 60; sem teto; o job tem +30 min de folga
+      required: false                  # na política central: o repo não remove
+```
+
+Recusado na leitura: plugin sem `image` fixada por digest e sem
+`dockerfile` (ou com os dois), `env` com valor (`NOME=valor` ou mapa),
+`output.path` ou `dockerfile` absoluto ou com `..`, formato desconhecido e
+nome repetido. Na política central, `dockerfile` é recusado: plugin de
+política é `image` fixada por digest (o Dockerfile viria do repositório
+varrido). Sob política central, uma entrada `required: true` vence a do
+repositório de mesmo nome (aviso nomeado); uma não obrigatória cede.
+
+Comandos:
+
+- `aurumcode plugin list --json [--repo DIR] [--politica DIR]`: os plugins
+  efetivos (repositório + política) em JSON, como o workflow os lê.
+- `aurumcode plugin ingest --name N --format F --input P --repo DIR
+  --plugin-exit RC --sarif OUT [--harness-sarif S] [--harness-errors E]`:
+  exit 0 grava o SARIF e imprime só contagens; exit 1 é inconclusivo ou
+  caminho recusado, e NENHUM SARIF é gravado; exit 2 é uso inválido.
+- `aurumcode plugin destino --visibilidade V [--code-scanning]` imprime
+  `security` ou `issues`; com `--destino issues` num repositório público,
+  recusa (exit 1).
 
 ## Realimentação da política (AUR-532)
 

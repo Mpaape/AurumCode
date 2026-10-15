@@ -65,6 +65,9 @@ func LoadCentralPolicy(root string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("central policy: %w", err)
 	}
+	if err := cfg.Scheduled.ValidatePolicy(); err != nil {
+		return nil, fmt.Errorf("central policy: %w", err)
+	}
 	for _, file := range cfg.Review.ContextFiles() {
 		if file.Optional {
 			continue

@@ -1,7 +1,6 @@
 package xbom
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,11 +11,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-)
-
-const (
-	maxFileBytes = 1 << 20
-	maxLineBytes = 4000
 )
 
 // Occurrence is one cited place: repo-relative slash path, 1-based line and
@@ -72,7 +66,8 @@ func (c *Catalog) matchingEntries(rel string) []*Entry {
 }
 
 // Extract walks root and applies the catalog. It never follows symlinks and
-// skips binary or oversized files. Results are unverified candidates.
+// skips binary files; a file or line of any size is read (issue #179).
+// Results are unverified candidates.
 func Extract(root string, c *Catalog) ([]*Candidate, error) {
 	var cands []*Candidate
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -105,9 +100,6 @@ func Extract(root string, c *Catalog) ([]*Candidate, error) {
 			return nil
 		}
 		for i, line := range lines {
-			if len(line) > maxLineBytes {
-				continue
-			}
 			for _, e := range entries {
 				for _, m := range e.re.FindAllStringSubmatch(line, -1) {
 					g := map[string]string{}
@@ -175,7 +167,7 @@ func renderComponent(e *Entry, g map[string]string) *Component {
 
 func readLines(p string) ([]string, bool) {
 	fi, err := os.Lstat(p)
-	if err != nil || !fi.Mode().IsRegular() || fi.Size() > maxFileBytes {
+	if err != nil || !fi.Mode().IsRegular() {
 		return nil, false
 	}
 	data, err := os.ReadFile(p)
@@ -189,11 +181,13 @@ func readLines(p string) ([]string, bool) {
 	if bytes.IndexByte(head, 0) >= 0 {
 		return nil, false
 	}
-	var lines []string
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	sc.Buffer(make([]byte, 0, 64*1024), maxFileBytes+1)
-	for sc.Scan() {
-		lines = append(lines, strings.TrimSuffix(sc.Text(), "\r"))
+	text := strings.TrimSuffix(string(data), "\n")
+	if text == "" {
+		return nil, true
+	}
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimSuffix(line, "\r")
 	}
 	return lines, true
 }

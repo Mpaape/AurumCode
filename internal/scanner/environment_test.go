@@ -56,9 +56,16 @@ func TestIsolatedCommandUsesOnlyGivenEnvironment(t *testing.T) {
 	}
 }
 
-func TestIsolatedCommandBoundsOutput(t *testing.T) {
-	_, _, err := IsolatedCommand(nil)(context.Background(), t.TempDir(), "/bin/sh", "-c", "head -c 40000000 /dev/zero")
-	if err != ErrOutputTooLarge {
-		t.Fatalf("err = %v, want ErrOutputTooLarge", err)
+// Issue #179: an output past the old 32 MiB ceiling is kept whole, so a
+// large Semgrep or Gitleaks report is read instead of turning the scan
+// inconclusive.
+func TestIsolatedCommandKeepsOutputPastTheOldCeiling(t *testing.T) {
+	const n = 40000000
+	out, _, err := IsolatedCommand(nil)(context.Background(), t.TempDir(), "/bin/sh", "-c", "head -c 40000000 /dev/zero")
+	if err != nil {
+		t.Fatalf("an output of %d bytes failed the scan: %v", n, err)
+	}
+	if len(out) != n {
+		t.Fatalf("the output was cut: got %d bytes, want %d", len(out), n)
 	}
 }

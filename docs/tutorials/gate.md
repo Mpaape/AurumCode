@@ -352,23 +352,24 @@ exit_code=0
 status publicado: context=aurumcode/review state=success
   description: nenhum achado grave
 status publicado: context=aurumcode/policy-gate state=success
-  description: aprovado: gate de política aprovado
+  description: Aprovado
 --- reprovado
 exit_code=3
 status publicado: context=aurumcode/review state=failure
   description: 1 achado grave
 status publicado: context=aurumcode/policy-gate state=failure
-  description: falha: 1 achado reprova o gate — Sem segredos no codigo (error) em app.go:6; detalhes no parecer
+  description: Bloqueado: 1 problema (Sem segredos no codigo em app.go:6)
 --- inconclusivo
 exit_code=1
   description: inconclusivo: a revisão não cobriu tudo e o gate reprova por configuração — parte do diff ficou fora da revisão [partial_coverage]
 ```
 
-O que observar: a **descrição** abre com a palavra do estado (`aprovado:`,
-`falha:`, `inconclusivo:`) seguida do motivo; o estado vai em `state`
-(`success`/`failure`). Um inconclusivo em `block` é `failure` com
-`inconclusivo:`; um inconclusivo em `warn` seria `success` com a mesma palavra,
-nunca `aprovado`. A descrição tem no máximo 140 caracteres e, quando passa
+O que observar: a **descrição** abre com a decisão (`Aprovado`,
+`Bloqueado: N problemas (…)`, `inconclusivo:`); no bloqueio, o primeiro
+problema aparece pelo título curto e pelo lugar, e o mesmo problema apontado
+por duas fontes conta uma vez. O estado vai em `state` (`success`/`failure`).
+Um inconclusivo em `block` é `failure` com `inconclusivo:`; um inconclusivo em
+`warn` seria `success` com a mesma palavra, nunca `Aprovado`. A descrição tem no máximo 140 caracteres e, quando passa
 disso, é cortada no fim de uma palavra (termina em `…`); o texto completo está
 no parecer. O número da PR não é repetido: o status já pertence ao commit da PR. Os dois status são independentes: no caso
 reprovado ambos falham, mas o `aurumcode/review` só considera achado grave
@@ -529,7 +530,7 @@ aurumcode review: policy gate: analysis/hardcoded-secret - Segredo ou credencial
 app.go:6: [error] Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret)
   origem: analysis | avaliacao do modelo: disputed [E1] prioridade low - O valor e a senha do banco de exemplo descartavel da demonstracao, nao uma credencial real.
   sugestao: Mover o exemplo para um arquivo de teste.
-Excecoes propostas pelo modelo (nao aplicadas; o gate continua contando estes achados).
+Exceções propostas pelo modelo (não aplicadas; o gate continua contando estes achados).
 Para aceitar, um humano copia o bloco para `exceptions` com dono e validade:
 exceptions:
   - repo: "<owner/repo a definir>"

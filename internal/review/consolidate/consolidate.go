@@ -32,13 +32,16 @@ type Result struct {
 	AlsoFrom [][]string
 	// Merged counts the occurrences merged into another.
 	Merged int
+	// Absorbed are the occurrences merged into another, in order: the
+	// published count of what blocks leaves them out.
+	Absorbed []types.ReviewIssue
 	// Collapsed are the findings condensed by preference, in order.
 	Collapsed []types.ReviewIssue
 }
 
 // Apply merges occurrences of the same problem and applies the collapse
 // preference. Two occurrences are the same problem when file, line, side
-// and rule are equal; a different rule on the same line is another
+// and rule family (Family) are equal; a different rule on the same line is another
 // problem. The kept occurrence is the first deterministic one (an engine
 // origin) or else the first; it takes the highest severity of the group,
 // every distinct evidence, and fills an empty impact, suggestion or
@@ -69,6 +72,7 @@ func Apply(issues []types.ReviewIssue, opts Options) Result {
 		}
 		res.Issues[i] = merge(kept, other)
 		res.AlsoFrom[i] = append(res.AlsoFrom[i], other.Origin)
+		res.Absorbed = append(res.Absorbed, other)
 	}
 	return collapse(res, opts)
 }
@@ -77,7 +81,7 @@ func collapse(res Result, opts Options) Result {
 	if len(opts.Collapse) == 0 {
 		return res
 	}
-	out := Result{Merged: res.Merged}
+	out := Result{Merged: res.Merged, Absorbed: res.Absorbed}
 	for i, issue := range res.Issues {
 		blocking := opts.Blocking == nil || opts.Blocking(issue)
 		if !blocking && opts.Collapse[strings.ToLower(strings.TrimSpace(issue.Severity))] {
@@ -169,8 +173,27 @@ func identity(issue types.ReviewIssue) string {
 	if side == "" {
 		side = "RIGHT"
 	}
-	return strings.Join([]string{issue.File, strconv.Itoa(issue.Line), side, issue.RuleID}, "\x00")
+	return strings.Join([]string{issue.File, strconv.Itoa(issue.Line), side, Family(issue.RuleID)}, "\x00")
 }
+
+// Family is the problem a rule names, for telling two reports of one
+// problem apart from two problems on one line: a leaked secret is one
+// problem whichever engine found it (the secrets scanner's own rule, the
+// analysis catalog's hardcoded-secret, the security pass's), so every
+// secret rule shares one family; any other rule is its own family.
+func Family(ruleID string) string {
+	id := strings.ToLower(strings.TrimSpace(ruleID))
+	if strings.HasPrefix(id, "gitleaks:") || strings.HasSuffix(id, "hardcoded-secret") {
+		return secretFamily
+	}
+	return ruleID
+}
+
+// secretFamily is the one family of every secret rule.
+const secretFamily = "\x01secret"
+
+// IsSecret reports whether ruleID is in the secret family.
+func IsSecret(ruleID string) bool { return Family(ruleID) == secretFamily }
 
 // severityRank orders the severities; an unknown one ranks lowest.
 var severityRank = map[string]int{"info": 1, "warning": 2, "error": 3, "critical": 4}

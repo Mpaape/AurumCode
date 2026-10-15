@@ -44,6 +44,7 @@ func decodeReport(raw []byte, version string) ([]scanner.Finding, error) {
 			RuleID:   RulePrefix + strings.TrimSpace(l.RuleID),
 			Severity: severity,
 			Message:  message(l, version),
+			Commit:   strings.TrimSpace(l.Commit),
 		})
 	}
 	return findings, nil

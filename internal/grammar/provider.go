@@ -11,9 +11,6 @@ package grammar
 // for a file.
 const NoStructure = "unknown"
 
-// MaxParseBytes bounds how much of one file is handed to a parser.
-const MaxParseBytes = 1 << 20
-
 // Provider is the small seam consumers depend on. Consumers receive a Provider
 // by injection and never import a runtime.
 type Provider interface {

@@ -192,15 +192,15 @@ func TestAUR607SkippedFileNoticeFollowsTheLanguage(t *testing.T) {
 	notices := []analyzer.DiffNotice{
 		{Path: "logo.png", Reason: analyzer.NoticeReasonBinary, Message: "binary file, skipped: logo.png"},
 		{Path: "gerado.go", Reason: "generated", Message: "generated file, skipped: gerado.go"},
-		{Path: "big.txt", Reason: "too large", Message: "diff too large: big.txt (9 lines > limit 8)"},
+		{Path: "big.txt", Reason: analyzer.NoticeReasonNoPatch, Message: "not reviewed, no patch (binary or large): big.txt"},
 	}
 	var en, pt bytes.Buffer
 	printNotices(&en, redaction.NewFilter(), notices, "en-US")
 	printNotices(&pt, redaction.NewFilter(), notices, "pt-BR")
-	if want := "binary file, skipped: logo.png\ngenerated file, skipped: gerado.go\ndiff too large: big.txt (9 lines > limit 8)\n"; en.String() != want {
+	if want := "binary file, skipped: logo.png\ngenerated file, skipped: gerado.go\nnot reviewed, no patch (binary or large): big.txt\n"; en.String() != want {
 		t.Errorf("en notices = %q, want %q", en.String(), want)
 	}
-	if want := "arquivo binário, não revisado: logo.png\narquivo gerado, não revisado: gerado.go\ndiff too large: big.txt (9 lines > limit 8)\n"; pt.String() != want {
+	if want := "arquivo binário, não revisado: logo.png\narquivo gerado, não revisado: gerado.go\nnot reviewed, no patch (binary or large): big.txt\n"; pt.String() != want {
 		t.Errorf("pt-BR notices = %q, want %q", pt.String(), want)
 	}
 }
@@ -250,12 +250,12 @@ func TestAUR607PolicyGateStatusInPortuguese(t *testing.T) {
 		state string
 		want  string
 	}{
-		{"breach", aur607Breach("Sem segredos no codigo", false), "failure", "falha: 1 achado reprova o gate — Sem segredos no codigo (error) em config.py:1; detalhes no parecer"},
-		{"breach and inconclusive", aur607Breach("Sem segredos no codigo", true), "failure", "falha: 1 achado reprova o gate — Sem segredos no codigo (error) em config.py:1; revisão também inconclusiva; detalhes no parecer"},
+		{"breach", aur607Breach("Sem segredos no codigo", false), "failure", "Bloqueado: 1 problema (Sem segredos no codigo em config.py:1)"},
+		{"breach and inconclusive", aur607Breach("Sem segredos no codigo", true), "failure", "Bloqueado: 1 problema (Sem segredos no codigo em config.py:1; revisão também inconclusiva)"},
 		{"block", gateDecision{Active: true, Fail: true, Inconclusive: true, Reason: "partial_coverage", Lines: []string{"revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]"}}, "failure", "inconclusivo: a revisão não cobriu tudo e o gate reprova por configuração — parte do diff ficou fora da revisão [partial_coverage]"},
 		{"warn", gateDecision{Active: true, Inconclusive: true, Reason: "provider_failure"}, "success", "inconclusivo: a revisão não cobriu tudo e o gate só avisa por configuração — o provedor de modelo não respondeu [provider_failure]"},
 		{"long reasons keep their codes", gateDecision{Active: true, Inconclusive: true, Reason: "quality_skipped,partial_coverage"}, "success", "inconclusivo: a revisão não cobriu tudo e o gate só avisa por configuração — [quality_skipped]; [partial_coverage]"},
-		{"approved", gateDecision{Active: true}, "success", "aprovado: gate de política aprovado"},
+		{"approved", gateDecision{Active: true}, "success", "Aprovado"},
 	} {
 		state, got := gateStatusDescription("pt-BR", tc.g, 7)
 		if state != tc.state || got != tc.want {
@@ -266,9 +266,21 @@ func TestAUR607PolicyGateStatusInPortuguese(t *testing.T) {
 		}
 	}
 	two := aur607Breach("Sem segredos", false)
-	two.BlockingFindings = append(two.BlockingFindings, two.BlockingFindings[0])
-	if _, got := gateStatusDescription("pt-BR", two, 7); !strings.HasPrefix(got, "falha: 2 achados reprovam o gate — ") {
+	other := two.BlockingFindings[0]
+	other.Line = 2
+	two.BlockingFindings = append(two.BlockingFindings, other)
+	if _, got := gateStatusDescription("pt-BR", two, 7); got != "Bloqueado: 2 problemas (Sem segredos em config.py:1, …)" {
 		t.Errorf("two findings: %q", got)
+	}
+	// The same secret reported by two sources on one line is one problem.
+	same := aur607Breach("Sem segredos", false)
+	same.BlockingFindings = []facts.AuditFinding{
+		{RuleID: "analysis/hardcoded-secret", Path: "config.py", Line: 1, Severity: "error"},
+		{RuleID: "gitleaks:generic-api-key", Path: "config.py", Line: 1, Severity: "error"},
+	}
+	same.FirstBreach.RuleID = "gitleaks:generic-api-key"
+	if _, got := gateStatusDescription("pt-BR", same, 7); got != "Bloqueado: 1 problema (Possível segredo no código em config.py:1)" {
+		t.Errorf("one secret from two sources: %q", got)
 	}
 }
 
@@ -280,10 +292,10 @@ func TestAUR607PolicyGateStatusCutsAtAWord(t *testing.T) {
 	if utf8.RuneCountInString(got) > statusDescriptionLimit {
 		t.Fatalf("description has %d runes > %d: %q", utf8.RuneCountInString(got), statusDescriptionLimit, got)
 	}
-	if !strings.HasSuffix(got, " (error) em config.py:1; revisão também inconclusiva; detalhes no parecer") {
-		t.Fatalf("the place or the pointer was cut: %q", got)
+	if !strings.HasSuffix(got, " em config.py:1; revisão também inconclusiva)") {
+		t.Fatalf("the place was cut: %q", got)
 	}
-	kept := strings.TrimPrefix(got[:strings.Index(got, "…")], "falha: 1 achado reprova o gate — ")
+	kept := strings.TrimPrefix(got[:strings.Index(got, "…")], "Bloqueado: 1 problema (")
 	if !strings.HasPrefix(title, kept) || title[len(kept)] != ' ' {
 		t.Fatalf("title cut inside a word: kept %q of %q", kept, title)
 	}
@@ -324,8 +336,9 @@ func TestAUR607PolicyGateStatusDefaultLanguageUnchanged(t *testing.T) {
 	}
 }
 
-// AC-004: a Gitleaks finding leads with the catalog's label in Portuguese
-// and keeps the tool's own text as the detail; English is unchanged.
+// AC-004: a Gitleaks finding leads with the catalog's label in Portuguese,
+// with the rule, the engine and the commit, never the tool's English
+// sentence; English is unchanged.
 func TestAUR607GitleaksFindingLeadsWithTheCatalogLabel(t *testing.T) {
 	finding := scanner.Finding{
 		Path: "config.py", Line: 1, RuleID: "gitleaks:github-pat", Severity: "error",
@@ -336,7 +349,7 @@ func TestAUR607GitleaksFindingLeadsWithTheCatalogLabel(t *testing.T) {
 		t.Errorf("en message = %q, want %q", en[0].Message, want)
 	}
 	pt, ptTools := (&reviewState{reviewLanguage: "pt-BR"}).scannerIssues([]scanner.Finding{finding}, "gitleaks", "secrets", "gitleaks")
-	want := "Segredo ou credencial escrito no código (regra `gitleaks:github-pat`). Texto original do Gitleaks: Uncovered a GitHub Personal Access Token, potentially leading to unauthorized repository access and sensitive content exposure (commit 37eb089803ee, gitleaks v8.30.1)"
+	want := "Segredo ou credencial escrito no código (regra `gitleaks:github-pat`, gitleaks v8.30.1, commit 37eb089803ee)"
 	if pt[0].Message != want {
 		t.Errorf("pt-BR message = %q, want %q", pt[0].Message, want)
 	}
@@ -420,7 +433,7 @@ func TestAUR607BreachWithoutFindingKeepsTheBreachAhead(t *testing.T) {
 	dep := "DEPENDÊNCIAS reprova evil-pkg 1.0.0 (npm, package.json), severidade critical, introduzida pelo PR, pacote malicioso [dependencies]"
 	for _, tc := range []struct{ language, want string }{
 		{"en-US", "falha: achado(s) reprovam o gate numa revisão também inconclusiva no pull request #7: " + dep + "; review inconclusive (partial_coverage,quality_skipped)"},
-		{"pt-BR", "falha: o gate reprovou — DEPENDÊNCIAS reprova evil-pkg 1.0.0 (npm, package.json), severidade critical, introduzida pelo PR, pacote…"},
+		{"pt-BR", "Bloqueado: 1 problema — DEPENDÊNCIAS reprova evil-pkg 1.0.0 (npm, package.json), severidade critical, introduzida pelo PR, pacote malicioso…"},
 	} {
 		g := gateDecision{
 			Active: true, Breach: true, Fail: true, Inconclusive: true, Reason: "partial_coverage,quality_skipped",
@@ -511,17 +524,17 @@ func TestAUR607SARIFKeepsTheEngineMessage(t *testing.T) {
 	}
 }
 
-// TestAUR607TriageNoticeShowsTheReasonSentence: the triage notice AUR-608
-// added shows the inconclusive reason as the catalog sentence in pt-BR (code
-// in brackets, no nested parentheses) and keeps the bare code in English.
+// TestAUR607TriageNoticeShowsTheReasonSentence: the awaiting notice shows
+// the inconclusive reason as the catalog sentence in pt-BR (code in
+// brackets) and keeps the bare code in English.
 func TestAUR607TriageNoticeShowsTheReasonSentence(t *testing.T) {
-	pt := i18n.Format("pt-BR", "notice.triage_not_run", reasons.Text("pt-BR", "quality_skipped"))
-	if strings.Contains(pt, "(quality_skipped)") || !strings.Contains(pt, "não ocorreu — revisão por modelo não executada") || !strings.Contains(pt, "[quality_skipped]") {
-		t.Fatalf("pt-BR triage notice must carry the reason sentence: %q", pt)
+	pt := i18n.Format("pt-BR", "notice.triage_awaiting", 2, reasons.Text("pt-BR", "quality_skipped"))
+	if strings.Contains(pt, "(quality_skipped)") || !strings.Contains(pt, "revisão por modelo não executada") || !strings.Contains(pt, "[quality_skipped]") {
+		t.Fatalf("pt-BR awaiting notice must carry the reason sentence: %q", pt)
 	}
-	en := i18n.Format("en", "notice.triage_not_run", reasons.Text("en", "quality_skipped"))
-	if en != "gate.triage: the model's triage did not run (quality_skipped); the deterministic evidence counted in full and the block was kept" {
-		t.Fatalf("English triage notice changed: %q", en)
+	en := i18n.Format("en", "notice.triage_awaiting", 2, reasons.Text("en", "quality_skipped"))
+	if !strings.Contains(en, "(quality_skipped)") {
+		t.Fatalf("English awaiting notice must carry the bare code: %q", en)
 	}
 }
 

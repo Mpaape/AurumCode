@@ -85,7 +85,7 @@ func ParseVersion(s string) (Version, error) {
 // commit (a bang after the type/scope, or a BREAKING CHANGE: footer); prose in
 // a subject such as "chore: release v9.0.0" is never a bump.
 func NextVersion(current Version, commits []Commit) (Version, Bump) {
-	classes, _ := classifyBounded(commits)
+	classes := ClassifyCommits(commits)
 
 	var breaking, feat, fixLike bool
 	for _, cl := range classes {

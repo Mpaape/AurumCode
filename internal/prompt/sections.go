@@ -15,7 +15,11 @@ type contextSections struct {
 }
 
 func (b *PromptBuilder) renderContextSections(opts BuildOptions) contextSections {
-	evidence, evidenceIDs := renderEvidenceSlot(opts.Evidence, b.limits.EvidenceMaxTokens, b.estimator)
+	evidenceLimit := b.limits.EvidenceMaxTokens
+	if opts.EvidenceMaxTokens > 0 && (evidenceLimit <= 0 || opts.EvidenceMaxTokens < evidenceLimit) {
+		evidenceLimit = opts.EvidenceMaxTokens
+	}
+	evidence, evidenceIDs := renderEvidenceSlot(opts.Evidence, evidenceLimit, b.estimator)
 	return contextSections{
 		history:     renderOptionalSlot(slotPRHistory, opts.ReviewHistory),
 		codebase:    renderOptionalSlot(slotCodebaseContext, opts.CodebaseContext),

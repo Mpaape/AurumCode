@@ -316,7 +316,7 @@ review:
 
 <!-- saida: pr-workflow -->
 ```text
-aurumcode review: o modelo recusou um prompt de cerca de 201501 tokens por ser longo demais (janela de 95000 tokens); revisando em partes menores
+aurumcode review: o modelo recusou um prompt de cerca de 201838 tokens por ser longo demais (janela de 95000 tokens); revisando em partes menores
 aurumcode review: o diff não coube em um só prompt; revisado em 3 lotes por diretório (arquivos por lote: 2, 2, 2)
 parecer publicado na PR #7 como aprovação (sem comentários na linha).
 exit_code=0
@@ -477,8 +477,8 @@ O que observar: refutado com citação literal, o achado deixa de contar
 verification" no parecer, uma linha no stderr e a entrada `verification` da
 auditoria, com motivo e citação. Com a citação parafraseada, a refutação é
 descartada (`quote_not_found`) e o achado continua reprovando. Confirmado,
-incerto, resposta inválida, erro do provedor e o teto `max_calls` também
-mantêm o bloqueio. Configuração em `review.verification`
+incerto, resposta inválida, erro do provedor e o teto `max_calls`, quando
+declarado (por padrão não há teto), também mantêm o bloqueio. Configuração em `review.verification`
 ([Configuração](../configuration.md#verificacao-adversarial-dos-achados-do-modelo-reviewverification)).
 
 ## Quando falha: arquivo não revisado nunca conta como aprovado

@@ -2,12 +2,40 @@
 
 ## Unreleased
 
-- Tutoriais regravados com o produto atual; a cópia do workflow de dados de análise voltou a ser idêntica à original e o caso agora falha se as duas divergirem.
-- Corrigido: sem teto de token por padrão. Prompt, evidência, ferramentas, lotes e custo da deliberação não têm mais teto; um modelo que recusa o prompt por ser longo demais faz a revisão se dividir em lotes (#179).
-- Corrigido: uma política grande não derruba mais a revisão. Os tetos do catálogo de regras (512 tokens), do texto das skills (4000) e dos arquivos curados do repositório (64 KiB) saíram: tudo entra inteiro no prompt (#179).
-- Workflow reutilizável: a revisão que não terminou escreve o motivo como anotação e no resumo do job; grupos de concorrência viraram `aurumcode/...` (colidiam com o chamador); o job de SARIF dos exemplos tolera revisão sem artefato (#179).
-- QA no consumidor: o cenário de changelog ausente usa o fixture `sem-changelog` (mudança de código válida sem entrada), pois `bug-sql-corrigido` passou a trazer a entrada que a correção precisa (AUR-512).
-- Testes: aceites de AUR-452, 580, 591 e 594 acompanham o código atual: mutações reapontadas, config sem teto de custo e lista de ignore fora da conta de linhas, dependências do E2E derivadas de `go list -deps`.
+- Corrigido: a triagem mostra o trecho do commit em que o Gitleaks achou o segredo (nunca a linha atual sem relação); needs_context volta uma vez com o arquivo inteiro e, indeciso, aguarda o modelo; alarme contestado sai do parecer.
+
+## 2.1.0 - 2026-10-14
+
+Nenhum limite de tamanho derruba a revisão, e um agente de scan de vulnerabilidade entra como plugin da validação agendada, com achados só na aba Security.
+
+### Entregue
+
+- O modelo decide o veredito final: todo achado estático (segredo, análise, SAST, lint) sem avaliação vai a uma triagem dedicada; contestado não conta. Sem o modelo, os achados aguardam a avaliação e nunca reprovam o gate sozinhos.
+- Parecer enxuto: o mesmo problema de duas fontes vira um item; a correção de um bloqueante vem como sugestão aplicável; status curto; sem listas técnicas, sem texto cru de scanner em inglês e com acentos.
+- SARIF e auditoria sempre JSON válido; o achado que o modelo contestou sai do SARIF (o alerta da aba Security fecha) e fica só na auditoria, com o motivo do modelo.
+- Plugins externos na validação agendada (`scheduled.plugins`): o plugin roda em container próprio e os achados vão só para a aba Security, nunca para log, resumo ou artefato (#185).
+- Exemplo pronto do harness agêntico de vulnerabilidade da Visa, fixado por commit e só de descoberta; candidato que o verificador do plugin não decidiu vira alerta "não verificado" (#185).
+- Plugin degradado, sem análise ou com cobertura perdida é inconclusivo e não envia SARIF, para não fechar os alertas abertos; entrada da política exige imagem por digest (#185).
+- Sem teto de token por padrão; quando o modelo recusa o prompt por tamanho, a revisão se divide em lotes até caber e o terminal narra cada recusa (#179).
+- Política grande não derruba mais a revisão: catálogo de regras, texto das skills e arquivos curados do repositório entram inteiros (#179).
+- Sem teto de bytes nem de contagem: MCP, scanner, manifestos, OSV, Dependency-Track, verificação, ferramentas, filtro de segredos e commits do changelog entram inteiros.
+- Arquivo de texto grande não fica de fora: o diff cai para substituição inteira quando a busca exata não cabe; no `--pr`, arquivo sem linhas na API tem o diff refeito do checkout.
+- Contexto de código por relevância (mesma linguagem, só arquivos que alcançam a mudança); depois de uma recusa por tamanho ele é reduzido para caber, e a redução é declarada.
+- Recusas de tamanho reconhecidas também no 400 de texto longo demais e no 429 de pedido maior que o limite por minuto; 429 comum espera o `retry-after` e tenta de novo.
+- Workflow reutilizável: revisão que não terminou diz o motivo na anotação e no resumo; grupos de concorrência viraram `aurumcode/...`; o SARIF dos exemplos tolera revisão sem artefato (#179).
+- Tutoriais: gravação de outra árvore é aviso, e só o tutorial cuja saída muda é regravado; tutorial novo `plugin-agendado`.
+
+### Limites
+
+- Repositório privado sem GitHub Code Security: o job de plugin falha antes de rodar e não publica nada; a sincronização com issues do próprio repositório ainda não existe.
+- O gate da PR ainda não avisa sobre alerta sigiloso aberto num arquivo mexido.
+- Recusa por tamanho nas rodadas de ferramenta da deliberação conta como do prompt base, e a auditoria da tentativa recusada se perde (falha fechada).
+- Renomeação pura para um caminho que executa (como `.github/workflows`) não é mostrada ao modelo, como na 2.0.0.
+
+### Migração do v1
+
+- Da 2.0.0 para a 2.1.0, troque `@v2.0.0` por `@v2.1.0`. Quem quer os tetos antigos os declara em `.aurumcode/config.yml`; o plugin agendado precisa de `security-events: write` no job chamador.
+
 ## 2.0.0 - 2026-10-13
 
 Primeira release do AurumCode atual: a revisão de pull request virou um gate

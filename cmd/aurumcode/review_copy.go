@@ -39,7 +39,7 @@ type reviewCopy struct {
 	// section names below head what to fix, what only to note, and the
 	// collapsed details.
 	headlineBlocked, headlineInconclusive, headlineObservations, headlineApproved, headlineApprovedUnproven string
-	factsGatePassed, factsGateFailed, factsNoGate, factsFiles, factsParts                                   string
+	factsGatePassed, factsGateFailed, factsNoGate, factsFiles, factsParts, factsContextReduced              string
 	fixBeforeMerge, observations, outsideDiffLabel, details, affectedTests                                  string
 	// The *One texts are the singular forms of the counted headline and
 	// facts texts.
@@ -52,12 +52,22 @@ type reviewCopy struct {
 	// toolVersion is the details' line naming the AurumCode that reviewed
 	// (%s is the stamped version; AUR-611).
 	toolVersion string
+	// contextReducedNote says the codebase context was reduced and that
+	// this does not touch the reviewed code.
+	contextReducedNote string
+	// rulesHeading and ruleOrigin head and phrase the details' list of
+	// each finding's rule and origin.
+	rulesHeading, ruleOrigin, ruleCount string
 }
 
 // reviewCopyFor reads the review's texts for language from the catalog.
 func reviewCopyFor(language string) reviewCopy {
 	return reviewCopy{
 		title:                    i18n.Text(language, "review.title"),
+		contextReducedNote:       i18n.Text(language, "review.context_reduced_note"),
+		rulesHeading:             i18n.Text(language, "review.rules_heading"),
+		ruleOrigin:               i18n.Text(language, "review.rule_origin"),
+		ruleCount:                i18n.Text(language, "review.rule_count"),
 		verdict:                  i18n.Text(language, "review.verdict"),
 		summary:                  i18n.Text(language, "review.summary"),
 		strengths:                i18n.Text(language, "review.strengths"),
@@ -131,6 +141,7 @@ func reviewCopyFor(language string) reviewCopy {
 		coverageFilteredOne:      i18n.Text(language, "review.coverage_filtered_one"),
 		coverageNoStructureOne:   i18n.Text(language, "review.coverage_no_structure_one"),
 		factsParts:               i18n.Text(language, "review.facts_parts"),
+		factsContextReduced:      i18n.Text(language, "review.facts_context_reduced"),
 		fixBeforeMerge:           i18n.Text(language, "review.fix_before_merge"),
 		observations:             i18n.Text(language, "review.observations"),
 		outsideDiffLabel:         i18n.Text(language, "review.outside_diff_label"),

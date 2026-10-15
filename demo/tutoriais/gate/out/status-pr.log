@@ -4,7 +4,7 @@ $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --check --modo-publicacao
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 parecer publicado na PR #7 como comentário (sem comentários na linha).
 check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: success (nenhum achado grave)
-check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: success (aprovado: gate de política aprovado)
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: success (Aprovado)
 exit_code=0
 parecer publicado em 7/reviews:
 <!-- aurumcode-review -->
@@ -17,7 +17,7 @@ gate da política: passou · 1 arquivo revisado
 
 ### Observações (não bloqueiam)
 
-- `app.go:6` — Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+- `app.go:6` — Credencial literal proibida pela politica da organizacao.
 
 ### Resumo
 
@@ -28,7 +28,11 @@ Senha escrita no codigo.
 
 #### Testes
 
-- testes afetados: 1 (pacotes: 1): TestApp (package .)
+- 1 testes afetados em 1 pacotes
+
+#### Regras citadas
+
+- `seguranca#sem-segredos-no-codigo`: `app.go:6`
 
 #### Limitações da revisão
 
@@ -38,14 +42,14 @@ Senha escrita no codigo.
 status publicado: context=aurumcode/review state=success
   description: nenhum achado grave
 status publicado: context=aurumcode/policy-gate state=success
-  description: aprovado: gate de política aprovado
+  description: Aprovado
 --- reprovado
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --check --modo-publicacao review --politica /policy
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
 parecer publicado na PR #7 como pedido de alteração (sem comentários na linha).
 check "aurumcode/review" publicado no commit 2222222222222222222222222222222222222222: failure (1 achado grave)
-check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (falha: 1 achado reprova o gate — Sem segredos no codigo (error) em app.go:6; detalhes no parecer)
+check "aurumcode/policy-gate" publicado no commit 2222222222222222222222222222222222222222: failure (Bloqueado: 1 problema (Sem segredos no codigo em app.go:6))
 exit_code=3
 parecer publicado em 7/reviews:
 <!-- aurumcode-review -->
@@ -58,7 +62,7 @@ gate da política: reprovou · 1 arquivo revisado
 
 ### Corrigir antes do merge
 
-- **`app.go:6`** — Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
+- **`app.go:6`** — Credencial literal proibida pela politica da organizacao.
   - Impacto: A senha vai para o historico do repositorio.
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Correção sugerida: Leia a senha do ambiente.
@@ -73,18 +77,21 @@ Senha escrita no codigo.
 
 #### Testes
 
-- testes afetados: 1 (pacotes: 1): TestApp (package .)
+- 1 testes afetados em 1 pacotes
+
+#### Regras citadas
+
+- `seguranca#sem-segredos-no-codigo`: `app.go:6`
 
 #### Limitações da revisão
 
 - Contexto do repositório omitido: não foi possível confirmar a identidade do checkout local; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto.
-- policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade error, limiar error, origem skills)
 
 </details>
 status publicado: context=aurumcode/review state=failure
   description: 1 achado grave
 status publicado: context=aurumcode/policy-gate state=failure
-  description: falha: 1 achado reprova o gate — Sem segredos no codigo (error) em app.go:6; detalhes no parecer
+  description: Bloqueado: 1 problema (Sem segredos no codigo em app.go:6)
 --- inconclusivo
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --check --modo-publicacao review --politica /policy
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
@@ -112,18 +119,18 @@ Mudanca sem risco.
 
 #### Testes
 
-- testes afetados: 1 (pacotes: 1): TestGerado (package .)
+- 1 testes afetados em 1 pacotes
 
 #### Limitações da revisão
 
 
 **Cobertura da revisão — arquivos do diff cobertos: 1 de 1; sem revisão completa: 1.**
 
-- 1 arquivo foi filtrado antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
+- 1 arquivo foi filtrado antes da revisão (gerado, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - gerado.go (generated)
 
 - Contexto do repositório omitido: não foi possível confirmar a identidade do checkout local; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto.
-- policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]
+- revisão inconclusiva — parte do diff ficou fora da revisão
 
 </details>
 status publicado: context=aurumcode/review state=success

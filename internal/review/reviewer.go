@@ -57,6 +57,11 @@ type Reviewer struct {
 	// records each refused prompt (split.go). Both are per review.
 	learnedBudget int
 	refusals      []PromptRefusal
+	// contextFits caches the reductions of the codebase context under the
+	// learned ceiling; contextReduction is the largest one, nil while the
+	// context went whole (context_fit.go). Both are per review.
+	contextFits      map[contextFitKey]contextFit
+	contextReduction *ContextReduction
 }
 
 // Completer is what the Reviewer needs from the model side: one call that
@@ -98,7 +103,10 @@ type ReviewContext struct {
 	// its own files, instead of the whole diff's, which can fill a window by
 	// itself.
 	CodebaseContextFor func(files []types.DiffFile) string
-	MemoryNotes        string // Untrusted, attributed observations from review memory
+	// evidenceMaxTokens is the evidence's share of a learned window, zero
+	// for no bound (context_fit.go).
+	evidenceMaxTokens int
+	MemoryNotes       string // Untrusted, attributed observations from review memory
 	// RepositoryContext is the rendered repository context block
 	// (config.BuildContextBlockWithWarnings). It travels in its own prompt
 	// slot, inside the budget, instead of being appended by a provider
@@ -219,7 +227,18 @@ type preparedPrompt struct {
 
 // preparePrompt redacts every untrusted input and assembles the budgeted
 // prompt from the review template's slots.
+//
+// Under a ceiling learned from a refusal, the codebase context is reduced
+// to fit (context_fit.go).
 func (r *Reviewer) preparePrompt(diff *types.Diff, reviewContext ReviewContext) (preparedPrompt, error) {
+	if r.learnedBudget > 0 && (reviewContext.CodebaseContext != "" || len(reviewContext.Evidence) > 0) {
+		return r.prepareWithinWindow(diff, reviewContext)
+	}
+	return r.assemblePrompt(diff, reviewContext)
+}
+
+// assemblePrompt is preparePrompt with the codebase context as given.
+func (r *Reviewer) assemblePrompt(diff *types.Diff, reviewContext ReviewContext) (preparedPrompt, error) {
 	// Analyze diff (counts only; metrics carry no content into the prompt)
 	metrics := r.diffAnalyzer.AnalyzeDiff(diff)
 
@@ -245,6 +264,7 @@ func (r *Reviewer) preparePrompt(diff *types.Diff, reviewContext ReviewContext) 
 		Language:          reviewContext.Language,
 		RepositoryContext: r.filter.Redact(reviewContext.RepositoryContext),
 		Evidence:          redactEvidence(r.filter, reviewContext.Evidence),
+		EvidenceMaxTokens: reviewContext.evidenceMaxTokens,
 		Tools:             redactTools(r.filter, reviewContext.Tools),
 	}
 

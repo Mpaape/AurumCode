@@ -189,9 +189,17 @@ type reviewState struct {
 	repositoryContext  string
 	proposedExceptions string
 	triageDemoted      int                 // findings the model's dispute demoted (gate.triage)
-	rawIssues          []types.ReviewIssue // verdict-reuse snapshot, before rule config
-	scans              []gateScan
-	coverage           reviewCoverageBreakdown
+	triageDemotions    []types.ReviewIssue // those findings, for the SARIF
+	// triageFailure is the reason the dedicated triage call (the model
+	// deciding the evidence its review left unassessed) did not answer;
+	// empty when it answered or was not needed.
+	triageFailure string
+	// triageAwaiting is the findings left awaiting the model (gate.Run
+	// .Awaiting): they never count toward --fail-on either.
+	triageAwaiting []types.ReviewIssue
+	rawIssues      []types.ReviewIssue // verdict-reuse snapshot, before rule config
+	scans          []gateScan
+	coverage       reviewCoverageBreakdown
 
 	// deliberation: the scanners deferred to the model's decision, the
 	// root and refusal they run with, what was offered and the transcript.
@@ -211,6 +219,9 @@ type reviewState struct {
 	// batches are the batches of a review whose diff did not fit one
 	// prompt, nil otherwise.
 	batches []review.Batch
+	// contextReduced is the line that declares the codebase context was
+	// reduced to fit the model's window, "" when it went whole.
+	contextReduced string
 
 	gateRes *gateDecision
 

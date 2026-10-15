@@ -10,8 +10,11 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/Mpaape/AurumCode/internal/gate/facts"
 	"github.com/Mpaape/AurumCode/internal/gate/reasons"
 	"github.com/Mpaape/AurumCode/internal/i18n"
+	"github.com/Mpaape/AurumCode/internal/review/consolidate"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // minTitleRunes is the shortest finding title worth keeping in a capped
@@ -77,7 +80,7 @@ func localizedGateStatusDescription(language string, g gateDecision) string {
 	case g.Inconclusive:
 		return inconclusiveStatusDescription(language, "gate.status.warn", g)
 	}
-	return gateStatusWordApproved + ": " + i18n.Text(language, "gate.status.approved")
+	return i18n.Text(language, "gate.status.approved")
 }
 
 // inconclusiveStatusDescription says why the run did not conclude: each
@@ -100,38 +103,55 @@ func inconclusiveStatusDescription(language, key string, g gateDecision) string 
 	return capAtWord(head+i18n.Format(language, key, strings.Join(codes, i18n.Text(language, "gate.reason_list_separator"))), statusDescriptionLimit)
 }
 
-// breachStatusDescription names how many findings failed the gate and the
-// first of them: title, severity and place. The title is what gives way to
-// the cap, so the place and the pointer to the review survive it.
+// breachStatusDescription is "Bloqueado: N problemas (<first> em <place>, …)":
+// each problem counted once whichever sources reported it, the first one
+// named by its short title. The title is what gives way to the cap, so the
+// count and the place survive it.
 func breachStatusDescription(language string, g gateDecision) string {
-	n := len(g.BlockingFindings)
+	n := distinctProblems(g.BlockingFindings)
 	if n == 0 {
 		n = 1
 	}
+	head := countText(n, i18n.Text(language, "gate.status.blocked_one"), i18n.Text(language, "gate.status.blocked"))
 	b := g.FirstBreach
 	if b == nil {
 		// A breach without a finding to name (dependencies, Dependency-Track):
 		// its lines, the breach ahead of the inconclusive one.
-		return capAtWord(gateStatusWordFailure+": "+i18n.Format(language, "gate.status.breach_lines", orderedGateReasonsIn(language, g.Lines)), statusDescriptionLimit)
+		return capAtWord(head+" — "+readableText(orderedGateReasonsIn(language, g.Lines)), statusDescriptionLimit)
 	}
-	head := gateStatusWordFailure + ": " + countText(n, i18n.Text(language, "gate.status.breach_one"), i18n.Text(language, "gate.status.breach"))
-	tail := " (" + b.Severity + ")"
+	title := readableText(oneLine(b.Title))
+	if consolidate.IsSecret(b.RuleID) {
+		title = i18n.Text(language, "review.secret_title")
+	}
+	tail := ""
 	if place := breachPlace(b.Path, b.Line); place != "" {
-		tail += i18n.Format(language, "gate.status.place", place)
+		tail = i18n.Format(language, "gate.status.place", place)
+	}
+	if n > 1 {
+		tail += ", …"
 	}
 	if g.Inconclusive {
 		tail += i18n.Text(language, "gate.status.also_inconclusive")
 	}
-	tail += i18n.Text(language, "gate.status.details")
-	title := oneLine(b.Title)
-	room := statusDescriptionLimit - utf8.RuneCountInString(head) - utf8.RuneCountInString(tail)
+	tail += ")"
+	room := statusDescriptionLimit - utf8.RuneCountInString(head) - 2 - utf8.RuneCountInString(tail)
 	if utf8.RuneCountInString(title) > room {
 		if room < minTitleRunes {
-			return capAtWord(head+title+tail, statusDescriptionLimit)
+			return capAtWord(head, statusDescriptionLimit)
 		}
 		title = capAtWord(title, room)
 	}
-	return head + title + tail
+	return head + " (" + title + tail
+}
+
+// distinctProblems counts the blocking findings as problems: two sources
+// reporting one secret on one line are one problem.
+func distinctProblems(findings []facts.AuditFinding) int {
+	seen := map[string]bool{}
+	for _, f := range findings {
+		seen[fmt.Sprintf("%s\x00%d\x00%s", f.Path, f.Line, consolidate.Family(f.RuleID))] = true
+	}
+	return len(seen)
 }
 
 // breachPlace is "path:line", "path", or "" when the finding has no file.
@@ -173,4 +193,22 @@ func lastSpace(runes []rune) int {
 		}
 	}
 	return -1
+}
+
+// repeatedProblems is how many of the findings counts keeps are a second
+// report of a problem already counted (same place, same rule family).
+func repeatedProblems(issues []types.ReviewIssue, counts func(types.ReviewIssue) bool) int {
+	seen := map[string]bool{}
+	repeated := 0
+	for _, issue := range issues {
+		if !counts(issue) {
+			continue
+		}
+		key := fmt.Sprintf("%s\x00%d\x00%s\x00%s", issue.File, issue.Line, strings.ToUpper(issue.Side), consolidate.Family(issue.RuleID))
+		if seen[key] {
+			repeated++
+		}
+		seen[key] = true
+	}
+	return repeated
 }

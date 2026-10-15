@@ -59,6 +59,8 @@ type fakeServer struct {
 	analysed     bool // project endpoint reports an analysis after the upload
 	refreshCode  int  // non-zero: the refresh endpoint answers this status
 	refreshCalls atomic.Int32
+	// pad, when set, grows the upload answer past the old 1 MiB ceiling.
+	pad string
 }
 
 // reading is one scripted metrics response. stale = lastOccurrence before
@@ -84,7 +86,7 @@ func (f *fakeServer) handler() http.HandlerFunc {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(map[string]string{"token": "tok"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"token": "tok", "pad": f.pad})
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/bom/token/"):
 			n := f.pollCalls.Add(1)
 			_ = json.NewEncoder(w).Encode(map[string]bool{"processing": n <= f.pendingPolls})
@@ -149,6 +151,23 @@ func TestRunApprovesWithinThresholds(t *testing.T) {
 		if k != "secret-key" {
 			t.Fatalf("server saw X-Api-Key=%q, want secret-key", k)
 		}
+	}
+}
+
+// Issue #179: an answer past the old 1 MiB response ceiling is decoded
+// whole; the gate's check approves instead of turning inconclusive.
+func TestRunAnswerPastTheOldCeilingIsDecoded(t *testing.T) {
+	fs := &fakeServer{pad: strings.Repeat("p", 2<<20)}
+	srv := httptest.NewServer(fs.handler())
+	defer srv.Close()
+	client, err := NewClient(srv.URL, "secret-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now, sleep := fakeClock(time.Unix(0, 0))
+	out := Run(context.Background(), client.WithClock(now, sleep), "proj", []byte(`{"bomFormat":"CycloneDX"}`), Thresholds{}, time.Second, time.Minute)
+	if out.Breach || out.Inconclusive {
+		t.Fatalf("a 2 MiB answer: got %+v, want approval", out)
 	}
 }
 

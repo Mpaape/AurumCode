@@ -12,9 +12,10 @@ import (
 	"github.com/Mpaape/AurumCode/internal/grammar"
 )
 
-// Limits bounds every phase of resolution so a large or hostile repo can
-// never exhaust memory or time. The zero value is not valid; use NewResolver
-// for sensible defaults or NewResolverWithLimits to customize.
+// Limits optionally bounds resolution. Each field is a ceiling only when
+// positive: the zero value (NewResolver's) reads every file whole and
+// records every reference, so no size or count leaves a dependent out of
+// the context (issue #179).
 type Limits struct {
 	MaxFiles      int // max repo files enumerated for the reference scan
 	MaxBytes      int // max bytes read from any single file
@@ -22,15 +23,6 @@ type Limits struct {
 }
 
 const (
-	// DefaultMaxFiles bounds how many files are enumerated for the reference
-	// scan. Changed files are always read, regardless of this limit.
-	DefaultMaxFiles = 2000
-	// DefaultMaxBytes bounds how many bytes are read from any single file.
-	// Files larger than this are scanned as a truncated prefix.
-	DefaultMaxBytes = 256 * 1024
-	// DefaultMaxDependents bounds how many dependent references are recorded.
-	DefaultMaxDependents = 500
-
 	// maxDroppedNotes bounds the length of Pack.Dropped so a pathological repo
 	// cannot make the report itself unbounded.
 	maxDroppedNotes = 200
@@ -66,6 +58,9 @@ type Pack struct {
 	// Dropped records bounded omissions: missing files, skipped symlinks,
 	// truncated files, and limit overflows. Omissions are never fatal.
 	Dropped []string `json:"dropped"`
+	// Reduced, when set, declares that the pack was reduced to fit the
+	// model's context window and what it kept (fit.go).
+	Reduced string `json:"reduced,omitempty"`
 }
 
 // Resolver resolves codebase context for a change set.
@@ -75,27 +70,12 @@ type Resolver struct {
 	exclude func(rel string) bool
 }
 
-// NewResolver returns a Resolver with the default limits.
-func NewResolver() *Resolver {
-	return NewResolverWithLimits(Limits{
-		MaxFiles:      DefaultMaxFiles,
-		MaxBytes:      DefaultMaxBytes,
-		MaxDependents: DefaultMaxDependents,
-	})
-}
+// NewResolver returns a Resolver without ceilings.
+func NewResolver() *Resolver { return NewResolverWithLimits(Limits{}) }
 
-// NewResolverWithLimits returns a Resolver with explicit limits. Any
-// non-positive field falls back to its default.
+// NewResolverWithLimits returns a Resolver with explicit limits. A
+// non-positive field is no ceiling.
 func NewResolverWithLimits(limits Limits) *Resolver {
-	if limits.MaxFiles <= 0 {
-		limits.MaxFiles = DefaultMaxFiles
-	}
-	if limits.MaxBytes <= 0 {
-		limits.MaxBytes = DefaultMaxBytes
-	}
-	if limits.MaxDependents <= 0 {
-		limits.MaxDependents = DefaultMaxDependents
-	}
 	return &Resolver{limits: limits, grammar: grammar.Default()}
 }
 
@@ -160,10 +140,12 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 	}
 	repoFiles = r.keepIncluded(repoFiles, pack)
 
-	symbolFiles := make(map[string][]string) // symbol name -> defining changed files
-	dirKeys := make(map[string]struct{})     // directory path of changed files
-	stemKeys := make(map[string]struct{})    // base name (no ext) of changed files
-	dirBaseKeys := make(map[string]struct{}) // base directory name of changed files
+	symbolFiles := make(map[string][]string)        // symbol name -> defining changed files
+	symbolLangs := make(map[string]map[string]bool) // symbol name -> languages defining it
+	dirKeys := make(map[string]struct{})            // directory path of changed files
+	stemKeys := make(map[string]struct{})           // base name (no ext) of changed files
+	dirBaseKeys := make(map[string]struct{})        // base directory name of changed files
+	changedDirs := make(map[string]struct{})        // directories of changed files, "" for the root
 
 	for _, rel := range changedPaths {
 		data, truncated, err := r.readFile(root, rel)
@@ -181,9 +163,17 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 			pack.Unstructured = append(pack.Unstructured, rel+": "+st.Reason)
 		}
 		for _, sym := range st.Symbols {
+			if !isIdentifier(sym) {
+				continue
+			}
 			symbolFiles[sym] = append(symbolFiles[sym], rel)
+			if symbolLangs[sym] == nil {
+				symbolLangs[sym] = map[string]bool{}
+			}
+			symbolLangs[sym][st.Language] = true
 		}
 		dir, stem, dirBase := importKeys(rel)
+		changedDirs[dir] = struct{}{}
 		if dir != "" {
 			dirKeys[dir] = struct{}{}
 			dirBaseKeys[dirBase] = struct{}{}
@@ -191,7 +181,7 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 		stemKeys[stem] = struct{}{}
 	}
 
-	r.scan(root, repoFiles, changedSet, symbolFiles, dirKeys, stemKeys, dirBaseKeys, pack)
+	r.scan(root, repoFiles, changedSet, symbolLangs, importIndex{dirKeys, stemKeys, dirBaseKeys, changedDirs}, pack)
 
 	for sym := range symbolFiles {
 		pack.Symbols = append(pack.Symbols, sym)
@@ -278,7 +268,7 @@ func (r *Resolver) normalizeAllowed(root string, allowed []string, pack *Pack) [
 		out = append(out, p)
 	}
 	sort.Strings(out)
-	if len(out) > r.limits.MaxFiles {
+	if r.limits.MaxFiles > 0 && len(out) > r.limits.MaxFiles {
 		pack.Dropped = appendDropped(pack.Dropped, "file enumeration truncated at "+itoa(r.limits.MaxFiles)+" files")
 		out = out[:r.limits.MaxFiles]
 	}
@@ -326,7 +316,7 @@ func (r *Resolver) enumerate(root string, pack *Pack) []string {
 		if !d.Type().IsRegular() {
 			return nil
 		}
-		if len(files) >= r.limits.MaxFiles {
+		if r.limits.MaxFiles > 0 && len(files) >= r.limits.MaxFiles {
 			truncated = true
 			return nil
 		}
@@ -340,8 +330,8 @@ func (r *Resolver) enumerate(root string, pack *Pack) []string {
 	return files
 }
 
-// readFile reads up to MaxBytes of root/rel, skipping symlinks. It reports
-// whether the read was truncated.
+// readFile reads root/rel whole (up to MaxBytes when that is positive),
+// skipping symlinks. It reports whether the read was truncated.
 func (r *Resolver) readFile(root, rel string) ([]byte, bool, error) {
 	full := filepath.Join(root, filepath.FromSlash(rel))
 	info, err := os.Lstat(full)
@@ -359,6 +349,10 @@ func (r *Resolver) readFile(root, rel string) ([]byte, bool, error) {
 		return nil, false, err
 	}
 	defer f.Close()
+	if r.limits.MaxBytes <= 0 {
+		data, err := io.ReadAll(f)
+		return data, false, err
+	}
 	data, err := io.ReadAll(io.LimitReader(f, int64(r.limits.MaxBytes)))
 	if err != nil {
 		return nil, false, err
@@ -367,21 +361,30 @@ func (r *Resolver) readFile(root, rel string) ([]byte, bool, error) {
 	return data, truncated, nil
 }
 
-// scan walks every non-changed file and records import and symbol-reference
-// edges that point at the changed set.
-func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]bool, symbolFiles map[string][]string, dirKeys, stemKeys, dirBaseKeys map[string]struct{}, pack *Pack) {
-	symRegex, skipped := symbolAlternation(symbolFiles)
-	if skipped != "" {
-		pack.Dropped = appendDropped(pack.Dropped, skipped)
-	}
+// importIndex is the three import match keys of the changed files.
+// changedDirs are the changed files' directories, "" for the root.
+type importIndex struct{ dirKeys, stemKeys, dirBaseKeys, changedDirs map[string]struct{} }
 
+// scan walks every non-changed file and records import and symbol-reference
+// edges that point at the changed set. A symbol is looked for only in files
+// that can reach it -- files that import a changed file, sit in a changed
+// file's directory, or declare no import the grammar can read -- and only in files of a language that defines it among
+// the changed files: a Go function is referenced from Go code that imports
+// its package, never from the prose, plans, shell scripts or unrelated
+// packages that happen to contain the same word. A name one of those files
+// also defines (String, Name, Run) is ambiguous and yields no reference. That is relevance, not a
+// ceiling: a real symbol with many references keeps every one of them.
+func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]bool, symbolLangs map[string]map[string]bool, imports importIndex, pack *Pack) {
+	regexByLang := symbolRegexByLanguage(symbolLangs)
 	refs := make([]Reference, 0)
+	var symbolRefs []Reference
+	definedElsewhere := map[string]bool{}
 	truncated := false
 	for _, rel := range repoFiles {
 		if changedSet[rel] {
 			continue
 		}
-		if len(refs) >= r.limits.MaxDependents {
+		if r.reachedDependents(len(refs)) {
 			truncated = true
 			break
 		}
@@ -393,26 +396,53 @@ func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]b
 		if wasTruncated {
 			pack.Dropped = appendDropped(pack.Dropped, "truncated "+rel+" at "+itoa(r.limits.MaxBytes)+" bytes")
 		}
-		for _, imp := range r.structureOf(rel, data).Imports {
-			if matchesImport(imp, dirKeys, stemKeys, dirBaseKeys) {
+		st := r.structureOf(rel, data)
+		dir, _, _ := importKeys(rel)
+		// A file that declares no import gives the grammar nothing to tell
+		// its dependencies by: its text is scanned.
+		_, linked := imports.changedDirs[dir]
+		linked = linked || len(st.Imports) == 0
+		for _, imp := range st.Imports {
+			if matchesImport(imp, imports.dirKeys, imports.stemKeys, imports.dirBaseKeys) {
+				linked = true
 				offset := indexOf(data, []byte(imp))
 				refs = append(refs, Reference{File: rel, Symbol: imp, Line: lineOf(data, offset)})
 			}
 		}
-		if symRegex != nil {
-			for _, m := range symRegex.FindAllIndex(data, -1) {
-				if len(refs) >= r.limits.MaxDependents {
-					truncated = true
-					break
-				}
-				refs = append(refs, Reference{File: rel, Symbol: string(data[m[0]:m[1]]), Line: lineOf(data, m[0])})
+		symRegex := regexByLang[st.Language]
+		if !linked || !st.HasStructure || symRegex == nil {
+			continue
+		}
+		for _, sym := range st.Symbols {
+			if symbolLangs[sym][st.Language] {
+				definedElsewhere[sym] = true
 			}
+		}
+		for _, m := range symRegex.FindAllIndex(data, -1) {
+			if r.reachedDependents(len(refs) + len(symbolRefs)) {
+				truncated = true
+				break
+			}
+			symbolRefs = append(symbolRefs, Reference{File: rel, Symbol: string(data[m[0]:m[1]]), Line: lineOf(data, m[0])})
+		}
+	}
+	// A name another file that can reach the change also defines is
+	// ambiguous: its textual hits cannot be told apart from uses of that
+	// other definition, so they are not references to the change.
+	for _, ref := range symbolRefs {
+		if !definedElsewhere[ref.Symbol] {
+			refs = append(refs, ref)
 		}
 	}
 	if truncated {
 		pack.Dropped = appendDropped(pack.Dropped, "dependents truncated at "+itoa(r.limits.MaxDependents))
 	}
 	pack.References = refs
+}
+
+// reachedDependents reports an explicit MaxDependents reached by n.
+func (r *Resolver) reachedDependents(n int) bool {
+	return r.limits.MaxDependents > 0 && n >= r.limits.MaxDependents
 }
 
 // finalize sorts and de-duplicates the pack and derives Dependents from the

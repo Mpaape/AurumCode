@@ -9,9 +9,6 @@ import (
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
-// maxAncestorWalk bounds the commits a merge-base walk without git reads.
-const maxAncestorWalk = 200000
-
 // errAmbiguousMergeBase is a history with more than one best common
 // ancestor (criss-cross merges): no single range is the pull request's.
 var errAmbiguousMergeBase = errors.New("more than one best common ancestor (criss-cross history)")
@@ -58,7 +55,8 @@ func (r *Repo) mergeBaseFromObjects(a, b string) (string, error) {
 }
 
 // ancestors walks the history from starts (included), returning each
-// commit with its parents. A missing object (a shallow clone) is an error.
+// commit with its parents, however long the history (each commit is read
+// once). A missing object (a shallow clone) is an error.
 func (r *Repo) ancestors(starts []string) (map[string][]string, error) {
 	seen := map[string][]string{}
 	queue := append([]string{}, starts...)
@@ -67,9 +65,6 @@ func (r *Repo) ancestors(starts []string) (map[string][]string, error) {
 		queue = queue[1:]
 		if _, ok := seen[sha]; ok {
 			continue
-		}
-		if len(seen) >= maxAncestorWalk {
-			return nil, fmt.Errorf("history walk exceeded %d commits", maxAncestorWalk)
 		}
 		_, parents, err := r.readCommit(sha)
 		if err != nil {
@@ -83,8 +78,8 @@ func (r *Repo) ancestors(starts []string) (map[string][]string, error) {
 
 // RangeDiffFromObjects is RangeDiff without a git binary: the diff of
 // baseRef...headRef (from their merge base) read from the object database,
-// with the same windowed hunks. A binary file, or one past the size limits,
-// is listed without hunks, as a forge lists a file it does not render.
+// with the same windowed hunks. A binary or generated file is listed without
+// hunks, as a forge lists a file it does not render; size never is a reason.
 func (r *Repo) RangeDiffFromObjects(baseRef, headRef string) (*types.Diff, error) {
 	baseSHA, err := r.ResolveRef(baseRef)
 	if err != nil {

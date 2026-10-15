@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "repo_root": "/alvo",
+  "repo_name": "alvo",
+  "git_sha": "0000000",
+  "findings": [],
+  "chains": [],
+  "dropped": [],
+  "raw_findings_count": 0,
+  "summary": "",
+  "degraded": false,
+  "degraded_reason": null,
+  "enrichment_unavailable": false,
+  "unreachable_files": []
+}

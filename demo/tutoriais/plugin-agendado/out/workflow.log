@@ -1,0 +1,12 @@
+== workflow
+gatilho: schedule, ou workflow_dispatch na branch padrao
+pull_request: os jobs sao pulados pelo if (nenhum passo roda)
+defesa em profundidade: se rodasse em outro evento, o primeiro passo sairia com exit 1
+timeout do job: o do plugin mais a folga fixa; rc 124 vira uma linha no log
+sem upload-artifact e sem resumo do job
+saida do plugin: arquivo em RUNNER_TEMP, nunca impresso
+envio: upload-sarif fixado por SHA
+categoria: aurumcode/plugin/<nome>
+log: so a contagem de alertas
+RESULTADO: o job plugins so publica na aba Security
+NAO EXECUTADO AQUI: o envio ao code scanning (nao ha runner nem GitHub neste ambiente)

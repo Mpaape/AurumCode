@@ -44,6 +44,7 @@ negócio vivem em `internal/`.
 | `internal/dtrack` | Cliente do OWASP Dependency-Track para o gate de SBOM. |
 | `internal/evidence` | Manifesto do pacote de evidências endereçado por conteúdo. |
 | `internal/feedback` | O ciclo de realimentação (AUR-532): sinais de uso vindos do GitHub (alerta dispensado como falso positivo, achado corrigido entre auditorias, `/aurum perdeu`), propostas do modelo validadas contra os sinais citados, o registro de sinais no repositório da política, a medição antes/depois do corpus e a PR única. Nada é aplicado à política sem merge humano. |
+| `internal/plugin` | Os plugins externos da validação agendada: um adaptador por formato (`sarif`, `vvah-findings`) lê a saída não confiável do plugin, a cobertura do harness (SARIF próprio e `errors.jsonl`) torna a execução inconclusiva quando houve perda, caminho fora da árvore reprova o ingest, e o SARIF de code scanning é gravado com texto redigido e só quando a execução é conclusiva; `Destination` nunca escolhe issue em repositório público. |
 | `internal/gate` | O pipeline do gate: `Run`, `Result`, `Contributor`, `Pipeline`, a regra de falha, o ranking de inconclusivo (`RankReason`) e a decisão de saída (`ExitPolicy`). |
 | `internal/git` | Cliente do GitHub e acesso ao git usados pelo caminho `--pr`. |
 | `internal/gittest` | Ambiente hermético para o git real dos fixtures de teste: sem configuração global nem de sistema, `HOME` privado e sem prompt, para o teste dar o mesmo resultado no container de desenvolvimento e no CI. |

@@ -64,6 +64,7 @@ func (e *promptRefused) Unwrap() error { return e.err }
 // consolidated result.
 func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Diff, reviewContext ReviewContext) (*types.ReviewResult, error) {
 	r.learnedBudget, r.refusals = 0, nil
+	r.contextFits, r.contextReduction = nil, nil
 	for {
 		result, err := r.reviewOnce(ctx, diff, reviewContext)
 		var refused *promptRefused
@@ -146,13 +147,20 @@ const promptMargin = 0.9
 // try after a refusal. When the provider said its window and the size it
 // received, the ceiling keeps that window's share of the refused prompt (the
 // product's estimate and the provider's count differ by content, so the
-// ratio is measured on this very prompt); otherwise it halves the refused
-// prompt. It is always smaller than the refused prompt and than the previous
-// ceiling, which is what ends the loop. Zero means nothing smaller is left.
+// ratio is measured on this very prompt); with only the window said, it is
+// that window's share; otherwise it halves the refused prompt. It is always
+// smaller than the refused prompt and than the previous ceiling, which is
+// what ends the loop. Zero means nothing smaller is left.
 func learnedCeiling(refusal PromptRefusal, previous int) int {
 	next := refusal.EstimatedTokens / 2
-	if refusal.Limit > 0 && refusal.Requested > refusal.Limit {
+	switch {
+	case refusal.Limit > 0 && refusal.Requested > refusal.Limit:
 		next = int(float64(refusal.EstimatedTokens) * float64(refusal.Limit) / float64(refusal.Requested) * promptMargin)
+	case refusal.Limit > 0 && refusal.Requested == 0:
+		// The provider said its window but not the size it counted (a
+		// request larger than the tokens per minute allowed): the window,
+		// with the margin, is the ceiling.
+		next = int(float64(refusal.Limit) * promptMargin)
 	}
 	if next >= refusal.EstimatedTokens {
 		next = refusal.EstimatedTokens - 1

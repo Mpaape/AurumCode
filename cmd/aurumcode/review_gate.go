@@ -12,6 +12,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/config"
 	"github.com/Mpaape/AurumCode/internal/dependencies"
 	"github.com/Mpaape/AurumCode/internal/gate"
+	"github.com/Mpaape/AurumCode/internal/i18n"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/render"
 	"github.com/Mpaape/AurumCode/internal/review"
@@ -29,6 +30,7 @@ type (
 	exceptionMatchStatus = gate.ExceptionMatchStatus
 	artifactFailure      = gate.ArtifactFailure
 	gateScan             = gate.Scan
+	gateDemotion         = gate.Demotion
 )
 
 const (
@@ -43,6 +45,7 @@ const (
 	gateExitBehavioral = gate.ExitBehavioral
 
 	gateReasonAuditWriteFailed = gate.ReasonAuditWriteFailed
+	gateReasonModelParse       = string(gate.ReasonModelParseFailure)
 	gateReasonSARIFWriteFailed = gate.ReasonSARIFWriteFailed
 )
 
@@ -179,9 +182,9 @@ func (s *reviewState) runGate() (int, bool) {
 	}
 	s.gateRes = res
 	s.filter, s.stdout, s.stderr = run.Filter, run.Stdout, run.Stderr
+	s.settleAwaiting(run.Awaiting, res)
 	applyGateOutcome(run, res)
 	s.reportTriage(run.Demoted)
-	s.reportTriageNotRun(res)
 	return 0, false
 }
 
@@ -192,17 +195,31 @@ func (s *reviewState) runGate() (int, bool) {
 // a dispute with a justification is recorded (review.DisputeCounts), and
 // only for the sources triageSources lets the model demote.
 func (s *reviewState) triage() gate.Triage {
-	t := gate.Triage{Disputed: map[string]bool{}, BySource: map[string]bool{}}
-	if s.modelReason() != "" {
+	t := gate.Triage{Disputed: map[string]bool{}, BySource: map[string]bool{}, Assessed: map[string]bool{}}
+	awaiting := s.awaitingReason()
+	if s.modelReason() != "" && awaiting == "" {
 		return t
+	}
+	for source, byModel := range s.triageSources() {
+		t.BySource[source] = byModel
+	}
+	t.Awaiting = awaiting != ""
+	if s.modelReason() != "" {
+		// The review's own answer is untrusted: none of its assessments
+		// decides anything, every finding waits for the model.
+		return t
+	}
+	for _, list := range s.evidenceLists() {
+		for _, issue := range list {
+			if !undecided(issue.Assessment) {
+				t.Assessed[gate.DisputeKey(issue.Origin, issue.RuleID, issue.File, issue.Line)] = true
+			}
+		}
 	}
 	for _, issue := range s.disputedEvidence() {
 		if review.DisputeCounts(issue.Assessment) {
 			t.Disputed[gate.DisputeKey(issue.Origin, issue.RuleID, issue.File, issue.Line)] = true
 		}
-	}
-	for source, byModel := range s.triageSources() {
-		t.BySource[source] = byModel
 	}
 	return t
 }
@@ -238,9 +255,17 @@ func (s *reviewState) triageSources() map[string]bool {
 func (s *reviewState) reportTriage(demoted []gate.Demotion) {
 	s.triageDemoted = len(demoted)
 	for _, d := range demoted {
+		s.triageDemotions = append(s.triageDemotions, d.Issue)
+	}
+	for _, d := range demoted {
 		line := fmt.Sprintf("gate.triage (%s: model): %s:%d %s contestado pelo modelo deixou de contar", d.Source, d.Issue.File, d.Issue.Line, d.Issue.RuleID)
 		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", line)
 		s.result.Limitations = append(s.result.Limitations, line)
+	}
+	// The parecer hides those lines (isEngineLine) and says, once, how many
+	// alarms the model dismissed; the SARIF keeps them as suppressed.
+	if len(demoted) > 0 {
+		s.result.Limitations = append(s.result.Limitations, i18n.Format(s.reviewLanguage, "notice.triage_dismissed", len(demoted)))
 	}
 	// Without a declared gate nothing counts, so there is nothing to except.
 	if !s.cfg.Gate.Declared() {

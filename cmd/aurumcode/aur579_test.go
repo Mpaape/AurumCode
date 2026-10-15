@@ -41,6 +41,7 @@ func aur579Fixture(t *testing.T, assessments string) string {
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	confirmTriage(t, path)
 	return path
 }
 
@@ -232,7 +233,7 @@ func TestAUR579PolicyFloorAndRepositoryTriage(t *testing.T) {
 	if code != exitFindings {
 		t.Fatalf("policy: a disputed policy finding must still fail the gate: exit=%d\nstderr=%s", code, errOut)
 	}
-	for _, want := range []string{"Excecoes propostas pelo modelo", `rule: "analysis/hardcoded-secret"`, `path: "app.go"`, `owner: "<dono a definir>"`} {
+	for _, want := range []string{"Exceções propostas pelo modelo", `rule: "analysis/hardcoded-secret"`, `path: "app.go"`, `owner: "<dono a definir>"`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("policy: the dispute must become a proposed exception (%q):\n%s", want, out)
 		}
@@ -266,7 +267,7 @@ func TestAUR579PolicyFloorAndRepositoryTriage(t *testing.T) {
 	if !strings.Contains(errOut, "gate.triage (analysis: model): app.go:4 analysis/hardcoded-secret") {
 		t.Errorf("a demotion is never silent:\n%s", errOut)
 	}
-	if strings.Contains(out, "Excecoes propostas") {
+	if strings.Contains(out, "Exceções propostas") {
 		t.Errorf("a demoted finding needs no proposed exception:\n%s", out)
 	}
 }
@@ -341,17 +342,19 @@ func TestAUR579VerdictFollowsTheGateAfterTriage(t *testing.T) {
 	}
 }
 
-// The published --pr body shows, per finding, the engine's origin beside the
-// model's assessment (the terminal's renderer) and the proposed exceptions as
-// their own block.
+// The published --pr body names, per finding, the engine's origin in its
+// details without the assessment's bookkeeping, and shows the proposed
+// exceptions as their own block.
 func TestAUR579PublishedBodyCarriesAssessmentAndProposal(t *testing.T) {
 	result := &types.ReviewResult{Issues: []types.ReviewIssue{{
 		File: "app.go", Line: 4, Severity: "error", RuleID: "analysis/hardcoded-secret", Message: "segredo", Origin: "analysis",
 		Assessment: &types.EvidenceAssessment{EvidenceID: "E1", Status: types.AssessmentDisputed, Justification: "valor de exemplo"},
 	}}}
 	body := formatPublishedReviewBody(result, nil, "pt-BR", false, "")
-	if !strings.Contains(body, "origem: analysis | avaliacao do modelo: disputed [E1] - valor de exemplo") {
-		t.Fatalf("body lacks origin beside assessment:\n%s", body)
+	// The assessment's bookkeeping (evidence id, status) is the terminal's;
+	// the parecer names the finding's origin in its details.
+	if strings.Contains(body, "avaliacao do modelo") || strings.Contains(body, "[E1]") || !strings.Contains(body, "origem analysis") {
+		t.Fatalf("body publishes the assessment bookkeeping or lacks the origin:\n%s", body)
 	}
 	proposal := "Excecoes propostas pelo modelo (nao aplicadas).\nexceptions:\n  - rule: \"analysis/hardcoded-secret\"\n"
 	with := appendProposedExceptions(body, proposal)

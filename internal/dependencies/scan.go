@@ -41,10 +41,6 @@ func Scan(ctx context.Context, in ScanInputs) Report {
 		}
 		scanned = got
 	}
-	if pathBytes(in.Paths) > maxManifestBytes {
-		report.fail(ReasonManifestsOmitted, "lista de arquivos acima do limite do modelo")
-		return report
-	}
 	selected, err := selectManifests(ctx, in.Model, pathsOnly(in.Paths))
 	if err != nil {
 		report.fail(ReasonModelFailed, err.Error())
@@ -85,13 +81,9 @@ func readModelOnly(ctx context.Context, in ScanInputs, paths []string, report *R
 		}
 		diff.Files = append(diff.Files, types.DiffFile{Path: p, Hunks: []types.DiffHunk{{NewStart: 1, NewLines: len(lines), Lines: lines}}})
 	}
-	raw, omitted, err := extractChanges(ctx, in.Model, diff, paths)
-	switch {
-	case err != nil:
+	raw, err := extractChanges(ctx, in.Model, diff, paths)
+	if err != nil {
 		report.fail(ReasonModelFailed, err.Error())
-		return nil, false
-	case len(omitted) > 0:
-		report.fail(ReasonManifestsOmitted, "manifestos acima do limite: "+strings.Join(omitted, ", "))
 		return nil, false
 	}
 	kept, discarded := ground(diff, paths, raw)
@@ -134,14 +126,6 @@ func pathsOnly(paths []string) *types.Diff {
 		diff.Files = append(diff.Files, types.DiffFile{Path: p})
 	}
 	return diff
-}
-
-func pathBytes(paths []string) int {
-	n := 0
-	for _, p := range paths {
-		n += len(p) + 4
-	}
-	return n
 }
 
 func scannerReason(err error) string {

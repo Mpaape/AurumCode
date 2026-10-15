@@ -8,13 +8,10 @@ import (
 	"github.com/Mpaape/AurumCode/internal/analyzer"
 )
 
-// Snippet bounds (AUR-470): how many excerpts a pack carries, how many lines
-// of context surround the referencing line, and how long one line may be.
-const (
-	DefaultMaxSnippets = 24
-	snippetContext     = 2
-	snippetLineBytes   = 240
-)
+// snippetContext is how many lines of context surround the referencing
+// line (AUR-470). A pack carries an excerpt of every reference, each line
+// whole: no count or length ceiling leaves a reference unshown (issue #179).
+const snippetContext = 2
 
 // Snippet kinds. A snippet is context, never a verdict: a reference to a
 // changed symbol says the file uses it, not that the use is broken.
@@ -66,8 +63,7 @@ func (r *Resolver) keepIncluded(paths []string, pack *Pack) []string {
 
 // attachSnippets excerpts the references, one snippet per file and line,
 // ordered by file then line (the same revision always yields the same
-// excerpts), bounded by DefaultMaxSnippets; what is left out is declared
-// in Dropped.
+// excerpts); an unreadable file is declared in Dropped.
 func (r *Resolver) attachSnippets(root string, pack *Pack) {
 	tests := analyzer.NewLanguageDetectorWith(r.grammar)
 	contents := map[string][]string{}
@@ -85,10 +81,6 @@ func (r *Resolver) attachSnippets(root string, pack *Pack) {
 			continue
 		}
 		seen[key] = true
-		if len(pack.Snippets) == DefaultMaxSnippets {
-			pack.Dropped = appendDropped(pack.Dropped, "snippets truncated at "+itoa(DefaultMaxSnippets))
-			return
-		}
 		lines, ok := contents[ref.File]
 		if !ok {
 			data, _, err := r.readFile(root, ref.File)
@@ -111,7 +103,7 @@ func (r *Resolver) attachSnippets(root string, pack *Pack) {
 	}
 }
 
-// excerpt is lines around line (1-based), numbered, each clipped.
+// excerpt is lines around line (1-based), numbered, each whole.
 func excerpt(lines []string, line int) string {
 	first, last := line-snippetContext, line+snippetContext
 	if first < 1 {
@@ -123,13 +115,6 @@ func excerpt(lines []string, line int) string {
 	var b strings.Builder
 	for i := first; i <= last; i++ {
 		text := strings.TrimRight(lines[i-1], " \t\r")
-		if len(text) > snippetLineBytes {
-			cut := snippetLineBytes
-			for cut > 0 && (text[cut]&0xC0) == 0x80 {
-				cut--
-			}
-			text = text[:cut] + "…"
-		}
 		fmt.Fprintf(&b, "%d: %s\n", i, text)
 	}
 	return b.String()

@@ -21,15 +21,10 @@ type Completer interface {
 	CompleteMessages(ctx context.Context, messages []llm.Message, opts llm.Options) (llm.Response, error)
 }
 
-// maxManifestBytes bounds the diff text of the manifests sent in one
-// extraction; manifests past it are omitted and the check is inconclusive.
-const maxManifestBytes = 256 << 10
-
-// maxAnswerTokens bounds each answer of the model.
-const maxAnswerTokens = 8192
-
 // ask sends one system prompt (an embedded template) and one user message
-// and decodes the JSON object of the answer into out.
+// and decodes the JSON object of the answer into out. Neither the message
+// nor the answer has a size ceiling (issue #179): every manifest is sent
+// whole and the model answers as long as it needs.
 func ask(ctx context.Context, model Completer, template, user string, out any) error {
 	system, err := prompts.ReadFile("prompts/" + template)
 	if err != nil {
@@ -38,7 +33,7 @@ func ask(ctx context.Context, model Completer, template, user string, out any) e
 	resp, err := model.CompleteMessages(ctx, []llm.Message{
 		{Role: "system", Content: string(system)},
 		{Role: "user", Content: user},
-	}, llm.Options{System: string(system), Temperature: 0, MaxTokens: maxAnswerTokens, JSONMode: true})
+	}, llm.Options{System: string(system), Temperature: 0, JSONMode: true})
 	if err != nil {
 		return err
 	}
@@ -83,28 +78,23 @@ func selectManifests(ctx context.Context, model Completer, diff *types.Diff) ([]
 }
 
 // extractChanges asks the model for the changed packages of manifests. The
-// answer is grounded (ground.go) before it is trusted. omitted lists the
-// manifests that did not fit the bound.
-func extractChanges(ctx context.Context, model Completer, diff *types.Diff, manifests []string) (changes []Change, omitted []string, err error) {
+// answer is grounded (ground.go) before it is trusted. Every manifest is
+// sent whole, whatever its size.
+func extractChanges(ctx context.Context, model Completer, diff *types.Diff, manifests []string) ([]Change, error) {
 	var b strings.Builder
 	for _, path := range manifests {
-		text := fileDiffText(diff, path)
-		if b.Len()+len(text) > maxManifestBytes {
-			omitted = append(omitted, path)
-			continue
-		}
-		fmt.Fprintf(&b, "=== %s\n%s\n", path, text)
+		fmt.Fprintf(&b, "=== %s\n%s\n", path, fileDiffText(diff, path))
 	}
 	if b.Len() == 0 {
-		return nil, omitted, nil
+		return nil, nil
 	}
 	var answer struct {
 		Changes []Change `json:"changes"`
 	}
 	if err := ask(ctx, model, "extract.md", b.String(), &answer); err != nil {
-		return nil, omitted, err
+		return nil, err
 	}
-	return answer.Changes, omitted, nil
+	return answer.Changes, nil
 }
 
 // diffPaths lists the diff's file paths, sorted.

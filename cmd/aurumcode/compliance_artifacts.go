@@ -32,6 +32,13 @@ type complianceArtifactInputs struct {
 	deliberation *deliberation.Transcript
 	// batches are the batches of a review in batches, nil otherwise.
 	batches []render.AuditBatch
+	// contextReduced declares the codebase context was reduced to fit the
+	// model's window, "" when it went whole.
+	contextReduced string
+	// demoted are the deterministic findings the model disputed and the
+	// gate's triage stopped counting: the SARIF carries them suppressed, so
+	// code scanning never shows as an error what the gate decided against.
+	demoted []types.ReviewIssue
 
 	// policyDir/centralCfg feed render.PolicyDigest (AC-001); centralCfg nil
 	// means no policy was declared this run, exactly as elsewhere.
@@ -164,6 +171,7 @@ func writeAuditFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	rec.ProposedExceptions = in.proposedExceptions
 	rec.Deliberation = in.deliberation
 	rec.Batches = in.batches
+	rec.ContextReduced = in.contextReduced
 	rec.Standards = in.standards
 	rec.StampToolVersion(toolVersion())
 	if err := render.WriteAuditRecord(in.auditoriaPath, rec, filter); err != nil {
@@ -181,8 +189,18 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	for _, exc := range exceptions {
 		suppressed[[2]string{exc.RuleID, exc.Path}] = exc
 	}
-	findings := make([]render.SARIFFinding, 0, len(in.issues))
+	// A finding the model disputed and the triage stopped counting is left
+	// out of the SARIF: refuted findings disappear (code scanning closes the
+	// alert on the next upload); the audit record keeps it with the model's
+	// reason.
+	issues := make([]types.ReviewIssue, 0, len(in.issues))
 	for _, issue := range in.issues {
+		if _, disputed := disputedByModel(in.demoted, issue); !disputed {
+			issues = append(issues, issue)
+		}
+	}
+	findings := make([]render.SARIFFinding, 0, len(issues))
+	for _, issue := range issues {
 		title := ""
 		if rule, ok := in.dynamicRules[issue.RuleID]; ok {
 			title = rule.Title
@@ -210,8 +228,8 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	// The model's assessment of a deterministic finding travels beside the
 	// engine's origin.
 	for i := range findings {
-		if findings[i].Assessment != nil && findings[i].Origin == "" && i < len(in.issues) {
-			findings[i].Origin = in.issues[i].Origin
+		if findings[i].Assessment != nil && findings[i].Origin == "" && i < len(issues) {
+			findings[i].Origin = issues[i].Origin
 		}
 	}
 	return render.WriteSARIF(in.sarifPath, toolVersion().Label(), findings, in.gateInconclusiveReason, filter)
@@ -259,4 +277,21 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// disputedByModel reports whether the gate's triage demoted issue because
+// the model disputed it, with the justification the SARIF suppression
+// carries.
+func disputedByModel(demoted []types.ReviewIssue, issue types.ReviewIssue) (string, bool) {
+	for _, d := range demoted {
+		if d.RuleID != issue.RuleID || d.File != issue.File || d.Line != issue.Line {
+			continue
+		}
+		why := "contestado pelo modelo na triagem do gate (gate.triage); deixou de contar"
+		if a := d.Assessment; a != nil && strings.TrimSpace(a.Justification) != "" {
+			why += ": " + strings.TrimSpace(a.Justification)
+		}
+		return why, true
+	}
+	return "", false
 }

@@ -1,0 +1,25 @@
+{
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "harness"
+        }
+      },
+      "properties": {
+        "hollow": false,
+        "coverageDegraded": true,
+        "coverageDegradedReasons": [
+          "s6_undetermined"
+        ]
+      },
+      "invocations": [
+        {
+          "executionSuccessful": true
+        }
+      ],
+      "results": []
+    }
+  ]
+}

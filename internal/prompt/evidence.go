@@ -14,6 +14,9 @@ type EvidenceItem struct {
 	Side     string // LEFT for a removed line; empty or RIGHT for an added one
 	Severity string
 	Snippet  string // Redacted excerpt of the offending code
+	// Note tells the triage where the snippet comes from (a commit of the
+	// history, a widened window); empty in the review's own prompt.
+	Note string `json:"-"`
 }
 
 // ToolOffer is one tool the model may ask the engine to run, with the cost

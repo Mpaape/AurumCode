@@ -37,7 +37,7 @@ func noStructureDiffPaths(p grammar.Provider, diff *types.Diff) []string {
 // applyStructuralCoverage is the one place both review paths (--base and --pr)
 // record what the review could not cover: files without a grammar are
 // declared (never a failure by themselves), and any file the review meant to
-// read and could not (generated, too large, no patch) withholds approval with
+// read and could not (generated, no patch) withholds approval with
 // the same
 // engine-owned marker the gate uses, which the model can neither set nor
 // erase (AUR-522: an unreviewed file never counts as approved). A binary or
@@ -54,10 +54,10 @@ func applyStructuralCoverage(p grammar.Provider, diff *types.Diff, c *reviewCove
 	result.Metadata[prompt.PolicyGateWithheldKey] = "true"
 }
 
-// maxInspectBytes bounds how much of a checked-out file is read for the
-// content check; one byte past the analyzer's own size limit is enough for it
-// to say "too large".
-const maxInspectBytes = (1 << 20) + 1
+// maxInspectBytes is how much of a checked-out file the content check reads:
+// the prefix analyzer.ClassifyBlob inspects. Size is never a reason to skip a
+// file, so reading more would only cost memory.
+const maxInspectBytes = analyzer.ClassifyInspectBytes
 
 // uninspectedPRNotices is the --pr counterpart of --base's blob classification.
 // It runs the SAME content check (analyzer.ClassifyBlob) over each changed
@@ -73,18 +73,29 @@ func uninspectedPRNotices(diff *types.Diff, dir string) []analyzer.DiffNotice {
 	for _, f := range diff.Files {
 		content, ok := prFileContent(f, dir)
 		if !ok {
-			notices = append(notices, analyzer.DiffNotice{
-				Path:    f.Path,
-				Message: "not reviewed, no patch (binary or large): " + f.Path,
-				Reason:  analyzer.NoticeReasonNoPatch,
-			})
+			notices = append(notices, noPatchNotice(f.Path))
 			continue
 		}
 		if n := analyzer.ClassifyBlob(f.Path, content); n != nil {
 			notices = append(notices, *n)
+			continue
+		}
+		if len(f.Hunks) == 0 {
+			// Still line-less after recoverMissingPatches: nothing of it was
+			// shown to the model, whatever its checkout copy holds.
+			notices = append(notices, noPatchNotice(f.Path))
 		}
 	}
 	return notices
+}
+
+// noPatchNotice declares a changed file nothing of which reached the model.
+func noPatchNotice(path string) analyzer.DiffNotice {
+	return analyzer.DiffNotice{
+		Path:    path,
+		Message: "not reviewed, no patch (binary or large): " + path,
+		Reason:  analyzer.NoticeReasonNoPatch,
+	}
 }
 
 // declaredBinary reports a notice the review declares ignored instead of
@@ -96,6 +107,13 @@ func uninspectedPRNotices(diff *types.Diff, dir string) []analyzer.DiffNotice {
 // approval, so a crafted byte can never hide code from the review.
 func declaredBinary(n analyzer.DiffNotice) bool {
 	return n.Reason == analyzer.NoticeReasonBinary && n.DeclaredFormat
+}
+
+// declaredIgnored is what the coverage lists as ignored instead of partial:
+// a declared binary, or a path with no content change (nothing to review).
+// Neither counts as reviewed.
+func declaredIgnored(n analyzer.DiffNotice) bool {
+	return declaredBinary(n) || n.Reason == analyzer.NoticeReasonNoContentChange
 }
 
 // splitBinaryFiles separates the diff's declared binary files (by the same content
