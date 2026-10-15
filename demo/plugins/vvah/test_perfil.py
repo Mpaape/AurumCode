@@ -15,12 +15,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROLES = ["autoexclude", "preprocess", "threatmodel", "decompose", "deepdive", "verify", "dedup", "chain"]
 
 
-def default_yaml(enabled_ev="auto", progress="true", auto_exclude=True, ingest=3, roles=ROLES):
+def default_yaml(enabled_ev="auto", progress="true", auto_exclude=True, ingest=3, roles=ROLES, remediate="false", validate="false"):
     lines = ["models:\n"]
     lines += ["  %s: {id: modelo-x, via: deepagents, provider: anthropic}\n" % r for r in roles]
     lines += ["step1:\n", "  auto_exclude: %s\n" % ("true" if auto_exclude else "false")]
     lines += ["step6_exploit_verification:\n", "  enabled: %s\n" % enabled_ev, "  timeout_s: 15\n"]
-    lines += ["step_remediate:\n", "  enabled: false\n", "step_validate:\n", "  enabled: false\n"]
+    lines += ["step_remediate:\n", "  enabled: %s\n" % remediate, "step_validate:\n", "  enabled: %s\n" % validate]
     lines += ["scan_progress:\n", "  enabled: %s\n" % progress]
     lines += ["output:\n", "  posture_channel: true\n"]
     keys = ["ingest_url", "ingest_token", "ingest_verify"][:ingest]
@@ -28,12 +28,16 @@ def default_yaml(enabled_ev="auto", progress="true", auto_exclude=True, ingest=3
     return "".join(lines)
 
 
-def run(yaml_text):
+def run(yaml_text, copies=1):
+    """Roda perfil.py com `copies` default.yaml do harness no caminho de busca."""
     with tempfile.TemporaryDirectory() as base:
         pkg = os.path.join(base, "pkg")
-        os.makedirs(pkg)
-        with open(os.path.join(pkg, "default.yaml"), "w", encoding="utf-8") as fh:
-            fh.write(yaml_text)
+        for n in range(copies):
+            d = os.path.join(pkg, "copia%d" % n)
+            os.makedirs(d)
+            with open(os.path.join(d, "default.yaml"), "w", encoding="utf-8") as fh:
+                fh.write(yaml_text)
+        os.makedirs(pkg, exist_ok=True)
         out = os.path.join(base, "out", "descoberta.yaml")
         # -S -I: nenhum site-packages entra no caminho de busca; so a
         # biblioteca padrao e o diretorio do fixture sao procurados.
@@ -80,6 +84,35 @@ class PerfilTest(unittest.TestCase):
         rc, out, _ = run(default_yaml() + "scan_progress:\n  enabled: true\n")
         self.assertNotEqual(rc, 0)
         self.assertIn("secao scan_progress ausente ou repetida", out)
+
+    def test_recusa_remediacao_ligada(self):
+        rc, out, text = run(default_yaml(remediate="true"))
+        self.assertNotEqual(rc, 0)
+        self.assertIn("step_remediate.enabled era true", out)
+        self.assertEqual(text, "")
+
+    def test_recusa_validacao_ligada(self):
+        rc, out, text = run(default_yaml(validate="true"))
+        self.assertNotEqual(rc, 0)
+        self.assertIn("step_validate.enabled era true", out)
+        self.assertEqual(text, "")
+
+    def test_recusa_sem_default_do_harness(self):
+        rc, out, _ = run(default_yaml(), copies=0)
+        self.assertNotEqual(rc, 0)
+        self.assertIn("esperado 1 default.yaml do harness, achados 0", out)
+
+    def test_recusa_dois_defaults_do_harness(self):
+        rc, out, _ = run(default_yaml(), copies=2)
+        self.assertNotEqual(rc, 0)
+        self.assertIn("achados 2", out)
+
+    def test_limite_de_papeis(self):
+        rc, out, _ = run(default_yaml(roles=ROLES[:7]))
+        self.assertNotEqual(rc, 0)
+        self.assertIn("so 7 papeis", out)
+        rc, out, _ = run(default_yaml(roles=ROLES))
+        self.assertEqual(rc, 0, out)
 
 
 if __name__ == "__main__":
