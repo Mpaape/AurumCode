@@ -14,6 +14,7 @@ Edicoes, todas conferidas no commit fixado do harness:
   - output.ingest_url, ingest_token e ingest_verify removidos (sem envio a hub).
   S10/S11 (step_remediate, step_validate) ja vem desligados e sao conferidos.
 """
+import argparse
 import os
 import re
 import sys
@@ -56,8 +57,9 @@ def section_flag(lines, section, value_from, value_to):
 
 
 def main():
-    if len(sys.argv) != 2:
-        sys.exit("uso: perfil.py <saida>")
+    parser = argparse.ArgumentParser(description="Gera o perfil so descoberta do harness.")
+    parser.add_argument("saida", help="caminho do perfil gerado")
+    saida = parser.parse_args().saida
     with open(find_default(), encoding="utf-8") as fh:
         lines = fh.readlines()
     role = re.compile(r"^(\s+)(\w+):(\s*)\{id: [^,]+,\s*via: deepagents, provider: anthropic\}")
@@ -82,8 +84,8 @@ def main():
         sys.exit("perfil: esperadas 3 chaves ingest_*, achadas %d" % len(ingest))
     for i in reversed(ingest):
         del lines[i]
-    os.makedirs(os.path.dirname(sys.argv[1]) or ".", exist_ok=True)
-    with open(sys.argv[1], "w", encoding="utf-8") as fh:
+    os.makedirs(os.path.dirname(saida) or ".", exist_ok=True)
+    with open(saida, "w", encoding="utf-8") as fh:
         fh.writelines(lines)
     print("perfil: %d papeis no VVAH_MODEL; exploracao viva, progresso e envio a hub desligados" % n)
 
