@@ -189,8 +189,18 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	for _, exc := range exceptions {
 		suppressed[[2]string{exc.RuleID, exc.Path}] = exc
 	}
-	findings := make([]render.SARIFFinding, 0, len(in.issues))
+	// A finding the model disputed and the triage stopped counting is left
+	// out of the SARIF: refuted findings disappear (code scanning closes the
+	// alert on the next upload); the audit record keeps it with the model's
+	// reason.
+	issues := make([]types.ReviewIssue, 0, len(in.issues))
 	for _, issue := range in.issues {
+		if _, disputed := disputedByModel(in.demoted, issue); !disputed {
+			issues = append(issues, issue)
+		}
+	}
+	findings := make([]render.SARIFFinding, 0, len(issues))
+	for _, issue := range issues {
 		title := ""
 		if rule, ok := in.dynamicRules[issue.RuleID]; ok {
 			title = rule.Title
@@ -208,9 +218,6 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 		if exc, ok := suppressed[[2]string{issue.RuleID, issue.File}]; ok {
 			finding.Suppressed = true
 			finding.Justification = exc.Justification
-		} else if why, ok := disputedByModel(in.demoted, issue); ok {
-			finding.Suppressed = true
-			finding.Justification = why
 		}
 		finding.Assessment = render.AssessmentOf(issue)
 		findings = append(findings, finding)
@@ -221,8 +228,8 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 	// The model's assessment of a deterministic finding travels beside the
 	// engine's origin.
 	for i := range findings {
-		if findings[i].Assessment != nil && findings[i].Origin == "" && i < len(in.issues) {
-			findings[i].Origin = in.issues[i].Origin
+		if findings[i].Assessment != nil && findings[i].Origin == "" && i < len(issues) {
+			findings[i].Origin = issues[i].Origin
 		}
 	}
 	return render.WriteSARIF(in.sarifPath, toolVersion().Label(), findings, in.gateInconclusiveReason, filter)

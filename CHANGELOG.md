@@ -12,7 +12,7 @@ Nenhum limite de tamanho derruba a revisão, e um agente de scan de vulnerabilid
 
 - O modelo decide o veredito final: todo achado estático (segredo, análise, SAST, lint) sem avaliação vai a uma triagem dedicada; contestado não conta. Sem o modelo, os achados aguardam a avaliação e nunca reprovam o gate sozinhos.
 - Parecer enxuto: o mesmo problema de duas fontes vira um item; a correção de um bloqueante vem como sugestão aplicável; status curto; sem listas técnicas, sem texto cru de scanner em inglês e com acentos.
-- SARIF e auditoria sempre JSON válido, e o achado que o modelo contestou vai ao SARIF como dispensado, com o motivo do modelo.
+- SARIF e auditoria sempre JSON válido; o achado que o modelo contestou sai do SARIF (o alerta da aba Security fecha) e fica só na auditoria, com o motivo do modelo.
 - Plugins externos na validação agendada (`scheduled.plugins`): o plugin roda em container próprio e os achados vão só para a aba Security, nunca para log, resumo ou artefato (#185).
 - Exemplo pronto do harness agêntico de vulnerabilidade da Visa, fixado por commit e só de descoberta; candidato que o verificador do plugin não decidiu vira alerta "não verificado" (#185).
 - Plugin degradado, sem análise ou com cobertura perdida é inconclusivo e não envia SARIF, para não fechar os alertas abertos; entrada da política exige imagem por digest (#185).
