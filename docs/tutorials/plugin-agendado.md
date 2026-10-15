@@ -3,8 +3,9 @@
 ## Objetivo
 
 Um scanner externo (por exemplo, um harness agêntico de vulnerabilidade) roda
-na validação **agendada**, no próprio container, e os achados dele vão **só
-para a aba Security** (code scanning), que exige permissão de escrita. Nada do
+na validação **agendada**, no próprio container, e os achados dele vão para a
+aba Security (code scanning), que exige permissão de escrita, ou, num
+repositório privado sem Code Security, para issues do próprio repositório. Nada do
 achado aparece no log do Actions, no resumo do job, em artefato ou na PR, que
 num repositório público são públicos. Ao final você terá visto, com o binário
 real do produto:

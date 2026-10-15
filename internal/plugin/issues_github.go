@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -73,27 +72,14 @@ func (g *GitHubIssues) do(ctx context.Context, method, route string, query url.V
 	if len(query) > 0 {
 		u += "?" + query.Encode()
 	}
-	var body io.Reader
+	var data []byte
 	if in != nil {
-		data, err := json.Marshal(in)
-		if err != nil {
+		var err error
+		if data, err = json.Marshal(in); err != nil {
 			return err
 		}
-		body = bytes.NewReader(data)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, u, body)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "AurumCode/1.0")
-	if in != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	if g.Token != "" {
-		req.Header.Set("Authorization", "token "+g.Token)
-	}
-	resp, err := g.HTTP.Do(req)
+	resp, err := g.sendWithRetry(ctx, method, u, data)
 	if err != nil {
 		return fmt.Errorf("GitHub inacessível em %s %s", method, route)
 	}

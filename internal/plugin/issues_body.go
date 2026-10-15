@@ -72,49 +72,71 @@ func oneLine(s string) string {
 	return strings.NewReplacer("|", "/", "`", "'", "<", "‹", ">", "›", "@", "＠").Replace(s)
 }
 
+// GitHub refuses (422) an issue whose title or body is longer than these
+// (characters); the text is fitted to them, never the sync failed by them.
+const (
+	maxIssueTitle = 256
+	maxIssueBody  = 65536
+)
+
 // IssueTitle is built only from structured fields (rule, file, line,
-// severity): no text of the plugin's model is ever in a title.
+// severity): no text of the plugin's model is ever in a title. A path too
+// long for GitHub's title is shortened from the left ("…" plus its end).
 func IssueTitle(name string, f IssueFinding) string {
-	loc := oneLine(f.Path)
+	suffix := ""
 	if f.Line > 0 {
-		loc = fmt.Sprintf("%s:%d", loc, f.Line)
+		suffix = fmt.Sprintf(":%d", f.Line)
 	}
-	return fmt.Sprintf("[plugin %s] %s em %s (severidade %s)", name, oneLine(f.Rule), loc, severityLabel(f.Score))
+	head := fmt.Sprintf("[plugin %s] %s em ", name, oneLine(f.Rule))
+	tail := fmt.Sprintf("%s (severidade %s)", suffix, severityLabel(f.Score))
+	path := []rune(oneLine(f.Path))
+	if room := maxIssueTitle - len([]rune(head)) - len([]rune(tail)); len(path) > room {
+		if room < 2 {
+			room = 2
+		}
+		path = append([]rune("…"), path[len(path)-room+1:]...)
+	}
+	title := []rune(head + string(path) + tail)
+	if len(title) > maxIssueTitle {
+		title = title[:maxIssueTitle]
+	}
+	return string(title)
 }
 
-// fence returns a code fence longer than any backtick run in text, so the
-// redacted description is shown as plain text: no markdown, no mention, no
-// HTML comment that the page would render.
-func fence(text string) string {
-	longest, run := 0, 0
-	for _, r := range text {
-		if r == '`' {
-			run++
-			if run > longest {
-				longest = run
-			}
-		} else {
-			run = 0
-		}
+// fitDescription cuts the description so the whole body stays within
+// GitHub's limit, saying so in the body. The cut is deterministic: the same
+// finding always gives the same body.
+func fitDescription(text string, room int) string {
+	r := []rune(text)
+	if len(r) <= room {
+		return text
 	}
-	if longest < 3 {
-		return "```"
+	const note = "\n[descrição cortada no limite de tamanho do corpo da issue no GitHub]"
+	keep := room - len([]rune(note))
+	if keep < 0 {
+		keep = 0
 	}
-	return strings.Repeat("`", longest+1)
+	return string(r[:keep]) + note
 }
 
 // IssueBody is the pt-BR body: the marker, the structured fields, the
-// redacted description in a code block and a suggestion.
+// redacted description in a code block (shown as plain text: no markdown,
+// no mention, no HTML comment the page would render) and a suggestion.
 func IssueBody(name string, f IssueFinding) string {
 	line := "não informada"
 	if f.Line > 0 {
 		line = fmt.Sprint(f.Line)
 	}
-	text := strings.TrimSpace(f.Text)
+	// A backtick in the description could close the code block and let
+	// the plugin's text render as markdown: it is shown as a look-alike.
+	text := strings.ReplaceAll(strings.TrimSpace(f.Text), "`", "ˋ")
 	if text == "" {
 		text = "(sem descrição)"
 	}
-	fc := fence(text)
+	// The fixed parts take a few hundred characters plus the path; the
+	// description gets the rest of the limit, with a margin.
+	reserved := 2048 + 2*len([]rune(oneLine(f.Path))) + 2*len([]rune(oneLine(f.Rule)))
+	text = fitDescription(text, maxIssueBody-reserved)
 	var b strings.Builder
 	fmt.Fprintln(&b, IssueMarker(name, f.Fingerprint))
 	fmt.Fprintf(&b, "Achado do plugin agendado `%s`, sincronizado pelo AurumCode.\n\n", name)
@@ -125,7 +147,7 @@ func IssueBody(name string, f IssueFinding) string {
 	fmt.Fprintf(&b, "| linha | %s |\n", line)
 	fmt.Fprintf(&b, "| severidade | %s (%.1f) |\n\n", severityLabel(f.Score), f.Score)
 	fmt.Fprintln(&b, "### Descrição (redigida)")
-	fmt.Fprintf(&b, "\n%stext\n%s\n%s\n\n", fc, text, fc)
+	fmt.Fprintf(&b, "\n```text\n%s\n```\n\n", text)
 	fmt.Fprintln(&b, "### Sugestão")
 	fmt.Fprintln(&b, "")
 	fmt.Fprintln(&b, "Corrija o código no local indicado (a descrição acima traz a recomendação do plugin, quando houver).")

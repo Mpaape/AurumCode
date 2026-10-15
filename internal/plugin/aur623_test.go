@@ -32,6 +32,15 @@ type aur623Fake struct {
 	comments   map[int][]string
 	calls      []string
 	dropLabel  bool
+	limited    int // POST /issues answered with the rate limiter first
+}
+
+// aur623Oversize mirrors GitHub's 422 for a title over 256 or a body over
+// 65536 characters.
+func aur623Oversize(in map[string]any) bool {
+	t, _ := in["title"].(string)
+	b, _ := in["body"].(string)
+	return len([]rune(t)) > 256 || len([]rune(b)) > 65536
 }
 
 type aur623Issue struct {
@@ -99,6 +108,12 @@ func (f *aur623Fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		send(201, map[string]string{})
 	case r.Method == "GET" && route == "/issues":
 		f.list(w, r, send)
+	case (r.Method == "POST" || r.Method == "PATCH") && aur623Oversize(in):
+		send(422, map[string]string{})
+	case r.Method == "POST" && route == "/issues" && f.limited > 0:
+		f.limited--
+		w.Header().Set("Retry-After", "0")
+		send(403, map[string]string{})
 	case r.Method == "POST" && route == "/issues":
 		is := &aur623Issue{Number: len(f.issues) + 1, Title: fmt.Sprint(in["title"]), Body: fmt.Sprint(in["body"]), State: "open"}
 		if !f.dropLabel {
@@ -372,5 +387,40 @@ func TestAUR623UsageBeforeAnyRequest(t *testing.T) {
 	}
 	if len(fake.calls) != 0 {
 		t.Fatalf("calls: %v", fake.calls)
+	}
+}
+
+// AC-001: a path too long for GitHub's title and a description too long
+// for its body are fitted, never a sync that fails every night; the
+// fitted body is stable (a second run keeps it, no write).
+func TestAUR623OversizeFindingFits(t *testing.T) {
+	fake := newAUR623Fake("private", true)
+	long := aur623Result{"caso-longo", "plugin/vvah/cwe-89", strings.Repeat("diretorio/", 30) + "app.py", strings.Repeat("descricao longa ", 5000) + "```fim"}
+	sarif := aur623SARIF(t, t.TempDir(), "vvah", true, long)
+	rc, out, e := aur623Sync(t, fake, sarif)
+	if rc != 0 || len(fake.issues) != 1 {
+		t.Fatalf("rc=%d out=%q err=%q", rc, out, e)
+	}
+	is := fake.issues[0]
+	if !strings.Contains(is.Title, "…") || !strings.HasSuffix(is.Title, "app.py:10 (severidade alta)") || !strings.Contains(is.Body, "cortada no limite") {
+		t.Fatalf("title %q / body not fitted", is.Title)
+	}
+	if strings.Count(is.Body, "```") != 2 {
+		t.Fatal("a backtick of the description closed the code block")
+	}
+	before := len(fake.writes())
+	if rc, _, _ := aur623Sync(t, fake, sarif); rc != 0 || len(fake.writes()) != before {
+		t.Fatalf("fitted body is not stable: rc=%d writes %d -> %d", rc, before, len(fake.writes()))
+	}
+}
+
+// AC-001: the rate limiter (403 with Retry-After) is waited and the write
+// is sent again, never duplicated.
+func TestAUR623RateLimitRetried(t *testing.T) {
+	fake := newAUR623Fake("private", true)
+	fake.limited = 2
+	rc, _, e := aur623Sync(t, fake, aur623SARIF(t, t.TempDir(), "vvah", true, aur623A))
+	if rc != 0 || len(fake.issues) != 1 {
+		t.Fatalf("rc=%d issues=%d err=%q", rc, len(fake.issues), e)
 	}
 }

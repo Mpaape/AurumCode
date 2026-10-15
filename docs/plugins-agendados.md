@@ -23,7 +23,7 @@ Security) exige permissão de escrita no repositório. Por isso o job
 
 | Canal | Usado? |
 |---|---|
-| Log do Actions | só contagens ("N alertas enviados para a aba Security") e motivos estáveis (`[degraded]`, `[coverage_lost]`) |
+| Log do Actions | só contagens ("N alertas enviados para a aba Security"; no destino issues, "abertas N, mantidas N, fechadas N, reabertas N") e motivos estáveis (`[degraded]`, `[coverage_lost]`) |
 | Saída do plugin (stdout/stderr, texto cru do modelo) | arquivo em `$RUNNER_TEMP`, nunca impresso, nunca artefato |
 | Resumo do job, anotações, artefatos | nunca |
 | PR (comentário, status, gate) | nunca; em `pull_request*` os jobs de plugin são pulados pelo `if:` |

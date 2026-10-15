@@ -56,7 +56,7 @@ work="$(mktemp -d)"
 trap 'chmod -R u+w -- "$work" 2>/dev/null || true; rm -rf -- "$work"' EXIT
 
 readonly pkgs=(./internal/plugin)
-readonly t_open='^(TestAUR623OpensIssuesWithMarker|TestAUR623DroppedLabelFails)$'
+readonly t_open='^(TestAUR623OpensIssuesWithMarker|TestAUR623DroppedLabelFails|TestAUR623OversizeFindingFits|TestAUR623RateLimitRetried)$'
 readonly t_sync='^(TestAUR623SyncKeepsClosesReopens|TestAUR623ForeignIssuesUntouchedAndZeroCloses)$'
 readonly t_refuse='^(TestAUR623RefusesPublicAndInconclusive|TestAUR623UsageBeforeAnyRequest)$'
 readonly t_workflow='^(TestAUR623WorkflowIssuesDestination|TestAUR622WorkflowPluginsJob)$'
