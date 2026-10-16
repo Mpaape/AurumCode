@@ -93,6 +93,10 @@ func (p *prReview) reviewBody() string {
 	copy := reviewCopyFor(p.reviewLanguage)
 	body = appendDetailSection(body, copy.details, roundNotice(p.round, p.reviewLanguage))
 	body = appendDetailSection(body, copy.details, presentationNotice(p.shown, p.reviewLanguage))
+	body = appendDetailSection(body, copy.details, lateNotice(p.convergence.late, p.reviewLanguage))
+	if marker := p.roundMarker(); marker != "" {
+		body += "\n" + marker + "\n"
+	}
 	return body
 }
 

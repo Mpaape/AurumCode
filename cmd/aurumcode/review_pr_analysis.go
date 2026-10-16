@@ -34,6 +34,7 @@ func (p *prReview) joinEvidence() (int, bool) {
 	p.reportSecurityPass()
 	p.runStaticAnalysis()
 	p.snapshotAndApplyRules()
+	p.convergeRounds()
 	p.joinScanners()
 	p.runDependencyCheck()
 	p.explainDependencyReach()
