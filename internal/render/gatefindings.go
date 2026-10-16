@@ -1,6 +1,9 @@
 package render
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // GateSARIFFindings builds the SARIF results from the gate's blocking
 // findings, the same records the audit's blocking_findings is written from,
@@ -51,4 +54,38 @@ func GateSARIFFindings(issues []SARIFFinding, blocking []AuditFinding) []SARIFFi
 // gateFindingKey identifies a finding by rule, path and line.
 func gateFindingKey(ruleID, path string, line int) string {
 	return fmt.Sprintf("%s|%s|%d", ruleID, path, line)
+}
+
+// MergeSameFindings keeps one SARIF result per rule, path and line (#177):
+// the same finding reported by several analysts of one review is one alert
+// in code scanning, as it is one item of the parecer. The first occurrence
+// stays, with the highest severity among the copies; it is suppressed only
+// when every copy is.
+func MergeSameFindings(findings []SARIFFinding) []SARIFFinding {
+	rank := map[string]int{"info": 1, "warning": 2, "error": 3}
+	index := map[string]int{}
+	out := make([]SARIFFinding, 0, len(findings))
+	for _, f := range findings {
+		key := gateFindingKey(f.RuleID, f.Path, f.Line)
+		i, seen := index[key]
+		if !seen {
+			index[key] = len(out)
+			out = append(out, f)
+			continue
+		}
+		kept := &out[i]
+		if rank[strings.ToLower(strings.TrimSpace(f.Severity))] > rank[strings.ToLower(strings.TrimSpace(kept.Severity))] {
+			kept.Severity = f.Severity
+		}
+		if !f.Suppressed && kept.Suppressed {
+			kept.Suppressed, kept.Justification = false, ""
+		}
+		if kept.Assessment == nil {
+			kept.Assessment = f.Assessment
+		}
+		if kept.Origin == "" {
+			kept.Origin = f.Origin
+		}
+	}
+	return out
 }

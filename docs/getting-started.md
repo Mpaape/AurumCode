@@ -194,7 +194,7 @@ docker run --rm \
 `--completo` trata a árvore do `HEAD` como adicionada e varre o histórico
 inteiro por segredos; nada é escrito no repositório. O SARIF sai na categoria
 `aurumcode/initial-scan/`, separada da das PRs. Na CI, o mesmo roda agendado e
-à mão: veja [Varredura agendada](configuration.md#varredura-completa).
+à mão: veja [Varredura agendada](configuration.md#varredura-agendada-da-branch-padrao).
 
 Sem configurar um provedor, execute apenas a análise determinística:
 
