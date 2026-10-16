@@ -540,3 +540,18 @@ func TestAUR623DismissedRule(t *testing.T) {
 		}
 	}
 }
+
+// A close whose history does not say who closed it is explicitly
+// undetermined, never a dismissal: the issue reopens and the run counts it.
+func TestAUR623UndeterminedCloseReopensAndIsCounted(t *testing.T) {
+	if got := CloseOf("vvah", aur623Bot, IssueHistory{}); got != CloseUndetermined {
+		t.Fatalf("no closed event: CloseOf = %v, want CloseUndetermined", got)
+	}
+	noActor := IssueHistory{Events: []IssueEvent{{Event: "closed"}}}
+	if got := CloseOf("vvah", aur623Bot, noActor); got != CloseUndetermined {
+		t.Fatalf("closed without actor: CloseOf = %v, want CloseUndetermined", got)
+	}
+	if Dismissed("vvah", aur623Bot, noActor) {
+		t.Fatal("an undetermined close was treated as a dismissal")
+	}
+}

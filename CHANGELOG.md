@@ -9,6 +9,7 @@ O plugin agendado de vulnerabilidade passa a funcionar também em repositório p
 ### Entregue
 
 - Plugin agendado em repositório privado sem Code Security: achados viram issues do próprio repositório (só colaboradores veem), abertas, mantidas, fechadas e reabertas por fingerprint; repositório público é recusado (AUR-623).
+- Issue cujo histórico não diz quem a fechou é tratada como caso indeterminado: reabre e aparece contada no log, nunca como dispensa silenciosa.
 - Rodadas convergem: o modelo lista todos os bloqueios de uma vez; achado novo em código já revisado e inalterado vira observação. Segurança, regra de política e pendência antiga seguem bloqueando.
 - Status aurumcode/review coerente com o gate: conta problemas distintos e nunca diz "nenhum achado grave" enquanto falha.
 - Triagem com o contexto certo: alarme do histórico mostra o trecho daquele commit; "preciso de contexto" ganha o arquivo inteiro e, indeciso, aguarda o modelo; alarme contestado sai do parecer.

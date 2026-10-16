@@ -12,6 +12,9 @@ type IssueCounts struct {
 	// Dismissed are closed issues whose finding is still there but that a
 	// person closed: the human decision stands, nothing is written on them.
 	Dismissed int
+	// Undetermined closes reopened because the history did not say who
+	// closed them (they are also counted as reopened).
+	Undetermined int
 }
 
 // issueAction is one planned write.
