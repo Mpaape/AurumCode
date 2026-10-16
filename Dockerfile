@@ -1,4 +1,4 @@
-FROM golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS builder
+FROM golang:1.27.2-alpine3.24@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS builder
 
 WORKDIR /src
 RUN apk add --no-cache git
@@ -34,7 +34,7 @@ FROM docker.io/zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a
 # the pinned toolchain above from hash-verified sources. The review uses it
 # only to extract packages from a manifest or lockfile; the advisories come
 # from the OSV API.
-FROM golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS osvscanner
+FROM golang:1.27.2-alpine3.24@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS osvscanner
 ENV GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org GONOSUMDB= GOPRIVATE= GOINSECURE= GOFLAGS=-mod=readonly GOTOOLCHAIN=local
 RUN CGO_ENABLED=0 GOBIN=/out go install -trimpath github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.0.0
 
