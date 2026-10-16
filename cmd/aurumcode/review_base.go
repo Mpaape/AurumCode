@@ -25,6 +25,7 @@ type reviewFlags struct {
 	padroes, standards                                 string
 	seguranca, publicar, naLinha, check                bool
 	exigirQualidade, changelog                         bool
+	completo, full                                     bool
 	pr                                                 int
 	given                                              map[string]bool
 }
@@ -40,7 +41,9 @@ func newReviewFlagSet() *flag.FlagSet {
 func declareReviewFlags() (*flag.FlagSet, *reviewFlags) {
 	fs := flag.NewFlagSet("review", flag.ContinueOnError)
 	f := &reviewFlags{given: map[string]bool{}}
-	fs.StringVar(&f.base, "base", "", "ref to diff against HEAD (required), e.g. HEAD~1 or a branch name")
+	fs.StringVar(&f.base, "base", "", "ref to diff against HEAD (required unless --completo), e.g. HEAD~1 or a branch name")
+	fs.BoolVar(&f.completo, "completo", false, "review the whole tree of HEAD, every file as added, and scan the whole history for secrets (#178): the initial scan of a repository adopting AurumCode; SARIF in its own category, aurumcode/initial-scan/; never with --base or --pr")
+	fs.BoolVar(&f.full, "full", false, "alias of --completo")
 	fs.StringVar(&f.failOn, "fail-on", "", "minimum severity that makes the command exit 3: high|error, medium|warning, low|info (default: findings never change the exit code)")
 	fs.StringVar(&f.modelo, "modelo", "", "model id that reviews; served offline via AURUMCODE_LLM_FIXTURE or live via LLM_API_KEY and LLM_BASE_URL (default: the endpoint's configured model)")
 	fs.BoolVar(&f.seguranca, "seguranca", false, "additionally run the project's security pass: match the diff's added lines against the security rules of the embedded catalog (standards/security-review) and print the findings in their own section (default: off, output unchanged)")
@@ -97,6 +100,9 @@ func (f *reviewFlags) resolvePolicyDir(stderr io.Writer) (dir string, exit int, 
 	}
 	return dir, 0, true
 }
+
+// fullReview reports --completo or its alias --full.
+func (f *reviewFlags) fullReview() bool { return f.completo || f.full }
 
 // prOptions maps the flags onto the --pr path's options.
 func (f *reviewFlags) prOptions(policyDir, standardsDir string) prReviewOptions {
@@ -176,6 +182,10 @@ func runReviewWith(rio reviewIO, args []string) int {
 	if !ok {
 		return exit
 	}
+	if f.fullReview() && (f.given["pr"] || f.given["base"]) {
+		fmt.Fprintln(stderr, "aurumcode review: --completo reviews the whole tree: it takes neither --base nor --pr")
+		return 2
+	}
 	if f.given["pr"] {
 		// AUR-502: --perfis selects the --base passes only; refused loudly
 		// with --pr as a usage error.
@@ -198,6 +208,9 @@ func newBaseReview(rio reviewIO, f *reviewFlags, policyDir, standardsDir string)
 	b.standardsDir = standardsDir
 	b.policyDir, b.modelFlag, b.seguranca, b.exigirQualidade = policyDir, f.modelo, f.seguranca, f.exigirQualidade
 	b.auditoriaPath, b.sarifPath = f.auditoria, f.sarif
+	if f.fullReview() {
+		b.sarifCategory = initialScanCategory
+	}
 	b.artifactRepo, b.artifactCommit = b.env().repository, b.env().githubSHA
 	return b
 }

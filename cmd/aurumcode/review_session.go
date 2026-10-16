@@ -135,14 +135,17 @@ type reviewState struct {
 	run    *gateRun // flushed when the session ends
 
 	// invocation
-	policyDir                    string
-	standardsDir                 string
-	threshold                    int
-	thresholdName                string
-	limiteUSD                    float64
-	modelFlag                    string
-	seguranca, exigirQualidade   bool
-	auditoriaPath, sarifPath     string
+	policyDir                  string
+	standardsDir               string
+	threshold                  int
+	thresholdName              string
+	limiteUSD                  float64
+	modelFlag                  string
+	seguranca, exigirQualidade bool
+	auditoriaPath, sarifPath   string
+	// sarifCategory, when set, is the SARIF's automationDetails category
+	// (review --completo: aurumcode/initial-scan); "" for a review's own.
+	sarifCategory                string
 	repoIdentity                 string
 	repoIdentityKnown            bool
 	artifactRepo, artifactCommit string

@@ -79,6 +79,9 @@ func verifyRange(ctx context.Context, run scanner.Command, root string, r scanne
 		return ErrNoRange
 	}
 	ends := [][2]string{{endBase, r.Base}, {endHead, r.Head}}
+	if r.Full {
+		ends = ends[1:]
+	}
 	for _, end := range ends {
 		if !commitID.MatchString(end[1]) {
 			return fmt.Errorf("%w: %s %q is not a full commit id", ErrBadRange, end[0], end[1])
@@ -133,9 +136,14 @@ func scanRange(ctx context.Context, run scanner.Command, root string, r scanner.
 // the pinned binary has no default report format and exits 1 on leaks
 // unless told otherwise.
 func scanArgs(r scanner.Range, report, config, ignoreDir string, policy bool) []string {
+	logOpts := r.Base + ".." + r.Head
+	if r.Full {
+		// Every commit reachable from Head: the whole history.
+		logOpts = r.Head
+	}
 	args := []string{
 		"git",
-		"--log-opts=" + r.Base + ".." + r.Head,
+		"--log-opts=" + logOpts,
 		"--report-format", "json",
 		"--report-path", report,
 		"--exit-code", "0",

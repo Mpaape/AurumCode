@@ -58,11 +58,22 @@ type Request struct {
 type Range struct {
 	Base string
 	Head string
+	// Full is a full review (review --completo, #178): no Base, every commit
+	// reachable from Head is in the range and every line of Head's tree
+	// counts as added.
+	Full bool
 }
 
-// Empty reports a range with either end missing.
+// EmptyTree is git's empty tree, the "before" of a full range's diff.
+const EmptyTree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+// Empty reports a range with an end missing: Head always, Base unless the
+// range is Full.
 func (r Range) Empty() bool {
-	return strings.TrimSpace(r.Base) == "" || strings.TrimSpace(r.Head) == ""
+	if strings.TrimSpace(r.Head) == "" {
+		return true
+	}
+	return !r.Full && strings.TrimSpace(r.Base) == ""
 }
 
 // Command runs binary with args in dir and returns its streams.

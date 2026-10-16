@@ -600,14 +600,26 @@ func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) 
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolving base ref %q: %w", baseRef, err)
 	}
-	headSHA, err := r.ResolveRef(headRef)
-	if err != nil {
-		return nil, nil, fmt.Errorf("resolving head ref %q: %w", headRef, err)
-	}
-
 	baseTree, _, err := r.readCommit(baseSHA)
 	if err != nil {
 		return nil, nil, err
+	}
+	return r.diffTrees(baseTree, headRef)
+}
+
+// DiffFromEmpty is the whole tree of headRef as added files: the diff of a
+// full review (review --completo, #178), with no base commit and no orphan
+// commit written to the repository. Binary and oversized files are notices,
+// as in Diff.
+func (r *Repo) DiffFromEmpty(headRef string) (*types.Diff, []DiffNotice, error) {
+	return r.diffTrees("", headRef)
+}
+
+// diffTrees diffs baseTree (empty for no tree) against headRef's tree.
+func (r *Repo) diffTrees(baseTree, headRef string) (*types.Diff, []DiffNotice, error) {
+	headSHA, err := r.ResolveRef(headRef)
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolving head ref %q: %w", headRef, err)
 	}
 	headTree, _, err := r.readCommit(headSHA)
 	if err != nil {
@@ -616,8 +628,10 @@ func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) 
 
 	before := map[string]blobAt{}
 	after := map[string]blobAt{}
-	if err := r.flattenTree(baseTree, "", before); err != nil {
-		return nil, nil, fmt.Errorf("reading base tree: %w", err)
+	if baseTree != "" {
+		if err := r.flattenTree(baseTree, "", before); err != nil {
+			return nil, nil, fmt.Errorf("reading base tree: %w", err)
+		}
 	}
 	if err := r.flattenTree(headTree, "", after); err != nil {
 		return nil, nil, fmt.Errorf("reading head tree: %w", err)

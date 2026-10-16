@@ -2058,6 +2058,33 @@ política vale. A recusa do vLLM (direta ou pelo LiteLLM: `maximum context
 length is N tokens ... prompt contains at least M input tokens`) dá a janela
 e o tamanho, e o teto vai direto a ela.
 
+<a id="varredura-completa"></a>
+
+## Varredura do repositório inteiro (`review --completo`, #178)
+
+`aurumcode review --completo` (apelido `--full`) revisa a árvore inteira do
+`HEAD`: cada arquivo rastreado entra como adicionado, sem base e sem commit
+órfão. Valem as mesmas camadas (política, padrões, skills do repositório),
+analistas, passe de segurança e scanners da PR; os scanners de intervalo
+tratam a árvore toda como adicionada (`sast` e `govet` olham todas as linhas)
+e o `gitleaks` varre todo o histórico alcançável do `HEAD` (o checkout
+precisa do histórico completo). Não aceita `--base` nem `--pr`, não publica em
+PR nem status, e o changelog não roda (não há intervalo de commits).
+
+- Lotes, cobertura e custo como numa PR grande: um repositório que não cabe
+  na janela se divide em lotes (declare `review.model_window_tokens` para
+  dividir desde o primeiro pedido); `batches.max_batches` e
+  `max_prompt_tokens` limitam o custo, e o que ficou de fora aparece no aviso
+  de cobertura e em `coverage.omitted_files`.
+- O SARIF (`--sarif`) leva `automationDetails.id` `aurumcode/initial-scan/`,
+  separado das PRs e da varredura de dependências, com as mesmas impressões
+  digitais; uma varredura inconclusiva marca a invocação como não concluída.
+- Saída 0 (sem bloqueante) ou 3 (com achados acima de `--fail-on` ou do
+  gate) é varredura concluída; qualquer outro código não é.
+
+Na CI, o job `scan` do workflow reutilizável roda esta varredura agendada e à
+mão (veja [Varredura agendada da branch padrão](#varredura-agendada-da-branch-padrao)).
+
 ## xBOM além do SBOM: Build BOM e CBOM (AUR-552)
 
 <a id="xbom"></a>

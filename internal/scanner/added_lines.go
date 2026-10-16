@@ -52,13 +52,18 @@ func (s LineSet) Keep(findings []Finding) []Finding {
 // repository's own configuration cannot change the format read below.
 // --relative: run from the review root, paths are relative to it (as go
 // vet's are) even when the root is a subdirectory of the repository.
+// A full range diffs git's empty tree against Head: every line of the tree
+// is added.
 func diffArgs(r Range) []string {
-	return []string{
+	args := []string{
 		"-c", "core.quotePath=false",
 		"diff", "--relative", "--no-color", "--no-ext-diff", "--no-renames", "--no-textconv",
 		"--src-prefix=a/", "--dst-prefix=b/", "--unified=0",
-		r.Base + "..." + r.Head, "--",
 	}
+	if r.Full {
+		return append(args, EmptyTree, r.Head, "--")
+	}
+	return append(args, r.Base+"..."+r.Head, "--")
 }
 
 // ErrNoRange: the caller gave no commit range, so no finding can be
