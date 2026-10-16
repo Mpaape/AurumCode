@@ -200,7 +200,11 @@ func TestRoundsConvergeExemptions(t *testing.T) {
 		{"quality/poor-naming", "critical", true},
 		{"policy/erro", "warning", true},
 		{"policy/aviso", "error", true},
-		{"policy/aviso", "warning", false},
+		{"policy/aviso", "warning", true},
+		{"security#x", "warning", true},
+		{"seguranca#x", "warning", true},
+		{"security-policy#x", "warning", true},
+		{"repo-security/x", "warning", true},
 		{"repo/erro", "error", false},
 		{"repo/seguranca", "warning", true},
 		{"quality/missing-error-handling", "error", false},
@@ -209,5 +213,18 @@ func TestRoundsConvergeExemptions(t *testing.T) {
 		if got := p.alwaysBlocks(types.ReviewIssue{RuleID: c.rule, Severity: c.severity}, catalog); got != c.want {
 			t.Errorf("alwaysBlocks(%s, %s) = %v, want %v", c.rule, c.severity, got, c.want)
 		}
+	}
+}
+
+// TestRoundsConvergeOffWhenWorkflowChanges: a pull request that changes a
+// workflow could post as the publisher login and forge the record.
+func TestRoundsConvergeOffWhenWorkflowChanges(t *testing.T) {
+	const workflowDiff = "diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml\n@@ -1,1 +1,2 @@\n name: ci\n+on: push\n"
+	g, server := convergeServer(t)
+	aur494Round(t, g.aur494GitHub, server, aur494DiffA+workflowDiff, aur494Response())
+	g.convergeSecondRound(0, map[string]any{"status": "ahead", "files": []any{}})
+	round2, _ := aur494Round(t, g.aur494GitHub, server, aur494DiffA+workflowDiff, aur494Response(convergeIssue(3, convergeLateRule, "warning")))
+	if round2.Event != "REQUEST_CHANGES" || len(g.compared) != 0 {
+		t.Fatalf("event = %s, comparisons = %v: a workflow change must turn convergence off", round2.Event, g.compared)
 	}
 }

@@ -66,6 +66,10 @@ func (p *prReview) convergeRounds() {
 	if !p.convergence.hasEarlier {
 		return
 	}
+	if path := p.trustSurfaceChanged(); path != "" {
+		fmt.Fprintf(p.stderr, "aurumcode review: round convergence off: the pull request changes %s, which can publish as the reviewer\n", p.filter.Redact(path))
+		return
+	}
 	if p.convergence.head == "" {
 		fmt.Fprintln(p.stderr, "aurumcode review: round convergence off: the pull request head is unknown or moved during the review")
 		return
@@ -76,6 +80,19 @@ func (p *prReview) convergeRounds() {
 		return
 	}
 	p.demoteLateFindings(changes)
+}
+
+// trustSurfaceChanged names a changed file that could let the pull request
+// post as this product's login (a workflow) or change its configuration:
+// the earlier round's record is then not trusted.
+func (p *prReview) trustSurfaceChanged() string {
+	for _, path := range diffPaths(p.diff) {
+		clean := strings.TrimPrefix(strings.ToLower(path), "./")
+		if strings.HasPrefix(clean, ".github/workflows/") || strings.HasPrefix(clean, ".github/actions/") || strings.HasPrefix(clean, ".aurumcode/") || clean == ".aurumcode.yml" || clean == ".aurumcode.yaml" {
+			return path
+		}
+	}
+	return ""
 }
 
 // currentHead is the pull request head read from the API, lower case; ""
@@ -132,15 +149,16 @@ func (p *prReview) demoteLateFindings(changes rounds.Changes) {
 			Fingerprint: roundFingerprint(p.diff, issue, p.filter),
 			Path:        issue.File, Line: issue.Line, Left: strings.EqualFold(issue.Side, "LEFT"),
 			Blocking: severityBlocks(issue.Severity), Exempt: p.alwaysBlocks(issue, catalog),
+			Refs: rounds.Refs(issue.Evidence + "\n" + issue.Message + "\n" + issue.Impact),
 		})
 	}
 	note := i18n.Format(p.reviewLanguage, "review.late_finding", shortSHA(p.convergence.earlier.SHA))
-	for k, late := range rounds.LateFindings(findings, earlier, changes) {
+	for k, late := range rounds.LateFindings(findings, earlier, p.convergence.earlier, changes) {
 		if !late {
 			continue
 		}
 		issue := &p.result.Issues[idx[k]]
-		issue.Severity = "info"
+		issue.Severity, issue.Late = "info", true
 		issue.Message = note + " " + issue.Message
 		p.convergence.late++
 	}
@@ -159,13 +177,17 @@ func severityBlocks(severity string) bool {
 }
 
 // alwaysBlocks names the findings convergence never turns into
-// observations: a critical one, a security rule (security/*, a catalog rule
-// of the security category, a secret or an injection), and a policy skill
-// rule of severity error.
+// observations: a critical one; a security rule (a rule whose prefix
+// before "/" or "#" names security, a catalog or skill rule of the security
+// category, a secret or an injection); and every rule of the policy layer.
 func (p *prReview) alwaysBlocks(issue types.ReviewIssue, catalog *review.RulesLoader) bool {
 	id := strings.ToLower(strings.TrimSpace(issue.RuleID))
-	if strings.EqualFold(strings.TrimSpace(issue.Severity), "critical") || strings.HasPrefix(id, "security/") ||
-		strings.Contains(id, "secret") || strings.Contains(id, "injection") {
+	prefix := id
+	if i := strings.IndexAny(id, "/#"); i >= 0 {
+		prefix = id[:i]
+	}
+	if strings.EqualFold(strings.TrimSpace(issue.Severity), "critical") || strings.Contains(prefix, "secur") || strings.Contains(prefix, "segur") ||
+		strings.Contains(id, "secret") || strings.Contains(id, "segredo") || strings.Contains(id, "injection") || strings.Contains(id, "injec") {
 		return true
 	}
 	if catalog != nil {
@@ -174,10 +196,7 @@ func (p *prReview) alwaysBlocks(issue types.ReviewIssue, catalog *review.RulesLo
 		}
 	}
 	if rule, ok := p.dynamicRules[issue.RuleID]; ok {
-		if strings.EqualFold(rule.Category, "security") {
-			return true
-		}
-		if rule.Origin == gateOriginPolicy && (strings.EqualFold(rule.Severity, "error") || strings.EqualFold(issue.Severity, "error")) {
+		if strings.EqualFold(rule.Category, "security") || rule.Origin == gateOriginPolicy {
 			return true
 		}
 	}
@@ -196,18 +215,23 @@ func (p *prReview) roundMarker() string {
 		return ""
 	}
 	rule := p.blockingRule()
-	var blocking []string
+	record := rounds.Round{SHA: p.convergence.head, HasLocations: true}
+	note := func(issue types.ReviewIssue, fp string) {
+		if !rule.Blocks(issue) {
+			return
+		}
+		record.Blocking = append(record.Blocking, fp)
+		record.Locations = append(record.Locations, rounds.Location{Path: issue.File, Line: issue.Line})
+	}
 	for i, issue := range p.shown.Issues {
-		if i < len(p.round.fingerprints) && rule.Blocks(issue) {
-			blocking = append(blocking, p.round.fingerprints[i])
+		if i < len(p.round.fingerprints) {
+			note(issue, p.round.fingerprints[i])
 		}
 	}
 	for _, issue := range append(append([]types.ReviewIssue(nil), p.shown.Collapsed...), p.shown.Absorbed...) {
-		if rule.Blocks(issue) {
-			blocking = append(blocking, roundFingerprint(p.diff, issue, p.filter))
-		}
+		note(issue, roundFingerprint(p.diff, issue, p.filter))
 	}
-	return rounds.RoundMarker(rounds.Round{SHA: p.convergence.head, Blocking: blocking})
+	return rounds.RoundMarker(record)
 }
 
 // lateNotice is the details note counting the late findings.
