@@ -1,0 +1,15 @@
+gate-corporativo
+auditoria-sarif
+camadas
+changelog
+dados-de-analise
+deliberacao
+extensao
+politica-central
+provedores
+qualquer-linguagem
+reaproveitamento
+revisao
+sast
+skills
+capturas
