@@ -35,6 +35,7 @@ type reviewEnv struct {
 	repository     string // GITHUB_REPOSITORY
 	llmModel       string // LLM_MODEL
 	outputFile     string // AURUMCODE_OUTPUT_FILE
+	parecerFile    string // AURUMCODE_PARECER_FILE: where publication status writes the parecer
 	permissionMode string // AURUMCODE_PR_PERMISSION_MODE
 	// publisherLogin (AURUMCODE_PUBLISHER_LOGIN) is the login this product
 	// publishes as; only its comments' round markers are read.
@@ -59,6 +60,7 @@ func readReviewEnv() reviewEnv {
 		repository:     os.Getenv("GITHUB_REPOSITORY"),
 		llmModel:       os.Getenv("LLM_MODEL"),
 		outputFile:     os.Getenv("AURUMCODE_OUTPUT_FILE"),
+		parecerFile:    os.Getenv("AURUMCODE_PARECER_FILE"),
 		permissionMode: os.Getenv("AURUMCODE_PR_PERMISSION_MODE"),
 		publisherLogin: os.Getenv("AURUMCODE_PUBLISHER_LOGIN"),
 		ci:             os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "",

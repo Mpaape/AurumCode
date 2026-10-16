@@ -48,7 +48,7 @@ func declareReviewFlags() (*flag.FlagSet, *reviewFlags) {
 	fs.StringVar(&f.repo, "repo", "", "owner/repo of the pull request; required with --pr")
 	fs.BoolVar(&f.publicar, "publicar", false, "publish the review on the pull request; required with --pr (default: off)")
 	fs.BoolVar(&f.naLinha, "na-linha", false, "include eligible findings as comments on exact changed lines; optional in both publication modes (default: off)")
-	fs.StringVar(&f.modoPublicacao, "modo-publicacao", "", "PR publication mode: review (formal GitHub review) or comments (separate comments; default: repository config, otherwise comments)")
+	fs.StringVar(&f.modoPublicacao, "modo-publicacao", "", "PR publication mode: comments (separate comments; default: repository config, otherwise comments), review (formal GitHub review; approves a clean pull request) or status (nothing posted on the pull request; the verdict is the commit status of --check)")
 	fs.StringVar(&f.limite, "limite", "", "maximum USD this run may spend calling the model; the command estimates the cost before calling it and refuses -- spending nothing -- when the estimate exceeds this value (default: no limit enforced)")
 	fs.BoolVar(&f.check, "check", false, "publish a commit status (AUR-439) that fails when a grave (error-severity) finding is present, blocking the pull request's merge (default: off)")
 	fs.BoolVar(&f.exigirQualidade, "exigir-qualidade", false, "treat a quality review that did not happen as a failure: exit 1 even when deterministic analysis ran and reported, so a CI job cannot read \"security-only\" as \"fully reviewed\" (default: off -- the published --seguranca-without-a-provider path keeps exit 0)")

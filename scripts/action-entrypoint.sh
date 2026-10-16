@@ -27,8 +27,8 @@ model="$7"
 changelog="${8:-false}"
 
 case "$publication" in
-    config|comments|review) ;;
-    *) echo "AurumCode action: publication must be config, comments or review" >&2; exit 64 ;;
+    config|comments|review|status) ;;
+    *) echo "AurumCode action: publication must be config, comments, review or status" >&2; exit 64 ;;
 esac
 case "$inline_comments" in
     true|false) ;;

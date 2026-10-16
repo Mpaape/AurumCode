@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Novo: `publication: status` publica só o status do commit, nada na PR; o parecer vai ao resumo do job. Os exemplos usam `comments` e avisam que `review` aprova a PR limpa; o parecer limpo abre com "Gate passou" em vez de "Aprovado" (#201).
 - Corrigido: o status aurumcode/review conta problemas distintos e nunca diz "nenhum achado grave" enquanto falha (o mesmo achado de dois analistas é um problema); exemplo do plugin vvah com testes do gerador de perfil.
 - Novo: em repositório privado sem Code Security, achados do plugin agendado viram issues do próprio repositório (`plugin issues`, AUR-623): abre, mantém, fecha e reabre por fingerprint; fechada por pessoa fica fechada; público é recusado.
 - Corrigido: a triagem mostra o trecho do commit em que o Gitleaks achou o segredo (nunca a linha atual sem relação); needs_context volta uma vez com o arquivo inteiro e, indeciso, aguarda o modelo; alarme contestado sai do parecer.

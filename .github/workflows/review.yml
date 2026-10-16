@@ -34,7 +34,7 @@ on:
         type: string
         default: ''
       publication:
-        description: comments or review; the repository config is used when omitted.
+        description: comments, review or status; the repository config is used when omitted. review publishes a formal GitHub review and approves a clean pull request; status posts only the aurumcode/policy-gate status.
         required: false
         type: string
         default: ''
@@ -418,6 +418,8 @@ jobs:
           AURUMCODE_PUBLISHER_LOGIN: github-actions[bot]
           AURUMCODE_CI_CONTEXT_FILE: /tmp/aurumcode-ci.json
           AURUMCODE_OUTPUT_FILE: /aurumcode-out/aurumcode-changelog-output
+          # publication: status writes the parecer here instead of the PR (#201).
+          AURUMCODE_PARECER_FILE: /aurumcode-out/aurumcode-parecer.md
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
@@ -496,7 +498,7 @@ jobs:
           # never written (audit_write_failed / sarif_write_failed).
           out_dir="${RUNNER_TEMP}/aurumcode-out"
           mkdir -p "${out_dir}"
-          rm -f "${out_dir}/aurumcode-changelog-output" "${out_dir}/aurumcode-audit.json" "${out_dir}/aurumcode-review.sarif"
+          rm -f "${out_dir}/aurumcode-changelog-output" "${out_dir}/aurumcode-audit.json" "${out_dir}/aurumcode-review.sarif" "${out_dir}/aurumcode-parecer.md"
           docker_args=(run --rm
             -v "${GITHUB_WORKSPACE}/.aurumcode-target:/github/workspace:ro"
             -w /github/workspace
@@ -526,6 +528,7 @@ jobs:
             -e LLM_FALLBACK_2_BASE_URL
             -e AURUMCODE_CI_CONTEXT_FILE
             -e AURUMCODE_OUTPUT_FILE
+            -e AURUMCODE_PARECER_FILE
             -e DTRACK_API_KEY
             -e DTRACK_PROJECT_ID
             -v "${RUNNER_TEMP}/aurumcode-ci.json:/tmp/aurumcode-ci.json:ro"
@@ -579,6 +582,10 @@ jobs:
               } >> "${GITHUB_STEP_SUMMARY}"
             fi
             exit "${review_rc}"
+          fi
+          # publication: status: the parecer goes to the job summary, not the PR.
+          if [ -s "${RUNNER_TEMP}/aurumcode-out/aurumcode-parecer.md" ]; then
+            cat "${RUNNER_TEMP}/aurumcode-out/aurumcode-parecer.md" >> "${GITHUB_STEP_SUMMARY}"
           fi
           if [ -s "${RUNNER_TEMP}/aurumcode-out/aurumcode-changelog-output" ]; then
             cat "${RUNNER_TEMP}/aurumcode-out/aurumcode-changelog-output" >> "$GITHUB_OUTPUT"

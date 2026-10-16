@@ -191,8 +191,10 @@ func NormalizeReviewPublication(raw string) (string, error) {
 		return DefaultReviewPublication, nil
 	case "review", "reviews", "formal":
 		return "review", nil
+	case "status", "none", "nenhuma":
+		return "status", nil
 	default:
-		return "", fmt.Errorf("unsupported review publication %q (use review or comments)", raw)
+		return "", fmt.Errorf("unsupported review publication %q (use comments, review or status)", raw)
 	}
 }
 
