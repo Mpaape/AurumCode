@@ -1,0 +1,20 @@
+$ plugin-exemplo/plugin.sh tres-achados <arvore>
+plugin terminou com exit 0 (saida guardada fora do log)
+$ aurumcode plugin ingest --name vvah --format vvah-findings --input /work/security-scan/findings.json --repo /work --plugin-exit 0 --sarif /work/.saida/plugin-vvah.sarif
+plugin vvah: 2 alertas enviados para a aba Security (visível só para quem tem escrita); fora do envio: falso positivo 1, outro canal 0, sem veredito 0; não verificados enviados como aviso: 0
+exit_code=0
+$ aurumcode plugin issues --name vvah --sarif /work/.saida/plugin-vvah.sarif --repo dono/publico
+aurumcode plugin issues: plugin vvah: repositório público ou visibilidade ilegível; achado nunca vira issue ali, nada foi publicado
+exit_code=1
+RESULTADO: repositorio publico: recusa antes de qualquer escrita
+escritas no GitHub falso: 0
+$ plugin-exemplo/plugin.sh degradado <arvore>
+plugin terminou com exit 0 (saida guardada fora do log)
+$ aurumcode plugin ingest --name vvah --format vvah-findings --input /work/security-scan/findings.json --repo /work --plugin-exit 0 --sarif /work/.saida/plugin-vvah.sarif
+aurumcode plugin ingest: plugin vvah inconclusivo [degraded]: nenhum SARIF gravado, os alertas abertos ficam como estão
+exit_code=1
+$ aurumcode plugin issues --name vvah --sarif /work/.saida/plugin-vvah.sarif --repo dono/privado
+aurumcode plugin issues: plugin vvah: varredura inconclusiva (sem SARIF conclusivo deste plugin); nenhuma issue foi tocada
+exit_code=1
+RESULTADO: varredura inconclusiva: nenhuma chamada ao GitHub
+requisicoes ao GitHub falso: 0

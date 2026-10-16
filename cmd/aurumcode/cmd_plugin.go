@@ -1,11 +1,13 @@
 // `aurumcode plugin`: the external plugins of the scheduled run.
 // list prints the trusted configuration's plugins; ingest turns a plugin's
 // output into a SARIF document for code scanning (internal/plugin), and
-// destino decides where findings may go from the repository's visibility.
+// destino decides where findings may go from the repository's visibility;
+// issues syncs a conclusive SARIF with the issues of a private repository.
 // The rules live in internal/plugin; this file only parses flags.
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -29,17 +31,17 @@ type pluginFlags struct {
 func newPluginFlagSet() (*flag.FlagSet, pluginFlags) {
 	fs := flag.NewFlagSet("plugin", flag.ContinueOnError)
 	return fs, pluginFlags{
-		repo:          fs.String("repo", ".", "list: checkout of the default branch; ingest: the scanned tree the findings' paths are relative to"),
+		repo:          fs.String("repo", ".", "list: checkout of the default branch; ingest: the scanned tree the findings' paths are relative to; issues: OWNER/REPO"),
 		politica:      fs.String("politica", "", "list: central policy directory (AURUMCODE_POLICY when empty)"),
 		asJSON:        fs.Bool("json", false, "list: print the plugins as JSON"),
 		name:          fs.String("name", "", "ingest: the plugin's name (scheduled.plugins[].name)"),
 		format:        fs.String("format", "", "ingest: sarif or vvah-findings"),
 		input:         fs.String("input", "", "ingest: the file the plugin wrote"),
-		sarif:         fs.String("sarif", "", "ingest: SARIF output path; not written when the run is inconclusive"),
+		sarif:         fs.String("sarif", "", "ingest: SARIF output path, not written when the run is inconclusive; issues: the SARIF the ingest wrote"),
 		pluginExit:    fs.Int("plugin-exit", -1, "ingest: the plugin's exit code (required; != 0 is inconclusive)"),
 		harnessSARIF:  fs.String("harness-sarif", "", "ingest vvah-findings: the harness's own SARIF (default: newest *_report.sarif next to --input)"),
 		harnessErrors: fs.String("harness-errors", "", "ingest vvah-findings: the harness's errors.jsonl (default: newest *_errors.jsonl next to --input)"),
-		idioma:        fs.String("idioma", string(i18n.Portuguese), "ingest: language of the counts line (pt-BR or en)"),
+		idioma:        fs.String("idioma", string(i18n.Portuguese), "ingest, issues: language of the counts line (pt-BR or en)"),
 		visibilidade:  fs.String("visibilidade", "", "destino: the repository's visibility (public, private or internal)"),
 		codeScanning:  fs.Bool("code-scanning", false, "destino: code scanning is available in the repository"),
 		destino:       fs.String("destino", "", "destino: check a requested destination (security or issues) instead of choosing one"),
@@ -50,7 +52,7 @@ func pluginSubcommand() subcommand {
 	return subcommand{
 		name:       "plugin",
 		docSection: "Plugins externos da validação agendada (`aurumcode plugin`)",
-		summary:    "List the scheduled run's external plugins (list), ingest a plugin's output into SARIF (ingest) or choose where findings go (destino).",
+		summary:    "List the scheduled run's external plugins (list), ingest a plugin's output into SARIF (ingest), choose where findings go (destino) or sync them with a private repository's issues (issues).",
 		example:    "aurumcode plugin ingest --name vvah --format vvah-findings --input security-scan/findings.json --repo . --plugin-exit 0 --sarif plugin-vvah.sarif",
 		flags:      func() *flag.FlagSet { fs, _ := newPluginFlagSet(); return fs },
 		run:        runPlugin,
@@ -62,7 +64,7 @@ func runPlugin(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		if exit, ok := parseSubcommandFlags("plugin", flag.NewFlagSet("plugin", flag.ContinueOnError), args, stdout, stderr); !ok {
 			return exit
 		}
-		fmt.Fprintln(stderr, "aurumcode plugin: missing verb (list, ingest or destino)")
+		fmt.Fprintln(stderr, "aurumcode plugin: missing verb (list, ingest, destino or issues)")
 		return 2
 	}
 	verb := args[0]
@@ -81,8 +83,10 @@ func runPlugin(args []string, stdout, stderr io.Writer, filter *redaction.Filter
 		return runPluginIngest(fl, stdout, stderr, filter)
 	case "destino":
 		return runPluginDestination(fl, stdout, stderr)
+	case "issues":
+		return runPluginIssues(fl, stdout, stderr, filter)
 	default:
-		fmt.Fprintf(stderr, "aurumcode plugin: unknown verb %q (list, ingest or destino)\n", verb)
+		fmt.Fprintf(stderr, "aurumcode plugin: unknown verb %q (list, ingest, destino or issues)\n", verb)
 		return 2
 	}
 }
@@ -177,4 +181,15 @@ func runPluginDestination(fl pluginFlags, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintln(stdout, plugin.Destination(*fl.visibilidade, *fl.codeScanning))
 	return 0
+}
+
+func runPluginIssues(fl pluginFlags, stdout, stderr io.Writer, filter *redaction.Filter) int {
+	repo := strings.TrimSpace(*fl.repo)
+	api, err := plugin.NewGitHubIssuesFromEnv(os.Getenv, repo)
+	if err != nil {
+		fmt.Fprintf(stderr, "aurumcode plugin issues: %v\n", err)
+		return 2
+	}
+	o := plugin.IssuesOptions{Name: strings.TrimSpace(*fl.name), SARIF: strings.TrimSpace(*fl.sarif), Repo: repo, Filter: filter}
+	return plugin.RunIssues(context.Background(), api, o, *fl.idioma, stdout, stderr)
 }
