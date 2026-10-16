@@ -205,10 +205,10 @@ func (p *prReview) resolveCheckout() (int, bool) {
 	p.checkoutMismatch = mismatch
 	if mismatch == "" {
 		included := includedFiles(verifiedFiles, p.cfg)
-		p.codebaseText = resolveVerifiedCodebaseContext(p.deps.resolveFiles, p.diff, p.verifiedDir, included)
-		p.codebaseFor = func(files []types.DiffFile) string {
+		p.codebaseFor = cappedCodebaseFor(p.cfg, p.stderr, func(files []types.DiffFile) string {
 			return resolveVerifiedCodebaseContext(p.deps.resolveFiles, &types.Diff{Files: files}, p.verifiedDir, included)
-		}
+		})
+		p.codebaseText = p.codebaseFor(p.diff.Files)
 	} else {
 		p.codebaseLimitation = codebaseContextOmittedNotice(p.reviewLanguage, mismatch)
 	}

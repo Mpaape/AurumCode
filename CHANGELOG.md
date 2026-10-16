@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Novo: `review.model_window_tokens` (ou `AURUMCODE_MODEL_WINDOW_TOKENS`) dimensiona o prompt à janela do modelo desde o primeiro pedido, e `review.context.max_tokens` limita o contexto de código; o contexto de cada lote é calculado uma vez; a recusa do vLLM/LiteLLM dá a janela e o tamanho; o `--limite` avisa que o contexto não entra na estimativa (#198).
 - Novo: `publication: status` publica só o status do commit, nada na PR; o parecer vai ao resumo do job. Os exemplos usam `comments` e avisam que `review` aprova a PR limpa; o parecer limpo abre com "Gate passou" em vez de "Aprovado" (#201).
 - Corrigido: o status aurumcode/review conta problemas distintos e nunca diz "nenhum achado grave" enquanto falha (o mesmo achado de dois analistas é um problema); exemplo do plugin vvah com testes do gerador de perfil.
 - Novo: em repositório privado sem Code Security, achados do plugin agendado viram issues do próprio repositório (`plugin issues`, AUR-623): abre, mantém, fecha e reabre por fingerprint; fechada por pessoa fica fechada; público é recusado.

@@ -126,11 +126,13 @@ func (p *prReview) buildReviewer() (int, bool) {
 		p.provider = &fixedModelProvider{Provider: p.provider, model: modelKey}
 		p.tracker = buildCostTracker(p.limiteUSD, modelKey, price)
 		printCostEstimate(stderr, estimateCostUSD(p.diff, price), p.limiteUSD)
+		printContextNotCounted(stderr, p.codebaseText)
 	}
 	orchestrator := llm.NewOrchestrator(p.provider, nil, p.tracker)
 	p.verifyCaller = orchestrator
 	p.reviewer = review.NewReviewer(orchestrator, review.DefaultConfig())
 	p.reviewer.SetBatchLimits(configuredBatchLimits(p.cfg))
+	p.reviewer.SetModelWindow(modelWindowTokens(p.cfg, p.env()))
 	p.reviewer.SetDynamicRules(p.dynamicRules)
 	if err := p.reviewer.SetRuleCatalog(p.ruleCatalogIDs); err != nil {
 		fmt.Fprintf(stderr, "aurumcode review: %v\n", err)

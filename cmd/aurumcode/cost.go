@@ -220,6 +220,16 @@ func printCostEstimate(stderr io.Writer, estimatedUSD, limiteUSD float64) {
 	fmt.Fprintf(stderr, "aurumcode review: estimated cost $%.4f, diff-only pre-flight (--limite $%.4f)\n", estimatedUSD, limiteUSD)
 }
 
+// printContextNotCounted follows the pre-flight line when the codebase
+// context goes with the diff (#198): the estimate above prices the diff
+// alone, and the context can be many times its size.
+func printContextNotCounted(stderr io.Writer, codebaseText string) {
+	if codebaseText == "" {
+		return
+	}
+	fmt.Fprintf(stderr, "aurumcode review: the estimate does not count the codebase context sent with the diff (about %d tokens more), nor the instructions, policy and evidence; review.context.max_tokens caps the context\n", llm.NewEstimator().EstimateTokens(codebaseText))
+}
+
 // printRealCost reports the AUR-433 actual cost after a successful review,
 // derived from the tracker's own ledger, so no unexported package
 // internals are needed to know it.

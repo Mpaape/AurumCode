@@ -71,6 +71,11 @@ type ReviewContextConfig struct {
 	Docs   []string `yaml:"docs"`
 	// MCP are the configured MCP context sources (AUR-469, mcpcontext.go).
 	MCP []MCPContextSource `yaml:"mcp"`
+	// MaxTokens, when positive, caps the codebase context (the dependency
+	// pack sent beside the diff), in the product's estimated tokens: a larger
+	// pack is reduced to fit and the reduction is declared (#198). Zero is
+	// no cap.
+	MaxTokens int `yaml:"max_tokens"`
 }
 
 // ContextFile describes one configured context contribution in deterministic
@@ -119,6 +124,11 @@ type ReviewConfig struct {
 	// findings (verification.go). Absent keeps it on with the default
 	// ceiling.
 	Verification ReviewVerificationConfig `yaml:"verification"`
+	// ModelWindowTokens, when positive, is the model's context window in
+	// tokens: the prompt is sized to it from the first request, instead of
+	// learning the window from a refusal (#198). AURUMCODE_MODEL_WINDOW_TOKENS
+	// overrides it. Zero keeps the window unknown.
+	ModelWindowTokens int `yaml:"model_window_tokens"`
 }
 
 // ReviewProfiles returns the configured multi-agent profile selection,
@@ -222,6 +232,12 @@ func (c ReviewConfig) ContextFiles() []ContextFile {
 // mode. Context files are advisory model input, but local execution must not
 // turn a repository-authored YAML value into an arbitrary filesystem read.
 func (c ReviewConfig) ValidateContext() error {
+	if c.Context.MaxTokens < 0 {
+		return fmt.Errorf("review.context.max_tokens: must not be negative (got %d)", c.Context.MaxTokens)
+	}
+	if c.ModelWindowTokens < 0 {
+		return fmt.Errorf("review.model_window_tokens: must not be negative (got %d)", c.ModelWindowTokens)
+	}
 	for _, file := range c.ContextFiles() {
 		if err := validateContextPath(file.Path); err != nil {
 			return fmt.Errorf("review.context.%s path %q: %w", file.Kind, file.Path, err)
