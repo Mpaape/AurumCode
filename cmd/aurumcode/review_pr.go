@@ -60,6 +60,9 @@ type prReview struct {
 	historyEntries []githubclient.ReviewHistoryEntry
 	// round is what this round publishes given the earlier ones.
 	round roundPlan
+	// convergence is the earlier round this one converges on
+	// (pr_convergence.go).
+	convergence roundState
 	// shown is the published shape of the findings (pr_presentation.go).
 	shown presentation
 

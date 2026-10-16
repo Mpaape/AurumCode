@@ -52,11 +52,19 @@ type Run struct {
 	flushers []func()
 }
 
-// IssuesForGate is Review.Issues followed by Extra, as a fresh slice.
+// IssuesForGate is Review.Issues followed by Extra, as a fresh slice,
+// without the late findings round convergence published as observations
+// (types.ReviewIssue.Late): the parecer, the gate and the statuses agree.
 func (r *Run) IssuesForGate() []types.ReviewIssue {
 	out := make([]types.ReviewIssue, 0, len(r.Review.Issues)+len(r.Extra))
-	out = append(out, r.Review.Issues...)
-	return append(out, r.Extra...)
+	for _, list := range [][]types.ReviewIssue{r.Review.Issues, r.Extra} {
+		for _, issue := range list {
+			if !issue.Late {
+				out = append(out, issue)
+			}
+		}
+	}
+	return out
 }
 
 // Clock returns the run's current time.

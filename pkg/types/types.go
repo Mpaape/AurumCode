@@ -64,6 +64,10 @@ type ReviewIssue struct {
 	// from the reviewed tree. Only the engine writes it, and it is never
 	// serialized: a model reply cannot set it.
 	Commit string `json:"-" yaml:"-"`
+	// Late marks a finding new in a later round on code an earlier round
+	// already reviewed, unchanged since (round convergence): published as
+	// an observation, never counted by the gate. Only the engine writes it.
+	Late bool `json:"-" yaml:"-"`
 }
 
 // Assessment statuses the model may give a piece of evidence.
