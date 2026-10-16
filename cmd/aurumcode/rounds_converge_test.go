@@ -10,7 +10,9 @@ import (
 	"testing"
 
 	"github.com/Mpaape/AurumCode/internal/i18n"
+	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 const (
@@ -22,8 +24,10 @@ const (
 // the comparison between the rounds' heads.
 type convergeGitHub struct {
 	*aur494GitHub
-	mu       sync.Mutex
-	head     string
+	mu   sync.Mutex
+	head string
+	// heads, when set, answers the next metadata reads in order.
+	heads    []string
 	status   int // HTTP status of the comparison; 0 is 200
 	compare  map[string]any
 	compared []string
@@ -36,6 +40,9 @@ func (g *convergeGitHub) handler(t *testing.T) http.Handler {
 		defer g.mu.Unlock()
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/repos/owner/repo/pulls/42" && strings.Contains(r.Header.Get("Accept"), "json"):
+			if len(g.heads) > 0 {
+				g.head, g.heads = g.heads[0], g.heads[1:]
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"head": map[string]string{"sha": g.head}, "base": map[string]string{"sha": "base"}})
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/repos/owner/repo/compare/"):
 			g.compared = append(g.compared, strings.TrimPrefix(r.URL.Path, "/repos/owner/repo/compare/"))
@@ -146,5 +153,61 @@ func TestRoundsConvergeMarkerSurvivesRedaction(t *testing.T) {
 	}
 	if !strings.Contains(i18n.Format("pt-BR", "review.late_finding", "1111111"), "código já revisado") {
 		t.Fatal("the late note does not say the code was already reviewed")
+	}
+}
+
+// TestRoundsConvergeHeadMovedDuringReview: a push while the round ran means
+// the recorded head was never reviewed: nothing is demoted, the moved head
+// is not recorded, and the earlier record is carried forward.
+func TestRoundsConvergeHeadMovedDuringReview(t *testing.T) {
+	g, server := convergeServer(t)
+	aur494Round(t, g.aur494GitHub, server, aur494DiffA, aur494Response())
+	const head3 = "3333333333333333333333333333333333333333"
+	g.convergeSecondRound(0, map[string]any{"status": "identical", "files": []any{}})
+	g.mu.Lock()
+	g.heads = []string{convergeHead2, head3}
+	g.mu.Unlock()
+	round2, _ := aur494Round(t, g.aur494GitHub, server, aur494DiffA, aur494Response(convergeIssue(3, convergeLateRule, "warning")))
+	if round2.Event != "REQUEST_CHANGES" || len(g.compared) != 0 {
+		t.Fatalf("event = %s, comparisons = %v: a moved head must not converge", round2.Event, g.compared)
+	}
+	if strings.Contains(round2.Body, head3) || !strings.Contains(round2.Body, "<!-- aurumcode:round "+convergeHead1+" ") {
+		t.Fatalf("the moved head was recorded, or the earlier record was lost:\n%s", round2.Body)
+	}
+}
+
+// TestRoundsConvergeExemptions: what convergence never turns into an
+// observation.
+func TestRoundsConvergeExemptions(t *testing.T) {
+	p := &prReview{}
+	p.dynamicRules = map[string]review.Rule{
+		"policy/erro":    {ID: "policy/erro", Origin: gateOriginPolicy, Severity: "error"},
+		"policy/aviso":   {ID: "policy/aviso", Origin: gateOriginPolicy, Severity: "warning"},
+		"repo/erro":      {ID: "repo/erro", Origin: gateOriginRepo, Severity: "error"},
+		"repo/seguranca": {ID: "repo/seguranca", Origin: gateOriginRepo, Severity: "warning", Category: "security"},
+	}
+	catalog := review.NewRulesLoader()
+	if err := catalog.Load(); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		rule, severity string
+		want           bool
+	}{
+		{"security/xss", "warning", true},
+		{"quality/hardcoded-secret", "warning", true},
+		{"quality/sql-injection-risk", "warning", true},
+		{"quality/poor-naming", "critical", true},
+		{"policy/erro", "warning", true},
+		{"policy/aviso", "error", true},
+		{"policy/aviso", "warning", false},
+		{"repo/erro", "error", false},
+		{"repo/seguranca", "warning", true},
+		{"quality/missing-error-handling", "error", false},
+	}
+	for _, c := range cases {
+		if got := p.alwaysBlocks(types.ReviewIssue{RuleID: c.rule, Severity: c.severity}, catalog); got != c.want {
+			t.Errorf("alwaysBlocks(%s, %s) = %v, want %v", c.rule, c.severity, got, c.want)
+		}
 	}
 }

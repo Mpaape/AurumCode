@@ -20,8 +20,10 @@ type roundState struct {
 	// earlier is the round recorded by this product's latest parecer.
 	earlier    rounds.Round
 	hasEarlier bool
-	// head is the pull request head this round reviewed ("" when unknown).
-	head string
+	// head is the pull request head this round reviewed: diffHead, the
+	// head read before the diff, when it is still the head after the
+	// review; "" otherwise.
+	head, diffHead string
 	// late counts the findings published as observations by convergence.
 	late int
 }
@@ -55,16 +57,17 @@ func (p *prReview) readEarlierRound() (rounds.Round, bool) {
 // (no earlier round, unreadable head, comparison refused or not a fast
 // forward) leaves every finding as it is.
 func (p *prReview) convergeRounds() {
-	head, err := resolvePullRequestHeadSHA(p.ctx, p.client, p.owner, p.repoName, p.prNumber)
 	p.convergence.earlier, p.convergence.hasEarlier = p.readEarlierRound()
-	if err == nil {
-		p.convergence.head = strings.ToLower(strings.TrimSpace(head))
+	// A head that moved while this round ran was not the one reviewed: it is
+	// never recorded, and nothing is demoted against it.
+	if head := p.currentHead(); head != "" && head == p.convergence.diffHead {
+		p.convergence.head = head
 	}
 	if !p.convergence.hasEarlier {
 		return
 	}
-	if err != nil {
-		fmt.Fprintf(p.stderr, "aurumcode review: round convergence off: %s\n", p.filter.Redact(err.Error()))
+	if p.convergence.head == "" {
+		fmt.Fprintln(p.stderr, "aurumcode review: round convergence off: the pull request head is unknown or moved during the review")
 		return
 	}
 	changes, err := p.changesSinceEarlierRound()
@@ -73,6 +76,16 @@ func (p *prReview) convergeRounds() {
 		return
 	}
 	p.demoteLateFindings(changes)
+}
+
+// currentHead is the pull request head read from the API, lower case; ""
+// when it cannot be read.
+func (p *prReview) currentHead() string {
+	head, err := resolvePullRequestHeadSHA(p.ctx, p.client, p.owner, p.repoName, p.prNumber)
+	if err != nil {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(head))
 }
 
 // changesSinceEarlierRound is what changed between the earlier round's head
