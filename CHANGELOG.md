@@ -2,10 +2,27 @@
 
 ## Unreleased
 
-- Corrigido: rodadas convergem; o modelo lista todos os bloqueios de uma vez, e achado novo em código já revisado e inalterado desde a rodada anterior vira observação (segurança e pendência antiga seguem bloqueando).
-- Corrigido: o status aurumcode/review conta problemas distintos e nunca diz "nenhum achado grave" enquanto falha (o mesmo achado de dois analistas é um problema); exemplo do plugin vvah com testes do gerador de perfil.
-- Novo: em repositório privado sem Code Security, achados do plugin agendado viram issues do próprio repositório (`plugin issues`, AUR-623): abre, mantém, fecha e reabre por fingerprint; fechada por pessoa fica fechada; público é recusado.
-- Corrigido: a triagem mostra o trecho do commit em que o Gitleaks achou o segredo (nunca a linha atual sem relação); needs_context volta uma vez com o arquivo inteiro e, indeciso, aguarda o modelo; alarme contestado sai do parecer.
+## 2.2.0 - 2026-10-16
+
+O plugin agendado de vulnerabilidade passa a funcionar também em repositório privado sem GitHub Code Security, e a revisão converge: todos os bloqueios na primeira rodada, sem bloqueio novo em código já revisado.
+
+### Entregue
+
+- Plugin agendado em repositório privado sem Code Security: achados viram issues do próprio repositório (só colaboradores veem), abertas, mantidas, fechadas e reabertas por fingerprint; repositório público é recusado (AUR-623).
+- Rodadas convergem: o modelo lista todos os bloqueios de uma vez; achado novo em código já revisado e inalterado vira observação. Segurança, regra de política e pendência antiga seguem bloqueando.
+- Status aurumcode/review coerente com o gate: conta problemas distintos e nunca diz "nenhum achado grave" enquanto falha.
+- Triagem com o contexto certo: alarme do histórico mostra o trecho daquele commit; "preciso de contexto" ganha o arquivo inteiro e, indeciso, aguarda o modelo; alarme contestado sai do parecer.
+- Exemplo do plugin vvah com testes do gerador de perfil e do ponto de entrada.
+
+### Limites
+
+- Issue fechada por pessoa depois de um marcador forjado é reaberta (ruído, nunca esconde achado).
+- O gate da PR ainda não avisa sobre alerta sigiloso aberto num arquivo mexido.
+- Convergência desligada quando a PR altera `.github/workflows` ou `.aurumcode`, onde o registro da rodada poderia ser forjado.
+
+### Migração do v1
+
+- Da 2.1.0 para a 2.2.0, troque `@v2.1.0` por `@v2.2.0`. Para o destino issues, o job chamador concede `issues: write`.
 
 ## 2.1.0 - 2026-10-14
 
