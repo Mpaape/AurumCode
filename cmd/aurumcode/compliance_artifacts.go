@@ -235,6 +235,7 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 			findings[i].Origin = issues[i].Origin
 		}
 	}
+	findings = render.MergeSameFindings(findings)
 	if in.sarifCategory != "" {
 		return render.WriteCategorizedSARIFWithReason(in.sarifPath, toolVersion().Label(), in.sarifCategory, findings, in.gateInconclusiveReason, filter)
 	}

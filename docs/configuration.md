@@ -2564,6 +2564,67 @@ jobs:
   upload. A action standalone (`action.yml`) é só de PR e não roda a
   varredura agendada.
 
+<a id="varredura-agendada-da-branch-padrao"></a>
+
+## Varredura agendada da branch padrão, todos os tipos (#177)
+
+O que entra por PR é revisado na hora; o código que já existia antes da
+adoção, a regra nova da política e a CVE publicada depois do merge não passam
+por PR nenhuma. O workflow reutilizável cobre a branch padrão em três jobs,
+todos em `schedule` e em `workflow_dispatch` da branch padrão (o job `review`
+roda só em PR):
+
+| Job | O que faz | Onde aparece |
+|---|---|---|
+| `dependencies` | `aurumcode dependencies` contra a base OSV | aba Security, categoria `aurumcode/dependencies-scheduled/` (artefato que o caller sobe, acima) |
+| `scan` (opt-in, `scan: true`) | `aurumcode review --completo`: modelo, camadas, analistas, passe de segurança, `gitleaks` no histórico inteiro, `sast`, `govet` | aba Security, categoria `aurumcode/initial-scan/`, enviado pelo próprio job |
+| `plugins` | plugins de `scheduled.plugins` | aba Security, categoria `aurumcode/plugin/<nome>/` |
+
+```yaml
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  review:
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@<sha>
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      statuses: write
+      checks: read
+      security-events: write   # o job scan envia o SARIF
+    with:
+      scan: true
+    secrets: inherit
+```
+
+- **Custo.** `scan` revisa todo arquivo da branch com o modelo, por isso é
+  opt-in. Declare `review.model_window_tokens` para dividir em lotes desde o
+  primeiro pedido e limite com `batches.max_batches`/`max_prompt_tokens`; o
+  que não coube aparece na cobertura da auditoria.
+- **Nada no log.** Como nos plugins, a saída da revisão vai para um arquivo do
+  runner que nunca é impresso nem enviado (em repositório público o log é
+  público); o log diz só quantos resultados foram enviados.
+- **Inconclusivo não fecha alerta.** Saída 0 ou 3 é varredura concluída e o
+  SARIF sobe; qualquer outro código falha o job sem enviar nada. Repositório
+  privado sem GitHub Code Security: o envio falha e nada vai a outro canal.
+- **Um achado, um alerta.** O mesmo achado (regra, arquivo, linha) de vários
+  analistas é um resultado só no SARIF, com a maior severidade.
+- **Onde olhar.** A aba Security abre filtrada por `is:open branch:<padrão>`:
+  antes da primeira varredura ela parece vazia, porque o alerta de PR vive na
+  ref da PR (filtre por `pr:<N>`). O `schedule` só vale depois que o arquivo
+  está na branch padrão, o GitHub pode atrasá-lo em horário de pico e, em
+  repositório público, 60 dias sem atividade o desligam.
+- **Primeira varredura agora**, sem esperar o cron:
+  `gh workflow run code-review.yml --ref <branch padrão>`. Localmente:
+  `aurumcode review --completo --seguranca --sarif inicial.sarif` (veja
+  [`review --completo`](#varredura-completa)).
+
 ## Quais arquivos saem da revisão como documentação
 
 O `review` agrupa cada arquivo pela gramática que o runtime tree-sitter detecta
