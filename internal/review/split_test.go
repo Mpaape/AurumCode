@@ -277,3 +277,44 @@ func TestPlanBatchesTreatsEvidenceThatFillsTheCeilingAsNotFitting(t *testing.T) 
 		t.Fatalf("%d batches, %d files outside: want one batch per file", len(plan.batches), len(plan.outside))
 	}
 }
+
+// #198: a declared window sizes the prompt from the first request. The model
+// refuses nothing, every file is reviewed, and no request is longer than the
+// window.
+func TestDeclaredWindowSplitsWithoutARefusal(t *testing.T) {
+	model := &windowCompleter{limit: 20000}
+	reviewer := NewReviewer(model, DefaultConfig())
+	// The provider counts one token per three bytes, the product one per
+	// four: the declared window is the provider's, with room to spare.
+	reviewer.SetModelWindow(14000)
+	diff := manyFilesDiff(3, 2, 400)
+
+	result, err := reviewer.GenerateReviewWithContext(context.Background(), diff, ReviewContext{})
+	if err != nil {
+		t.Fatalf("review under a declared window failed: %v", err)
+	}
+	if len(model.refused) != 0 || len(reviewer.PromptRefusals()) != 0 {
+		t.Fatalf("a declared window must spare the refusals: refused %v", model.refused)
+	}
+	if len(model.accepted) < 2 {
+		t.Fatalf("the diff should have gone in batches, got %d request(s)", len(model.accepted))
+	}
+	for _, tokens := range model.accepted {
+		if tokens > 20000 {
+			t.Fatalf("a request of %d tokens crossed the window", tokens)
+		}
+	}
+	if result == nil {
+		t.Fatal("no result")
+	}
+}
+
+func TestDeclaredCeilingKeepsTheReplyRoom(t *testing.T) {
+	if got := declaredCeiling(0); got != 0 {
+		t.Fatalf("no window: %d", got)
+	}
+	if window := 262144; declaredCeiling(window) != int(float64(window)*promptMargin) {
+		got := declaredCeiling(window)
+		t.Fatalf("declaredCeiling(262144) = %d", got)
+	}
+}

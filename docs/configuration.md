@@ -1476,6 +1476,8 @@ consumidor.
 | `review.context.prompt` | Caminho do prompt adicional | `.aurumcode/prompt.md` |
 | `review.context.skills` | Lista de Markdown de orientação | vazio |
 | `review.context.docs` | Lista de documentos de contexto | vazio |
+| `review.context.max_tokens` | Teto do contexto de código (o pacote de dependências enviado com o diff), em tokens estimados; maior que isso, ele é reduzido e a redução é declarada | sem teto |
+| `review.model_window_tokens` | Janela de contexto do modelo, em tokens: o prompt é dimensionado a ela desde o primeiro pedido, sem aprender a janela por recusa; `AURUMCODE_MODEL_WINDOW_TOKENS` sobrepõe | desconhecida |
 | `review.memory` | `off`, `ephemeral` ou `local` | `off` |
 | `review.changelog` | Publica versão sugerida e entrada de changelog (só sugestão; o check obrigatório é `changelog_check`) | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
@@ -2032,6 +2034,29 @@ quando declarado, vale por lote. Um teto que não admite nenhum lote (um
 `max_prompt_tokens` menor que um prompt) é uma revisão de modelo que não
 rodou: não revisada (saída 1) sem gate e inconclusiva com gate, nunca
 aprovada. Tutorial: [Revisão, caso 5](tutorials/revisao.md).
+
+**Janela conhecida e contexto grande (#198).** Num monorepo o contexto de
+código (o pacote de dependências dos arquivos alterados) pode ser muitas vezes
+o diff. Duas chaves evitam aprender a janela por recusa:
+
+```yaml
+review:
+  model_window_tokens: 262144   # janela do modelo; ou AURUMCODE_MODEL_WINDOW_TOKENS
+  context:
+    max_tokens: 40000           # teto do contexto de código, em tokens estimados
+```
+
+Com a janela declarada, a primeira tentativa já usa o teto que uma recusa
+ensinaria (90% da janela, o resto fica para a resposta): lotes e redução do
+contexto saem sem nenhuma recusa. O teto do contexto reduz o pacote (trechos,
+depois referências, dependentes e símbolos) e o stderr diz quanto ficou. Cada
+conjunto de arquivos tem o contexto calculado uma vez por revisão, também
+quando a revisão se divide. O `--limite` continua estimando só o diff e diz,
+numa linha a mais, quantos tokens de contexto não entraram na estimativa. O
+`ignore` tira caminhos do contexto; sob política central, só o `ignore` da
+política vale. A recusa do vLLM (direta ou pelo LiteLLM: `maximum context
+length is N tokens ... prompt contains at least M input tokens`) dá a janela
+e o tamanho, e o teto vai direto a ela.
 
 ## xBOM além do SBOM: Build BOM e CBOM (AUR-552)
 

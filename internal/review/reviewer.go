@@ -87,6 +87,10 @@ type Config struct {
 	PromptTokenBudget int
 	// Batches optionally bounds a review split in batches (batches.go).
 	Batches BatchLimits
+	// ModelWindowTokens, when positive, is the model's declared context
+	// window: the review starts under its ceiling (split.go) instead of
+	// learning it from a refusal.
+	ModelWindowTokens int
 }
 
 // ReviewContext contains optional evidence available beside the diff. It is

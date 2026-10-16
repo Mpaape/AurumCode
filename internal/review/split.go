@@ -63,7 +63,7 @@ func (e *promptRefused) Unwrap() error { return e.err }
 // reviewed in batches (batches.go): the same four stages per batch, one
 // consolidated result.
 func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Diff, reviewContext ReviewContext) (*types.ReviewResult, error) {
-	r.learnedBudget, r.refusals = 0, nil
+	r.learnedBudget, r.refusals = declaredCeiling(r.cfg.ModelWindowTokens), nil
 	r.contextFits, r.contextReduction = nil, nil
 	for {
 		result, err := r.reviewOnce(ctx, diff, reviewContext)
@@ -137,6 +137,16 @@ func refuse(err error, prepared preparedPrompt) error {
 		refusal: PromptRefusal{EstimatedTokens: metaCount(prepared.parts.Meta, "estimated_tokens"), Limit: tooLong.Limit, Requested: tooLong.Requested},
 		err:     err,
 	}
+}
+
+// declaredCeiling is the prompt ceiling a declared window gives before any
+// refusal: the window's share left after the reply's room. Zero when no
+// window was declared.
+func declaredCeiling(window int) int {
+	if window <= 0 {
+		return 0
+	}
+	return int(float64(window) * promptMargin)
 }
 
 // promptMargin is the share of the model's window a split prompt may take:

@@ -37,6 +37,15 @@ func (r *Reviewer) SetBatchLimits(limits BatchLimits) {
 	r.cfg.Batches = limits
 }
 
+// SetModelWindow declares the model's context window in tokens; zero or
+// less keeps it unknown.
+func (r *Reviewer) SetModelWindow(tokens int) {
+	if tokens < 0 {
+		tokens = 0
+	}
+	r.cfg.ModelWindowTokens = tokens
+}
+
 // Batch records one batch of a review: its files and its prompt's estimated
 // size.
 type Batch struct {
