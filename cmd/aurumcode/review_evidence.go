@@ -117,6 +117,7 @@ func (s *reviewState) writeArtifacts() []artifactFailure {
 	return writeComplianceArtifacts(complianceArtifactInputs{
 		auditoriaPath:          s.auditoriaPath,
 		sarifPath:              s.sarifPath,
+		sarifCategory:          s.sarifCategory,
 		policyDir:              s.policyDir,
 		centralCfg:             s.centralCfg,
 		standards:              s.standards.audit(),

@@ -36,10 +36,17 @@ type sarifAutomationDetails struct {
 // rule, path, line and Context only, so a caller that wants an identity
 // stable across runs keeps those stable.
 func BuildCategorizedSARIF(toolVersion, category string, findings []SARIFFinding, filter *redaction.Filter) ([]byte, error) {
+	return BuildCategorizedSARIFWithReason(toolVersion, category, findings, "", filter)
+}
+
+// BuildCategorizedSARIFWithReason is BuildCategorizedSARIF for a run that
+// may be inconclusive: a non-empty reason marks the invocation as not
+// successful, as BuildSARIFLog does.
+func BuildCategorizedSARIFWithReason(toolVersion, category string, findings []SARIFFinding, reason string, filter *redaction.Filter) ([]byte, error) {
 	if filter == nil {
 		filter = redaction.NewFilter()
 	}
-	log := redactSARIFLog(filter, BuildSARIFLog(toolVersion, redactSARIFFindings(filter, findings), ""))
+	log := redactSARIFLog(filter, BuildSARIFLog(toolVersion, redactSARIFFindings(filter, findings), reason))
 	out := sarifCategorizedLog{Schema: log.Schema, Version: log.Version}
 	for _, run := range log.Runs {
 		results := run.Results
@@ -58,6 +65,16 @@ func BuildCategorizedSARIF(toolVersion, category string, findings []SARIFFinding
 		return nil, err
 	}
 	return append(filter.RedactJSON(data), '\n'), nil
+}
+
+// WriteCategorizedSARIFWithReason writes BuildCategorizedSARIFWithReason's
+// document to path.
+func WriteCategorizedSARIFWithReason(path, toolVersion, category string, findings []SARIFFinding, reason string, filter *redaction.Filter) error {
+	data, err := BuildCategorizedSARIFWithReason(toolVersion, category, findings, reason, filter)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o600)
 }
 
 // WriteCategorizedSARIF writes BuildCategorizedSARIF's document to path.

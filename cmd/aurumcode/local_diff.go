@@ -56,6 +56,23 @@ func computeDiff(repoRoot, base string) (*types.Diff, []analyzer.DiffNotice, err
 	return diff, notices, nil
 }
 
+// initialScanCategory is the SARIF category of review --completo: its alerts
+// stay apart from the pull requests' and the scheduled dependency scan's.
+const initialScanCategory = "aurumcode/initial-scan"
+
+// computeFullDiff is review --completo's diff: HEAD's whole tree as added.
+func computeFullDiff(repoRoot string) (*types.Diff, []analyzer.DiffNotice, error) {
+	repo, err := analyzer.OpenRepo(repoRoot)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s is not a git repository (no .git directory here, and this path is not itself a bare repository)", repoRoot)
+	}
+	diff, notices, err := repo.DiffFromEmpty("HEAD")
+	if err != nil {
+		return nil, nil, cleanRefError(repoRoot, "HEAD", err)
+	}
+	return diff, notices, nil
+}
+
 // localRangeCommits reads the commit messages of base..HEAD from the local
 // repository through the read-only analyzer (gitrepo.go's Commits). The
 // returned text is raw untrusted repository content; buildChangelogSection
