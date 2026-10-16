@@ -1,0 +1,52 @@
+name: Regravar (temporário)
+
+# Throwaway: lives only on regen/* branches. Re-records the tutorials named in
+# regen.txt and the documentation captures, then hands the changed files back
+# as an asset of a draft release (the session cannot download artifacts).
+on:
+  push:
+    branches: ['regen/**']
+
+permissions:
+  contents: write
+
+jobs:
+  regravar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Tutorials
+        run: |
+          set -uo pipefail
+          status=0
+          while read -r t; do
+            t="${t%%#*}"; t="$(echo "$t" | xargs)"; [ -n "$t" ] || continue
+            [ "$t" = capturas ] && continue
+            if [ "$t" = gate-corporativo ]; then dir=demo/gate-corporativo; else dir="demo/tutoriais/$t"; fi
+            echo "::group::$t"
+            if ! bash "$dir/run.sh" all > "/tmp/regen-$t.log" 2>&1; then echo "::error::$t all failed"; tail -60 "/tmp/regen-$t.log"; status=1; fi
+            if ! bash "$dir/run.sh" --check >> "/tmp/regen-$t.log" 2>&1; then echo "::error::$t --check failed"; tail -60 "/tmp/regen-$t.log"; status=1; fi
+            echo "::endgroup::"
+          done < regen.txt
+          echo "TUT_STATUS=$status" >> "$GITHUB_ENV"
+      - name: Captures
+        if: hashFiles('regen.txt') != ''
+        run: |
+          if grep -qx capturas regen.txt; then bash scripts/docs/capturas.sh > /tmp/regen-capturas.log 2>&1 || { echo "::error::capturas failed"; tail -80 /tmp/regen-capturas.log; echo "TUT_STATUS=1" >> "$GITHUB_ENV"; }; bash scripts/docs/capturas-check.sh || echo "TUT_STATUS=1" >> "$GITHUB_ENV"; fi
+      - name: Hand back
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git add -A -- . ':!regen.txt' ':!.github/workflows/regravar.yml' ':!site'
+          git diff --cached --name-only > /tmp/changed.txt
+          git diff --cached --binary > /tmp/regen.patch || true
+          tar czf /tmp/regen.tgz -C /tmp regen.patch changed.txt $(cd /tmp && ls regen-*.log 2>/dev/null)
+          tag="regen-${GITHUB_RUN_ID}"
+          gh release create "$tag" --draft --target "$GITHUB_SHA" --title "$tag" --notes "${TUT_STATUS:-1}" /tmp/regen.tgz
+          wc -l /tmp/changed.txt
+          exit "${TUT_STATUS:-1}"
