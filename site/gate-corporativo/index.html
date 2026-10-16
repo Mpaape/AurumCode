@@ -1,0 +1,9322 @@
+
+<!doctype html>
+<html lang="pt" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Gate de compliance para a organização - review, skills, política central, gate e cadeia de suprimentos">
+      
+      
+      
+        <link rel="canonical" href="https://mpaape.github.io/AurumCode/gate-corporativo/">
+      
+      
+        <link rel="prev" href="../configuration/">
+      
+      
+        <link rel="next" href="../provedores/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Guia corporativo - AurumCode</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#gate-corporativo-sast-sbom-inventario-e-assinatura" class="md-skip">
+          Pular para conteúdo
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabeçalho">
+    <a href=".." title="AurumCode" class="md-header__button md-logo" aria-label="AurumCode" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AurumCode
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Guia corporativo
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Buscar" placeholder="Buscar" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Pesquisar">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Limpar" aria-label="Limpar" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Inicializando busca
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Abas" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href=".." class="md-tabs__link">
+          
+  
+  
+    
+  
+  Início
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorials/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Tutoriais
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../configuration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Configurar
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Como funciona
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../specs/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Specs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/Mpaape/AurumCode" class="md-tabs__link">
+        
+  
+  
+    
+  
+  GitHub
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navegação" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="AurumCode" class="md-nav__button md-logo" aria-label="AurumCode" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AurumCode
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href=".." class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Início
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_1" id="__nav_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Início
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Começando
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../README/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entrada do repositório
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../tutorials/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutoriais
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutoriais
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/agente/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: Aurum no seu agente de código
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/assinatura/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: assinatura do SBOM com aurumcode sign (Cosign)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/auditoria-sarif/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: auditoria e SARIF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: o benchmark de recall do AurumCode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/camadas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: camadas (política, padrões e serviço)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/dados-de-analise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: dados de análise (analysis_data)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/deliberacao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: deliberação com ferramentas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/excecoes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: exceções aprovadas, com dono e validade
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/extensao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: estendendo o Aurum na prática
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: o gate de política
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/instalacao-ia/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instalar com ajuda da IA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/memoria/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: memória de revisão
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/operacao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: operar o AurumCode, o ambiente de desenvolvimento e o aceite selado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/plugin-agendado/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: plugin externo na validação agendada (scheduled.plugins)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/politica-central/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: política central
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/provedores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: provedores de LLM por configuração
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/qualquer-linguagem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: o AurumCode em um repositório de qualquer linguagem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/realimentacao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: realimentação da política
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/reaproveitamento/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: reaproveitamento de revisão e cache
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/revisao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: revisão de código com o AurumCode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/sast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: SAST com Semgrep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/sbom-dependency-track/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: SBOM e Dependency-Track
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/segredos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: segredos com gitleaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: skills de convenção
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/xbom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: xBOM (Build BOM e CBOM)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configurar
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Configurar
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Referência
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guia corporativo
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guia corporativo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-politica-central" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Política central
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Política central">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#regras-de-sast-locais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regras de SAST locais
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#padroes-de-engenharia-centrais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Padrões de engenharia centrais
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-configuracao-do-repositorio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Configuração do repositório
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-workflow-obrigatorio-da-organizacao" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Workflow obrigatório da organização
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Workflow obrigatório da organização">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#versoes-fixadas-das-ferramentas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Versões fixadas das ferramentas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Secrets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-o-que-reprova-e-o-que-e-inconclusivo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. O que reprova e o que é inconclusivo
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-onde-ver-auditoria-sarif-e-metricas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Onde ver auditoria, SARIF e métricas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-demonstracao-executavel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Demonstração executável
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-como-pedir-excecao" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Como pedir exceção
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../provedores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Provedores de LLM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agentes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aurum no seu agente
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plugins-agendados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins agendados
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Como funciona
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Como funciona
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arquitetura
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extensao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estendendo o Aurum
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../review-quality/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Qualidade do review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../qa/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA no consumidor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../review-cache/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cache de review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../specs/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-001/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-001: Inventariar capacidades reais do legado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-002/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-002: Fixar baseline de caracterizacao
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-003/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-003: Definir schema de card atômico
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-004/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-004: validar DAG e liberar dependências
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-005/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-005: Content-addressed evidence manifest
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-006/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-006 - OCI bootstrap profile contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-009/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-009 — redigir segredos em todos os sinks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-011/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-011 - deterministic demo Git fixture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-012/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-012 - bootstrapping the consumer demo repository
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-014/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-014: Versionar standard de code review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-015/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-015: Versionar standard de secure code review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-016/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-016: Definir uso evidencial de ISO 25010
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-017/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-017: Fixar standards de artefatos interoperáveis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-018/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-018 — Fixar contratos SCM e CI seguros
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-019: Fixar contratos oficiais de providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-020/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-020: Escolher memória e mapa incremental mínimos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-021/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-021: Fixar MCP conformance e segurança
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-233/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-233 - Verify the bootstrap lockset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-308/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-308: legacy documentation characterization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-309/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-309 — caracterização do pipeline legado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-318/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-318 — congelar taskmaster como histórico
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-359/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-359 — Fixar trust root do runner OCI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-360 — Fixar Go toolchain e módulos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-361/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-361 — bootstrap action lock (.board/bootstrap/locks/actions.yml)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-362/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-362 — Fixar scanners de segurança
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-363/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-363 — Fixar parsers e grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-364/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-364 — Fixar ferramentas de documentação
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-402/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-402 — Registry canônico de profiles OCI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-403/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-403 — Perfil Go unit offline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-404/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-404 — Perfil Go Git offline (go-git-offline-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-405/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-405 — Perfil fake provider offline (fake-provider-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-406/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-406 — Perfil parser worker offline (parser-worker-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-407/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-407 — Perfil SQLite offline (sqlite-offline-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-408/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-408 — Perfil de ferramenta de documentação offline (docs-tool-offline-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-409/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-409 — Perfil de SCM falso offline (fake-scm-offline-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-410/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-410 — Perfil de conformance OCI (oci-conformance-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-411/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-411 — Perfil polyglot toolchain offline (polyglot-toolchain-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-422/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-422 — Perfil OCI bootstrap read-only (adoção formal)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-424/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-424 — Extrator de documentação Go sem dependência externa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-425/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-425 - Warn (and fail) when no documentation page was generated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-426/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-426 — aurumcode docs: run documentation generation from the command line
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-427/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-427 — Documentação nativa de Rust e C#, sem ferramenta externa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-428/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-428 — Publicar as páginas copiando um workflow que funciona
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-429/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-429 - Provar que a pagina publicada abre e navega
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-430/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-430: aurumcode review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-431/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-431 — aurumcode review --fail-on: break the build on a grave finding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-432/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-432 — Revisar código privado sem vazar segredo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-433/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-433 — aurumcode review --limite: know and cap what a review costs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-434/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-434 — Every finding cites the project review rule that sustains it
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-435/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-435 — aurumcode review --seguranca: find the vulnerability, not just the style
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-436/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-436 — aurumcode review --modelo: choose which AI reviews, including a local one
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-437/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-437 — Comentar o review no pull request (cliente GitHub restaurado)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-438/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-438 — Comentar no arquivo e na linha exata (fiacao no cmd)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-439/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-439 — Bloquear o merge quando o review reprova
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-440/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-440 — A Action revisa pull requests automaticamente
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-441/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-441 — aurumcode review --base &lt;ref&gt;: do not pay twice for the same file
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-442/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-442 — aurumcode review --seguranca: the passage finds what the catalog promises
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-443/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-443 — a first-time user discovers aurumcode without reading source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-444/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-444: the Action's entrypoint invokes flags that exist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-445/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-445 — A documentação de raiz diz a verdade sobre o que a ferramenta faz
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-446/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-446 — Os specs entregues descrevem o comportamento entregue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-447/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-447 — aurumcode docs documents Rust and C# like the pipeline already does
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-448/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-448 — no discard is silent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-449/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-449 — aurumcode review --seguranca: the deterministic pass runs without a provider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-450/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-450 — aurumcode review --seguranca: the pass names what it searched
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-451/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-451 — O review de pull request passa a usar o motor inteiro
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-452/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-452: repository context-provider configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-453/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-453 — Sugestões e resumo chegam completos ao terminal e ao PR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-454/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-454 — O review consolida ruído e respeita preferências explícitas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-455/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-455 — Um desenvolvedor novo roda as tres features em um minuto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-456/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-456 — O repositório não carrega cópia morta nem promessa falsa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-457/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-457 — Todo card done tem aceite que passa hoje
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-458/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-458 — exit 0 means reviewed and found nothing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-459/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-459 — O formato que o prompt pede e o que o parser le
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-460/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-460 — omit temperature always, let the gateway pick its own default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-461/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-461: the review prompt hands the model the rule catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-462/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-462 — the security passage sees Node's exec() and innerHTML shapes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-463/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-463: Documentacao de JavaScript sem ferramenta externa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-464/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-464 — Cabeçalho com nome do símbolo, não "## Documentation" repetido
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-465/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-465 — O site gerado nao anuncia branch mutavel nem promessa vencida
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-466/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-466 — the deterministic pass distinguishes secret from placeholder, fixture, and constant SQL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-467/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-467: the review looks at code as code and prose as prose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-468/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-468: versioned skills enter the review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-469/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-469: contexto MCP configurado chega ao review com origem e limites claros
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-470/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-470: contexto recuperado explica impacto da mudança em outros arquivos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-471/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-471 -- ISO/IEC 25010 weights and team convention are explicit configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-472/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-472 — Ref de action validada contra tags que existem, nao contra um formato
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-473/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-473: um --modelo inexistente e erro de USO, e falha antes de computar qualquer coisa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-474/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-474 — Funcao de uma linha e uma funcao
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-475/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-475: one oversized file does not discard the rest of the queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-476/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-476 — O usuário vê arquivos e contexto que a review não cobriu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-477/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-477 — Diff grande não vira review zero
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-479/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-479 -- Split secrets across context providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-480/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-480 - Fonte opcional de contexto falha com aviso sem apagar o review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-481/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-481: Rust idiomatic security coverage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-483/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-483: A documentacao gerada e do produto, nao dos testes dele
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-484/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-484: a página inicial ensina a usar, em vez de listar arquivos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-486/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-486 -- Go, C#, PowerShell and bash in their idiomatic spelling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-492/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-492: real linters complement the review with a verifiable origin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-494/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-494 — Novas rodadas preservam findings válidos sem repetir comentários
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-495/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-495 — Dependência alterada no PR checada contra o OSV em qualquer ecossistema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-498/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-498 - Deterministic changelog and semver engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-499/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-499 - Publishing the suggested version and changelog entry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-500/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-500: perfis de revisor prontos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-501/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-501 — Cada capacidade entregue tem tutorial e demonstração reproduzível
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-502/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-502: team-defined reviewer profiles and multi-agent review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-503/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-503 -- Command injection does not accuse a comment or prose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-504/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-504 — O --check publica o status no commit do PR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-505/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-505 — Invalid model output degrades the review instead of crashing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-509/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-509 — O merge exige uma entrada útil e concisa de changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-510/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-510 — Versão oficial com tag imutável e instalação demonstrada
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-512/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-512 — Repositório consumidor prova instalação, review e falhas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-514/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-514 — A evidência completa do achado sobrevive à combinação de perfis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-516/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-516 — O comentário distingue evidência de CI de inferência do modelo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-518/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-518 — Política central do workflow obrigatório prevalece sobre o repo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-519/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-519: skill vira gate, com bloqueio e inconclusivo configuráveis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-520/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-520: exceção aprovada pela segurança, com dono e validade
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-521/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-521: trilha de auditoria e SARIF para o code scanning da org
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-522/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-522: o review e o gate funcionam em repositorio de qualquer linguagem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-523/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-523: corpus multilinguagem mede o recall do gate real
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-524/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-524: o mesmo PR com a mesma politica tem o mesmo veredito
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-525/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-525 — Tool calling no provider OpenAI-compatível
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-526/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-526: review lê arquivos e busca no repo em qualquer linguagem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-527/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-527 — Gate de dependência e exceção por CVE no yml da política
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-528/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-528 — Pacote malicioso ou typosquat bloqueia o PR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-529/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-529 — Licença proibida pela política bloqueia dependência nova
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-530/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-530 — Varredura agendada acha CVE publicada depois do merge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-531/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-531: review explica se o código usa a parte vulnerável da dependência
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-532/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-532 — Ciclo de realimentação melhora a política a partir do uso real
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-533/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-533 — Artefatos de análise se atualizam sozinhos com idade máxima
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-534/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-534: Toolchain Go suportado e atualizado por automacao
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-535/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-535 — Política central na Action direta e prova completa da contenção
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-536/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-536 — Contexto local do PR só com árvore limpa e prova dos casos inverificáveis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-537/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-537 — Provider failure on --pr now reaches the policy gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-538/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-538: provas que faltaram no gate do AUR-519
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-539/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-539 — Os aceites do AUR-467 e AUR-477 voltam a passar com o prompt atual
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-540/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-540 — O seletor E2E do AUR-467 volta a passar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-541/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-541: fixtures de modelo dos testes e2e passam pelo gate de evidencia
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-542/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-542: scripts e2e de cards done que ainda falham voltam a provar o prometido
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-544/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-544: o aceite do AUR-439 volta a compilar no ambiente isolado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-545/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-545: achado com evidencia fora das linhas alteradas tem destino definido
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-546/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-546: line_comments sai do parser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-547/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-547: aceites de cards done nao copiam pacotes removidos do produto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-548/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-548 — Semgrep entra no gate como SAST multilinguagem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-549/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-549 — SBOM CycloneDX 1.6 gerado com Trivy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-550/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-550 — SBOM submitted to Dependency-Track, gated by project metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-551/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-551 — SBOM e imagem assinados com Sigstore/Cosign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-552/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-552: tipos de xBOM além do SBOM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-553/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-553: provas do reaproveitamento do veredito cobrem cada termo da chave
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-554/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-554 — Guia e demonstração do gate corporativo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-555/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-555 — Workflow liga o SBOM ao Dependency-Track com secrets opcionais
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-556/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-556: analysis findings count toward the policy gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-557/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-557 -- Gate as one pipeline of contributors shared by --base and --pr
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-558/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-558 -- cmd/aurumcode organised by responsibility, with a structural guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-559/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-559: prompt and skills without language names in Go
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-560/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-560: documentation site (MkDocs Material, container, GitHub Pages)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-561/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-561: tutoriais executáveis de revisão, skills de convenção e política central
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-562/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-562: tutoriais executáveis do gate, exceções, auditoria/SARIF e reaproveitamento
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-563/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-563: tutoriais executaveis da cadeia de suprimentos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-564/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-564: tutoriais executáveis de qualquer linguagem, benchmark de recall e operação
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-566/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-566: fix emite diff unificado padrão com contexto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-567/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-567: linha do gate mostra a origem tipada para toda fonte
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-568/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-568: falha ao gravar auditoria ou SARIF nunca termina como sucesso
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-569/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-569: achado determinístico acima de fail_on reprova em qualquer modo de inconclusivo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-570/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-570: o gate do Dependency-Track le as metricas so depois que assentaram
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-571/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-571: endereco da API do GitHub do analysis_data vem de configuracao
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-572/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-572: ajuda completa por subcomando e parecer sem "No issues found." com inconclusivo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-573/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-573: CI verde e aceites de cards done voltam a rodar no main
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-574/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-574: generic text files are reviewed, never dropped by a documentation grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-575/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-575: o gate falha fechado por construção
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-576/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-576: one review session serves --base and --pr
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-577/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-577: scanners are registered engines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-578/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-578: the review prompt is a template with budgeted slots, sent as messages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-579/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-579: the model weighs the deterministic evidence
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-580/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-580: deliberation with tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-581/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-581: gitleaks is a registered engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-582/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-582 — regra embutida de segredo lê a base pública do gitleaks como dado pinado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-583/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-583: architecture guards cover internal/
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-584/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-584: cmd/aurumcode por responsabilidade, textos em catálogo, perfis em YAML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-585/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-585 - Legado aposentado com evidência preservada
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-586/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-586: tutoriais e aceites sem valores volateis nem copias enumeradas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-587/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-587: guia de extensão no site e tutorial executável de exemplo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-588/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-588: documentação visual e reproduzível
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-589/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-589: evidencia historica sem podridao
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-590/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-590 — reparos medidos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-591/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-591: o Aurum revisa o Aurum por PR, com configuração mínima e skills de convenção
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-592/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-592: Aurum para quem programa com agente de IA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-593/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-593: ergonomia medida pelo Aurum no Aurum
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-594/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-594: PR grande revisada (diff local quando a API recusa, lotes quando passa do orçamento)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-595/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-595: a autorrevisão conclui em PR real
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-596/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-596: provedores de LLM conhecidos por configuração
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-597/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-597: autorrevisão do lote conclui (marcador de redação e shell dos workflows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-598/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-598 — Achado sobre o marcador de redação é descartado; helper parseável
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-599/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-599 — Status do CI no parecer só afirma o que esta execução observou
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-600/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-600 — Veredito e texto do parecer concordam com o gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-601/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-601 — Amostra noturna de aceites volta a verde em main
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-602/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-602 — Changelog ausente vem com a entrada sugerida
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-603/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-603: achado bloqueante do modelo passa por verificação adversarial
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-604/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-604 — Changelog em três modos e doc humana
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-605/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-605 — Provedor reserva (fallback)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-607/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-607 — Saída em pt-BR de ponta a ponta
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-608/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-608 — O modelo decide sobre a regex: gate.triage model por padrão, fail-closed e declarado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-609/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-609 — Evidência íntegra: a redação não mutila código e o catálogo não dispara em literal ou prosa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-610/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-610 — Changelog obrigatório não reprova PR de bot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-611/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-611 — Versão da ferramenta no parecer, na auditoria e no SARIF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-612/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-612 — Documentação de integração e arquitetura sem promessa que o código não cumpre
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-613/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-613 — Camada de padrões de engenharia: segundo repositório central, abaixo da política de segurança
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-614/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-614: POC em camadas e tutorial camadas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-615/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-615 — Nenhum texto stale no código
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-616/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-616: analistas com deliberação por ferramentas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-618/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-618 — Dados de análise com retenção: pre-release e limpeza das cópias velhas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-619/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-619 — Publicação sem permissão nomeia a permissão que falta; QA do consumidor aprova a correção de ponta a ponta
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-622/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-622 — Plugin externo na validação agendada, achados só na aba Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../specs/AUR-623/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-623 — Plugin agendado em repositório privado sem Code Security: achados viram issues
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/Mpaape/AurumCode" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-politica-central" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Política central
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Política central">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#regras-de-sast-locais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regras de SAST locais
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#padroes-de-engenharia-centrais" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Padrões de engenharia centrais
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-configuracao-do-repositorio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Configuração do repositório
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-workflow-obrigatorio-da-organizacao" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Workflow obrigatório da organização
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Workflow obrigatório da organização">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#versoes-fixadas-das-ferramentas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Versões fixadas das ferramentas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Secrets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-o-que-reprova-e-o-que-e-inconclusivo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. O que reprova e o que é inconclusivo
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-onde-ver-auditoria-sarif-e-metricas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Onde ver auditoria, SARIF e métricas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-demonstracao-executavel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Demonstração executável
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-como-pedir-excecao" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Como pedir exceção
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="gate-corporativo-sast-sbom-inventario-e-assinatura">Gate corporativo: SAST, SBOM, inventário e assinatura</h1>
+<p>Este guia mostra, com arquivos completos e uma demonstração executável, como
+uma organização obriga todo pull request a passar por cinco controles:</p>
+<table>
+<thead>
+<tr>
+<th>Controle</th>
+<th>O que faz</th>
+<th>Onde se configura</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SAST</td>
+<td>Semgrep sobre a árvore inteira do repositório</td>
+<td><code>quality_gates.sast</code></td>
+</tr>
+<tr>
+<td>SBOM</td>
+<td>Trivy gera um CycloneDX do repositório</td>
+<td><code>quality_gates.ssor_dtrack.sbom_generator</code></td>
+</tr>
+<tr>
+<td>Inventário</td>
+<td>o SBOM vai para um OWASP Dependency-Track v5 e o gate lê as métricas do projeto</td>
+<td><code>quality_gates.ssor_dtrack</code></td>
+</tr>
+<tr>
+<td>Assinatura</td>
+<td>Cosign assina o SBOM (e imagens, se houver)</td>
+<td><code>quality_gates.supply_chain</code></td>
+</tr>
+<tr>
+<td>Dependências</td>
+<td>dependência nova ou alterada no PR conferida contra o OSV, pacote malicioso ou typosquat e licença proibida</td>
+<td><code>dependencies</code></td>
+</tr>
+</tbody>
+</table>
+<p>A referência de cada chave está em <a href="../configuration/">configuration.md</a>; aqui
+está o conjunto que funciona junto. Todo host, projeto e organização abaixo é
+um placeholder (<code>ORG</code>, <code>example.org</code>, <code>127.0.0.1</code>).</p>
+<p>Os blocos YAML deste guia <strong>são os arquivos de <code>demo/gate-corporativo/</code></strong>, byte
+a byte (<code>tests/acceptance/AUR-554.sh AC-001</code> compara). Copie-os como estão e
+troque só os placeholders.</p>
+<h2 id="1-politica-central">1. Política central</h2>
+<p>A organização mantém um repositório de política (aqui <code>ORG/aurumcode-policy</code>)
+cujo diretório contém <code>.aurumcode/config.yml</code> e as regras. O repositório do
+dev <strong>não</strong> consegue afrouxar o que a política governa. Sob política central,
+<code>rules</code>, <code>ignore</code>, <code>gate</code> e <code>exceptions</code> do repositório são sempre ignorados,
+com um aviso nomeado, mesmo quando a política não os declara. Em
+<code>quality_gates</code>, vale a seção que a política declara: <code>ssor_dtrack</code> e
+<code>supply_chain</code> declarados na política substituem os do repositório, e os que
+ela não declara continuam do repositório. Os scanners (<code>sast</code> e <code>scanners</code>) se
+resolvem engine por engine: <code>quality_gates.sast</code> e as entradas com
+<code>required: true</code> na política impedem o repositório de trocar ou desligar
+aquela engine; uma entrada da política sem <code>required: true</code> cede à do
+repositório, com aviso. A tabela completa de quem decide cada seção está no
+<a href="../tutorials/politica-central/">tutorial de política central</a>.</p>
+<!-- arquivo: demo/gate-corporativo/politica/.aurumcode/config.yml -->
+<div class="highlight"><pre><span></span><code><span class="nt">gate</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">fail_on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">high</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">inconclusive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">block</span>
+<span class="nt">quality_gates</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">sast</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">semgrep</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">fail_on_severity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ERROR</span>
+<span class="w">    </span><span class="nt">rule_packs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;/github/policy/regras/sast-demo.yml&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">ssor_dtrack</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">server_api_host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;http://127.0.0.1:8081&quot;</span>
+<span class="w">    </span><span class="nt">api_key_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DTRACK_API_KEY</span>
+<span class="w">    </span><span class="nt">project_id_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DTRACK_PROJECT_ID</span>
+<span class="w">    </span><span class="nt">thresholds</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">max_critical</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> max_high</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> policy_violations</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">}</span>
+<span class="w">    </span><span class="nt">timeout_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">180</span>
+<span class="w">    </span><span class="nt">poll_interval_seconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">    </span><span class="nt">sbom_generator</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">tool</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">trivy</span>
+<span class="w">      </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cyclonedx</span>
+<span class="w">      </span><span class="nt">spec_version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1.6&quot;</span>
+<span class="w">      </span><span class="nt">output_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sbom_app_cyclonedx.json</span>
+<span class="w">  </span><span class="nt">supply_chain</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cosign</span>
+<span class="w">    </span><span class="nt">sign_sbom</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">sign_artifacts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</code></pre></div>
+<ul>
+<li><code>gate.fail_on: [high]</code> reprova achados de severidade alta ou acima;
+  <code>gate.inconclusive: block</code> faz uma revisão inconclusiva (provedor fora,
+  scanner quebrado, servidor de inventário inalcançável) <strong>reprovar</strong> em vez de
+  passar em silêncio. É também o padrão: sem a chave, com <code>gate</code> declarado ou
+  um scanner habilitado, o inconclusivo reprova. Use <code>warn</code>, escrito, só
+  durante a adoção.</li>
+<li>Chave desconhecida (erro de digitação como <code>fial_on</code>) na política <strong>ou</strong> no
+  <code>.aurumcode/config.yml</code> do repositório é erro de carga, antes do modelo, com a
+  chave nomeada; <code>quality_gates.sast.engine</code> que não é uma engine registrada da
+  categoria <code>sast</code> (hoje só <code>semgrep</code>) também, assim como um <code>engine</code>
+  desconhecido em <code>quality_gates.scanners</code>.</li>
+<li><code>quality_gates.sast</code> é o alias da entrada <code>semgrep</code> de
+  <code>quality_gates.scanners</code> (ver <a href="../configuration/">Configuração</a>). Na lista
+  genérica, <code>required: true</code> na política impede o repositório de remover ou
+  afrouxar a engine; o override do repositório vira aviso de política
+  ignorada.</li>
+<li><code>engine: gitleaks</code> (categoria <code>secrets</code>) varre os commits do PR
+  (<code>base..head</code>), não só a árvore final. Na política, <code>required: true</code> garante
+  que o repositório não a desliga, <code>gitleaks:allow</code> não suprime achado e um
+  <code>.gitleaksignore</code> na raiz vira o achado bloqueante
+  <code>gitleaks:ignore-file-present</code>. Nenhuma saída leva o valor do segredo. Ver
+  <a href="../configuration/#segredos-com-gitleaks-engine-gitleaks">Configuração</a>.</li>
+<li><code>quality_gates.sast</code>: <code>rule_packs</code> aceita <code>p/...</code> do registro do Semgrep
+  (precisa de rede) ou arquivos de regra locais, determinísticos e offline,
+  como abaixo. O caminho <code>/github/policy/...</code> é onde o workflow reutilizável
+  monta o repositório da política dentro do container.</li>
+<li><code>quality_gates.ssor_dtrack</code>: <code>server_api_host</code> precisa ser <code>https://</code> em
+  produção (por exemplo <code>https://dtrack.example.org</code>); <code>http://127.0.0.1:...</code>
+  existe só para o servidor local da demonstração. <code>api_key_secret</code> e
+  <code>project_id_secret</code> são <strong>nomes</strong> de variáveis de ambiente, nunca valores.
+  <code>thresholds</code> compara <code>critical</code>, <code>high</code> e <code>policyViolationsTotal</code> das
+  métricas do projeto; <code>policy_violations: 0</code> reprova qualquer violação de
+  política do Dependency-Track.</li>
+<li><code>quality_gates.supply_chain</code>: <code>sign_sbom: true</code> assina o SBOM. Em CI a
+  assinatura é keyless (identidade OIDC do job, sem chave para guardar).</li>
+</ul>
+<h3 id="regras-de-sast-locais">Regras de SAST locais</h3>
+<!-- arquivo: demo/gate-corporativo/politica/regras/sast-demo.yml -->
+<div class="highlight"><pre><span></span><code><span class="nt">rules</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">demo-sem-eval</span>
+<span class="w">    </span><span class="nt">languages</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">javascript</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">severity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ERROR</span>
+<span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;eval()</span><span class="nv"> </span><span class="s">executa</span><span class="nv"> </span><span class="s">texto</span><span class="nv"> </span><span class="s">como</span><span class="nv"> </span><span class="s">codigo;</span><span class="nv"> </span><span class="s">use</span><span class="nv"> </span><span class="s">um</span><span class="nv"> </span><span class="s">parser</span><span class="nv"> </span><span class="s">ou</span><span class="nv"> </span><span class="s">uma</span><span class="nv"> </span><span class="s">tabela</span><span class="nv"> </span><span class="s">de</span><span class="nv"> </span><span class="s">operacoes&quot;</span>
+<span class="w">    </span><span class="nt">pattern</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eval(...)</span>
+</code></pre></div>
+<p>O achado aparece como <code>semgrep:&lt;check_id&gt;</code>; o <code>check_id</code> do Semgrep é derivado
+do caminho do arquivo de regra (<code>github.policy.regras.demo-sem-eval</code>, porque
+a política é montada em <code>/github/policy</code>). Um achado de severidade <code>ERROR</code>
+reprova (<code>fail_on_severity: ERROR</code>); abaixo do limiar ele é publicado sem
+reprovar. Em produção, troque ou some o arquivo por <code>p/security-audit</code> etc.</p>
+<h3 id="padroes-de-engenharia-centrais">Padrões de engenharia centrais</h3>
+<p>O workflow aceita <strong>dois</strong> repositórios centrais: <code>policy_repository</code>, da
+segurança, e <code>standards_repository</code>, da engenharia (a camada de padrões,
+AUR-613). A camada de padrões é o <code>.aurumcode/</code> de outro repositório, obtido
+por checkout pelo workflow, fora da árvore revisada, com persist-credentials
+desligado, e contribui só duas coisas: skills
+(<code>.aurumcode/skills/&lt;nome&gt;/SKILL.md</code>), que valem para todo serviço como
+regras do time de engenharia, e analistas (<code>.aurumcode/profiles.yml</code>), que
+cada serviço seleciona em <code>review.profiles</code>. Ela nunca declara gate, ignore,
+exceções, regras, scanners ou publicação: um <code>config.yml</code> com qualquer seção
+é recusado, e o review falha antes de chamar o modelo. Ordem: política de
+segurança &gt; padrões &gt; serviço; uma skill ou analista de mesmo nome numa camada
+de baixo é ignorado com aviso que nomeia as duas camadas. O achado de uma
+skill de padrões diz <code>[padrões de engenharia]</code> no parecer e conta no gate como
+fonte <code>skills</code>; a auditoria registra <code>standards</code> (repositório, ref e digest
+do conteúdo) só quando a camada existe.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">jobs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">review</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SuaOrg/AurumCode/.github/workflows/review.yml@&lt;sha-fixa-do-aurumcode&gt;</span>
+<span class="w">    </span><span class="nt">with</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">policy_repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SuaOrg/security-policy</span>
+<span class="w">      </span><span class="nt">policy_ref</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">a1b2c3d4e5f6...</span>
+<span class="w">      </span><span class="nt">standards_repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SuaOrg/devops-policy</span>
+<span class="w">      </span><span class="nt">standards_ref</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0f9e8d7c6b5a...</span>
+<span class="w">    </span><span class="nt">secrets</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">LLM_API_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ secrets.LLM_API_KEY }}</span>
+<span class="w">      </span><span class="nt">LLM_BASE_URL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ secrets.LLM_BASE_URL }}</span>
+<span class="w">      </span><span class="nt">AURUMCODE_POLICY_TOKEN</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ secrets.AURUMCODE_POLICY_TOKEN }}</span>
+<span class="w">      </span><span class="nt">AURUMCODE_STANDARDS_TOKEN</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ secrets.AURUMCODE_STANDARDS_TOKEN }}</span>
+</code></pre></div>
+<p><code>AURUMCODE_STANDARDS_TOKEN</code> só é preciso para um repositório de padrões
+privado ou interno (token fine-grained com Contents: read nesse repositório);
+sem ele o checkout usa o <code>github.token</code>. Fora do workflow, <code>aurumcode review
+--padroes &lt;dir&gt;</code> (ou <code>AURUMCODE_STANDARDS</code>) aponta a mesma camada. A seção
+"Camada de padrões de engenharia" de <code>docs/configuration.md</code> tem a tabela do
+que cada camada pode.</p>
+<p>Continua valendo, como alternativa, o caminho por pasta no repositório da
+política: skills do time de engenharia numa pasta própria (por exemplo
+<code>skills/padroes/</code>), listadas em <code>review.context.skills</code> do <code>config.yml</code> da
+política, com a aprovação dessa pasta dada ao time de engenharia por
+<code>CODEOWNERS</code> (<code>/skills/padroes/ @ORG/engenharia</code>) — o <code>CODEOWNERS</code> só obriga
+essa aprovação se a proteção da branch exigir revisão de code owners. Essas
+seções viram regras <strong>da política</strong> e só mudam quando o <code>policy_ref</code> aponta a
+nova SHA. A diferença da camada nativa: repositório, dono, token e ref
+próprios, sem misturar a aprovação de segurança com a de engenharia.</p>
+<h2 id="2-configuracao-do-repositorio">2. Configuração do repositório</h2>
+<p>O repositório do dev só precisa do básico; o gate vem da política.</p>
+<!-- arquivo: demo/gate-corporativo/repo-exemplo/.aurumcode/config.yml -->
+<div class="highlight"><pre><span></span><code><span class="nt">review</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">language</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">en</span>
+<span class="w">  </span><span class="nt">publication</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">comments</span>
+</code></pre></div>
+<h2 id="3-workflow-obrigatorio-da-organizacao">3. Workflow obrigatório da organização</h2>
+<!-- arquivo: demo/gate-corporativo/workflow-obrigatorio.yml -->
+<div class="highlight"><pre><span></span><code><span class="c1"># Workflow obrigatorio da organizacao (repositorio do dev ou ruleset da organizacao).</span>
+<span class="c1"># ORG, &lt;SHA...&gt; e os secrets sao placeholders: troque pelos seus.</span>
+<span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Revisao obrigatoria AurumCode</span>
+<span class="nt">on</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">pull_request</span><span class="p">:</span>
+
+<span class="nt">jobs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">review</span><span class="p">:</span>
+<span class="w">    </span><span class="c1"># Um workflow reutilizavel nao concede permissao que o chamador nao tem:</span>
+<span class="w">    </span><span class="c1"># id-token: write e necessario para a assinatura keyless (Cosign).</span>
+<span class="w">    </span><span class="nt">permissions</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">contents</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">read</span>
+<span class="w">      </span><span class="nt">pull-requests</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">write</span>
+<span class="w">      </span><span class="nt">statuses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">write</span>
+<span class="w">      </span><span class="nt">checks</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">read</span>
+<span class="w">      </span><span class="nt">id-token</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">write</span>
+<span class="w">    </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ORG/AurumCode/.github/workflows/review.yml@&lt;SHA-FIXA-DE-40-HEX-DO-AURUMCODE&gt;</span>
+<span class="w">    </span><span class="nt">with</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">policy_repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ORG/aurumcode-policy</span>
+<span class="w">      </span><span class="nt">policy_ref</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;SHA-FIXA-DE-40-HEX-DA-POLITICA&gt;</span>
+<span class="w">    </span><span class="nt">secrets</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">LLM_API_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ secrets.LLM_API_KEY }}</span>
+<span class="w">      </span><span class="nt">LLM_BASE_URL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ secrets.LLM_BASE_URL }}</span>
+<span class="w">      </span><span class="nt">DTRACK_API_KEY</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ secrets.DTRACK_API_KEY }}</span>
+<span class="w">      </span><span class="nt">DTRACK_PROJECT_ID</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ secrets.DTRACK_PROJECT_ID }}</span>
+<span class="w">      </span><span class="c1"># Politica em repositorio privado ou interno: token so de leitura nele.</span>
+<span class="w">      </span><span class="nt">AURUMCODE_POLICY_TOKEN</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ secrets.AURUMCODE_POLICY_TOKEN }}</span>
+</code></pre></div>
+<ul>
+<li>Para a camada de padrões de engenharia, acrescente em <code>with:</code>
+  <code>standards_repository: ORG/devops-policy</code> e
+  <code>standards_ref: &lt;SHA-FIXA-DE-40-HEX-DOS-PADRÕES&gt;</code> e, se o repositório for
+  privado, <code>AURUMCODE_STANDARDS_TOKEN</code> em <code>secrets:</code> (bloco da seção "Padrões
+  de engenharia centrais"). A demonstração da seção 7 não monta essa camada.</li>
+<li>No workflow obrigatório da organização, fixe <code>review.yml</code> e <code>policy_ref</code>
+  por <strong>SHA de 40 hex</strong>, nunca por branch ou tag: uma tag pode ser apontada
+  para outro commit, a SHA não. É isso que garante que todo PR da organização
+  é julgado pela mesma ferramenta e pela mesma política até alguém, de
+  propósito, apontar outra SHA. Num repositório avulso, a tag de uma release
+  basta (veja <a href="../getting-started/">Primeiro review</a>).</li>
+<li>A política não fixa uma versão mínima do AurumCode: a versão que roda é a
+  da SHA em <code>uses:</code> deste workflow.</li>
+<li><strong>Atualizar o AurumCode</strong> é uma PR neste workflow, que vale para todos os
+  repositórios de uma vez. Deixe a versão num comentário ao lado da SHA
+  (<code>@&lt;SHA&gt; # v2.0.0</code>) e ligue o Dependabot (<code>package-ecosystem:
+  github-actions</code>) no repositório deste workflow: ele abre a PR quando sair
+  versão nova, com as notas dela. O Dependabot atualiza só a referência de
+  <code>uses:</code>, nunca o <code>policy_ref</code>: o <code>policy_ref</code> é um input do workflow e muda
+  por uma PR de quem mantém este workflow, depois que a mudança da política
+  foi aprovada (seção 8).</li>
+<li>O workflow publica o status <code>aurumcode/policy-gate</code>; ele só bloqueia o merge
+  se a proteção da branch (ou o ruleset da organização) o exigir.</li>
+<li>Para tornar o workflow obrigatório em toda a organização, crie um ruleset da
+  organização com a regra <em>Require workflows to pass before merging</em>,
+  apontando para este arquivo, e a regra <em>Require status checks to pass
+  before merging</em>, com <code>aurumcode/policy-gate</code>. O AurumCode não cria nem
+  confere esse ruleset: ele é configurado no GitHub, e depende do plano da
+  organização (o GitHub documenta rulesets da organização para os planos Team
+  e Enterprise, e a regra que exige o workflow na documentação do Enterprise
+  Cloud). Sem essa regra, cada repositório chama este workflow por conta
+  própria e exige <code>aurumcode/policy-gate</code> na proteção da branch.</li>
+<li>Publique o SARIF no code scanning em um segundo job do seu próprio workflow
+  (<code>security-events: write</code>): veja a seção "Trilha de auditoria e SARIF" de
+  <a href="../configuration/">configuration.md</a>.</li>
+</ul>
+<p><strong>Como o workflow reutilizável encadeia os passos (<code>.github/workflows/review.yml</code>,
+AUR-555).</strong> A ordem é: SBOM (<code>aurumcode sbom</code>, Trivy fixado por digest), depois
+a revisão (gate: SAST, envio do SBOM ao Dependency-Track e leitura das
+métricas), depois a assinatura (Cosign), que só roda quando a revisão termina
+com sucesso: um artefato reprovado não é assinado. O bundle <code>.sigstore.json</code>
+sobe como artefato do job. <code>DTRACK_API_KEY</code> e <code>DTRACK_PROJECT_ID</code> são secrets
+opcionais do <code>workflow_call</code> (<code>required: false</code>), expostos só ao passo da
+revisão; o workflow chamador os repassa em <code>secrets:</code> (como no bloco acima), ou
+usa <code>secrets: inherit</code>, como o <code>code-review.yml</code> deste repositório. Sem
+<code>ssor_dtrack</code> nada disso é exigido; com <code>ssor_dtrack</code> e secret ausente o gate
+fica inconclusivo (<code>dtrack_secret_missing</code>) e, com <code>inconclusive: block</code>,
+reprova, nunca aprova. Limites: os nomes repassados são os padrão
+(<code>DTRACK_API_KEY</code>/<code>DTRACK_PROJECT_ID</code>); se <code>api_key_secret</code>/<code>project_id_secret</code>
+forem renomeados, o workflow não repassa os novos nomes. Se o passo de SBOM
+falha, o job falha antes da revisão. O que o AUR-555 provou é a estrutura do
+YAML por testes; este guia e a demonstração <strong>não</strong> provam a execução em um
+runner real do GitHub. A demonstração (seção 7) reproduz a mesma ordem
+(<code>sbom</code>, <code>review</code>, <code>sign</code>) em containers locais.</p>
+<h3 id="versoes-fixadas-das-ferramentas">Versões fixadas das ferramentas</h3>
+<p>Versões no workflow reutilizável e na imagem do produto, nesta versão do
+AurumCode:</p>
+<table>
+<thead>
+<tr>
+<th>Ferramenta</th>
+<th>Versão</th>
+<th>Onde está fixada</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gitleaks</td>
+<td>v8.30.1</td>
+<td>imagem por digest em <code>.board/bootstrap/locks/scanners.yml</code>; o <code>Dockerfile</code> e o workflow recusam outra versão</td>
+</tr>
+<tr>
+<td>Semgrep</td>
+<td>1.172.0</td>
+<td><code>Dockerfile</code> (<code>semgrep==1.172.0</code>), a mesma versão de <code>scanners.yml</code></td>
+</tr>
+<tr>
+<td>osv-scanner</td>
+<td>v2.0.0</td>
+<td><code>Dockerfile</code>, compilado do módulo nessa versão</td>
+</tr>
+<tr>
+<td>Trivy</td>
+<td>0.73.0</td>
+<td>imagem por digest em <code>scanners.yml</code>; o workflow roda essa imagem, nunca um Trivy instalado</td>
+</tr>
+<tr>
+<td>Cosign</td>
+<td>v3.1.3</td>
+<td><code>cosign-release</code> em <code>.github/workflows/review.yml</code>, com o instalador fixado por SHA</td>
+</tr>
+</tbody>
+</table>
+<p>Nenhuma ferramenta roda como <code>latest</code>. Atualizar uma delas é uma PR neste
+repositório, revisada como qualquer outra; o seu workflow passa a usar a
+versão nova quando você troca a SHA de <code>uses:</code>.</p>
+<h2 id="4-secrets">4. Secrets</h2>
+<table>
+<thead>
+<tr>
+<th>Nome</th>
+<th>Para quê</th>
+<th>Onde fica</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LLM_API_KEY</code>, <code>LLM_BASE_URL</code></td>
+<td>provedor do modelo</td>
+<td>secrets da organização/repositório</td>
+</tr>
+<tr>
+<td><code>DTRACK_API_KEY</code></td>
+<td>chave de API do time no Dependency-Track</td>
+<td>secret; o nome vem de <code>api_key_secret</code></td>
+</tr>
+<tr>
+<td><code>DTRACK_PROJECT_ID</code></td>
+<td>UUID do projeto do serviço</td>
+<td>secret; o nome vem de <code>project_id_secret</code></td>
+</tr>
+<tr>
+<td><code>AURUMCODE_POLICY_TOKEN</code></td>
+<td>ler a política central num repositório <strong>privado ou interno</strong> (o <code>github.token</code> de cada repositório não lê outro repositório privado)</td>
+<td>secret da organização; token fine-grained ou de GitHub App com <strong>Contents: read</strong> só no repositório da política</td>
+</tr>
+</tbody>
+</table>
+<p>O <code>AURUMCODE_POLICY_TOKEN</code> vai direto ao <code>actions/checkout</code> do passo
+<em>Checkout central policy</em>. Com a política num repositório privado ou interno,
+se o token faltar, tiver vencido ou não tiver <strong>Contents: read</strong> nele, o job
+para nesse passo, com o erro do próprio <code>actions/checkout</code>, antes de qualquer
+revisão: nenhum
+parecer e nenhum status <code>aurumcode/policy-gate</code> é publicado. Com esse status
+exigido pela proteção da branch, a PR fica esperando por ele e não pode ser
+mesclada; o motivo está no log desse passo.</p>
+<p>Uma PR aberta pelo Dependabot roda o workflow só com os <em>Dependabot secrets</em>:
+os secrets de Actions não chegam a ela. Com o workflow obrigatório, isso vale
+para toda PR do Dependabot em todo repositório da organização. Cadastre os
+mesmos nomes da tabela também como Dependabot secrets da organização; sem
+eles, a PR para no primeiro passo (<code>LLM_API_KEY</code> ou <code>LLM_BASE_URL</code> vazio),
+não lê a política
+privada (sem <code>AURUMCODE_POLICY_TOKEN</code>) ou fica inconclusiva no inventário
+(sem <code>DTRACK_*</code>, com <code>ssor_dtrack</code> ligado), e nenhum desses casos aprova.</p>
+<p>Nada disso entra em Markdown ou YAML versionado. A chave do Dependency-Track é
+registrada no filtro de redação assim que é lida: não aparece no parecer, na
+auditoria, no SARIF nem nos logs. Dê ao time dono da chave só
+<code>BOM_UPLOAD</code>, <code>VIEW_PORTFOLIO</code> e <code>VIEW_POLICY_VIOLATION</code>, e crie <strong>um projeto
+por serviço</strong>: enviar SBOMs de serviços diferentes para o mesmo projeto faz um
+sobrescrever o outro.</p>
+<h2 id="5-o-que-reprova-e-o-que-e-inconclusivo">5. O que reprova e o que é inconclusivo</h2>
+<p>Reprova (código de saída 3 no <code>--base</code>; status <code>aurumcode/policy-gate</code>
+<code>failure</code> no PR):</p>
+<ul>
+<li>achado do Semgrep na severidade de <code>fail_on_severity</code> ou acima, nomeando a
+  regra e a linha (<code>src/calc.js:5 ... semgrep:github.policy.regras.demo-sem-eval</code>);</li>
+<li>métrica do Dependency-Track acima do limite
+  (<code>ssor_dtrack: policy_violations 1 &gt; policy_violations 0</code>,
+  <code>critical 3 &gt; max_critical 0</code>);</li>
+<li>achado de skill da política acima de <code>gate.fail_on</code>;</li>
+<li>com a seção <code>dependencies</code> declarada: advisory introduzido pelo PR no
+  limiar de <code>dependencies.fail_on</code>, pacote malicioso (<code>MAL-</code>), suspeita de
+  typosquat no limiar e licença de <code>licenses_denied</code> (veja
+  <a href="../configuration/#dependencias-do-pr-dependencies">Dependências do PR</a>);</li>
+<li>falha de assinatura: <code>aurumcode sign</code> nunca tem modo "warn".</li>
+</ul>
+<p>Inconclusivo (nunca aparece como "aprovado"; com <code>inconclusive: block</code>, ou
+sem a chave, reprova; só <code>warn</code> escrito avisa): Semgrep ausente ou com saída inválida (<code>sast_*</code>), Trivy falhou
+(<code>sbom_generation_failure</code>), servidor de inventário fora do ar, lento ou com
+erro HTTP (<code>dtrack_unreachable</code>, <code>dtrack_timeout</code>, <code>dtrack_http_error</code>),
+métricas incompletas (<code>dtrack_metrics_incomplete</code>: ausente nunca é lido como
+zero), secret ausente (<code>dtrack_secret_missing</code>), SBOM ausente
+(<code>dtrack_sbom_unavailable</code>), falha do provedor do modelo (<code>provider_failure</code>),
+verificação de dependências que não concluiu (<code>dependencies_*</code>: base OSV ou
+fonte de metadados do registro (<code>deps_dev_url</code>) inalcançável, scanner ausente,
+licença desconhecida).</p>
+<p>Em produção, as métricas <code>critical</code> e <code>high</code> vêm dos espelhos de
+vulnerabilidade do <strong>próprio servidor</strong> (NVD, GitHub Advisories, OSV...),
+sincronizados pelo Dependency-Track. Um servidor recém-criado não os tem; por
+isso a demonstração usa uma política de violação do Dependency-Track
+(coordenadas do componente), que dá <code>policy_violations &gt; 0</code> de forma
+determinística, sem depender de rede.</p>
+<h2 id="6-onde-ver-auditoria-sarif-e-metricas">6. Onde ver auditoria, SARIF e métricas</h2>
+<ul>
+<li><strong>Parecer</strong>: no PR (status <code>aurumcode/policy-gate</code>) e na saída do comando,
+  com as linhas <code>policy gate: ...</code> nomeando regra, limiar e origem.</li>
+<li><strong>Auditoria</strong>: <code>--auditoria &lt;arquivo&gt;</code> grava o JSON com o digest da política,
+  o SHA do workflow, a decisão do gate e as exceções aplicadas. O workflow
+  reutilizável envia o artefato <code>aurumcode-audit-&lt;PR&gt;</code>.</li>
+<li><strong>SARIF</strong>: <code>--sarif &lt;arquivo&gt;</code>; artefato <code>aurumcode-sarif-&lt;PR&gt;</code>, publicável
+  no code scanning.</li>
+<li><strong>Métricas e violações</strong>: na interface do Dependency-Track (projeto do
+  serviço) ou pela API (<code>/api/v1/metrics/project/&lt;uuid&gt;/current</code>,
+  <code>/api/v1/violation/project/&lt;uuid&gt;</code>), como <code>run.sh</code> faz.</li>
+<li><strong>Assinatura</strong>: o bundle <code>&lt;sbom&gt;.sigstore.json</code> sai como artefato
+  <code>aurumcode-sbom-bundle-&lt;PR&gt;</code>. Para verificar um SBOM assinado em CI
+  (keyless) veja "Verificação por terceiros" em
+  <a href="../configuration/">configuration.md</a>; na demonstração a chave é efêmera:</li>
+</ul>
+<div class="highlight"><pre><span></span><code>cosign<span class="w"> </span>verify-blob<span class="w"> </span>--key<span class="w"> </span>cosign.pub<span class="w"> </span>--bundle<span class="w"> </span>sbom_app_cyclonedx.json.sigstore.json<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--insecure-ignore-tlog<span class="w"> </span>--insecure-ignore-sct<span class="w"> </span>sbom_app_cyclonedx.json
+</code></pre></div>
+<h2 id="7-demonstracao-executavel">7. Demonstração executável</h2>
+<p><code>demo/gate-corporativo/run.sh</code> sobe tudo em containers fixados por digest
+(<code>images.lock</code>): imagem do produto (com Semgrep), Dependency-Track v5 +
+PostgreSQL, Trivy e Cosign. No host só há bash, git, docker, curl e python3.
+Precisa de rede para baixar as imagens e de uns 2 GB de disco.</p>
+<div class="highlight"><pre><span></span><code>demo/gate-corporativo/run.sh<span class="w"> </span>all<span class="w">      </span><span class="c1"># build up fail fix pass verify down</span>
+demo/gate-corporativo/run.sh<span class="w"> </span>--check<span class="w">  </span><span class="c1"># compara out/ com expected/ (sem docker)</span>
+</code></pre></div>
+<p>Cada fase grava <code>demo/gate-corporativo/out/&lt;fase&gt;.log</code>; <code>expected/&lt;fase&gt;.txt</code>
+tem os trechos que <code>--check</code> exige.</p>
+<table>
+<thead>
+<tr>
+<th>Fase</th>
+<th>O que acontece</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>build</code></td>
+<td>constrói a imagem do produto, confere o Semgrep contra <code>scanners.yml</code>, fixa e extrai Trivy e Cosign</td>
+</tr>
+<tr>
+<td><code>up</code></td>
+<td>sobe Dependency-Track + PostgreSQL, troca a senha inicial, cria time, chave, projeto e a política de violação</td>
+</tr>
+<tr>
+<td><code>fail</code></td>
+<td><code>aurumcode sbom</code> + <code>aurumcode review</code>: reprova no SAST e no inventário</td>
+</tr>
+<tr>
+<td><code>fix</code></td>
+<td>remove o <code>eval</code> e sobe o <code>lodash</code> 4.17.15 para 4.17.21</td>
+</tr>
+<tr>
+<td><code>pass</code></td>
+<td>o gate aprova, o SBOM é enviado e assinado</td>
+</tr>
+<tr>
+<td><code>verify</code></td>
+<td><code>cosign verify-blob</code> aceita a assinatura e rejeita um SBOM adulterado</td>
+</tr>
+<tr>
+<td><code>down</code></td>
+<td>remove containers, rede e volumes</td>
+</tr>
+</tbody>
+</table>
+<p>Defeitos plantados em <code>repo-exemplo/</code>: <code>src/calc.js</code> chama <code>eval(...)</code> (regra
+local do Semgrep) e <code>package-lock.json</code> fixa <code>lodash</code> 4.17.15, que a política
+<code>demo-componente-proibido</code> do Dependency-Track reprova.</p>
+<p>Saída real de <code>fail</code> (trecho de <code>out/fail.log</code>):</p>
+<div class="highlight"><pre><span></span><code>sbom: CycloneDX 1.7, componentes: lodash@4.17.15
+aurumcode review: policy gate: semgrep:github.policy.regras.demo-sem-eval - eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval) (severidade error, limiar error, origem sast, secao policy)
+aurumcode review: policy gate: ssor_dtrack: policy_violations 1 &gt; policy_violations 0 (origem dtrack)
+## AurumCode code review
+
+&gt; [!CAUTION]
+&gt; **Blocked: 2 problems must be fixed before merge.**
+
+policy gate: failed · 5 files reviewed
+src/calc.js:5: [error] eval() executa texto como codigo; use um parser ou uma tabela de operacoes (rule semgrep:github.policy.regras.demo-sem-eval)
+aurumcode review: exit_code=3
+dependency-track metricas: critical=0 high=0 policyViolationsTotal=1
+dependency-track violacao: politica=demo-componente-proibido componente=lodash versao=4.17.15 estado=FAIL
+RESULTADO: gate reprovou, como esperado
+</code></pre></div>
+<p>E de <code>pass</code>:</p>
+<div class="highlight"><pre><span></span><code>sbom: CycloneDX 1.7, componentes: lodash@4.17.21
+aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)
+## AurumCode code review
+
+&gt; [!TIP]
+&gt; **Gate passed: no problem found in the reviewed change.**
+
+policy gate: passed · 5 files reviewed
+No issues found.
+aurumcode review: exit_code=0
+dependency-track metricas: critical=0 high=0 policyViolationsTotal=0
+dependency-track violacoes: nenhuma
+RESULTADO: gate aprovou
+sign: sbom /github/workspace/sbom_app_cyclonedx.json -&gt; /github/workspace/sbom_app_cyclonedx.json.sigstore.json
+</code></pre></div>
+<p>O gate roda sem provedor de modelo real: <code>AURUMCODE_LLM_FIXTURE</code> aponta para
+uma resposta vazia (<code>fixture-llm.json</code>) e <code>--seguranca</code> liga o passe
+determinístico, de modo que o parecer vem só das ferramentas. No aceite, a linha
+<code>ssor_dtrack: aprovado (critical=0, high=0, policy_violations=0)</code> é exigida:
+sem ela um servidor inalcançável (inconclusivo) poderia passar por aprovação.</p>
+<p>A prova completa (data, digests, log) está em
+<a href="../specs/AUR-554/">specs/AUR-554.md</a>.</p>
+<h2 id="8-como-pedir-excecao">8. Como pedir exceção</h2>
+<p>Uma exceção é uma entrada em <code>exceptions</code> <strong>na política central</strong> (a do
+repositório do dev é ignorada), aprovada por quem é dono da política, para um
+achado exato:</p>
+<!-- exemplo: nao e arquivo da demo -->
+<div class="highlight"><pre><span></span><code><span class="nt">exceptions</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ORG/servico-exemplo</span>
+<span class="w">    </span><span class="nt">rule</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">semgrep:github.policy.regras.demo-sem-eval</span>
+<span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">src/calc.js</span>
+<span class="w">    </span><span class="nt">owner</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">time-seguranca</span>
+<span class="w">    </span><span class="nt">reason</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">expressao fixa em tempo de build, sem entrada do usuario</span>
+<span class="w">    </span><span class="nt">expires</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2026-12-31</span>
+</code></pre></div>
+<p>Quando o modelo contesta um achado determinístico (ele recebe os achados do
+passe de segurança, da análise embutida e do SAST antes de responder), o
+parecer e a auditoria (<code>proposed_exceptions</code>) trazem uma <strong>exceção proposta</strong>
+neste mesmo formato, com a regra, o caminho e o motivo do modelo, e
+<code>owner</code>/<code>expires</code> a preencher. Ela nunca é aplicada: o achado continua
+reprovando até que alguém copie a entrada para a política pelo fluxo abaixo.
+A contestação do modelo nunca rebaixa um achado sob a política central
+(<code>gate.triage</code> só vale sem política; veja docs/configuration.md).</p>
+<p>Os seis campos são obrigatórios; <code>path</code> é exato (sem glob); <code>expires</code> é
+<code>YYYY-MM-DD</code> em UTC. Vencida, a exceção para de valer sozinha e o achado volta a
+reprovar. O fluxo: abra um PR no repositório da política com a entrada acima e
+o motivo; o time de segurança aprova; depois do merge, o <code>policy_ref</code> do
+workflow obrigatório é atualizado para a nova SHA.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Voltar para o topo
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/Mpaape/AurumCode" target="_blank" rel="noopener" title="AurumCode no GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.indexes", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copiado para \u00e1rea de transfer\u00eancia", "clipboard.copy": "Copiar para \u00e1rea de transfer\u00eancia", "search.result.more.one": "mais 1 nesta p\u00e1gina", "search.result.more.other": "# mais nesta p\u00e1gina", "search.result.none": "Nenhum documento encontrado", "search.result.one": "1 documento encontrado", "search.result.other": "# documentos encontrados", "search.result.placeholder": "Digite para iniciar a busca", "search.result.term.missing": "Ausente", "select.version": "Selecione a vers\u00e3o"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../javascripts/mermaid.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,17 @@
+name: Code review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+  checks: read
+jobs:
+  review:
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.1.0
+    with:
+      model: ${{ vars.LLM_MODEL }}
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}

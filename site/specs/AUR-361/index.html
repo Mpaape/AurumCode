@@ -1,0 +1,9467 @@
+
+<!doctype html>
+<html lang="pt" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Gate de compliance para a organização - review, skills, política central, gate e cadeia de suprimentos">
+      
+      
+      
+        <link rel="canonical" href="https://mpaape.github.io/AurumCode/specs/AUR-361/">
+      
+      
+        <link rel="prev" href="../AUR-360/">
+      
+      
+        <link rel="next" href="../AUR-362/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>AUR-361 — bootstrap action lock (.board/bootstrap/locks/actions.yml) - AurumCode</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#aur-361-bootstrap-action-lock-boardbootstraplocksactionsyml" class="md-skip">
+          Pular para conteúdo
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabeçalho">
+    <a href="../.." title="AurumCode" class="md-header__button md-logo" aria-label="AurumCode" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AurumCode
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              AUR-361 — bootstrap action lock (.board/bootstrap/locks/actions.yml)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Buscar" placeholder="Buscar" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Pesquisar">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Limpar" aria-label="Limpar" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Inicializando busca
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Abas" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../.." class="md-tabs__link">
+          
+  
+  
+    
+  
+  Início
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Tutoriais
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../configuration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Configurar
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Como funciona
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Specs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/Mpaape/AurumCode" class="md-tabs__link">
+        
+  
+  
+    
+  
+  GitHub
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navegação" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AurumCode" class="md-nav__button md-logo" aria-label="AurumCode" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    AurumCode
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../.." class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Início
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_1" id="__nav_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Início
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Começando
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../README/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entrada do repositório
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tutorials/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutoriais
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutoriais
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/agente/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: Aurum no seu agente de código
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/assinatura/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: assinatura do SBOM com aurumcode sign (Cosign)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/auditoria-sarif/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: auditoria e SARIF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: o benchmark de recall do AurumCode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/camadas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: camadas (política, padrões e serviço)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/dados-de-analise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: dados de análise (analysis_data)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/deliberacao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: deliberação com ferramentas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/excecoes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: exceções aprovadas, com dono e validade
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/extensao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: estendendo o Aurum na prática
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: o gate de política
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/instalacao-ia/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instalar com ajuda da IA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/memoria/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: memória de revisão
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/operacao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: operar o AurumCode, o ambiente de desenvolvimento e o aceite selado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/plugin-agendado/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: plugin externo na validação agendada (scheduled.plugins)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/politica-central/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: política central
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/provedores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: provedores de LLM por configuração
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/qualquer-linguagem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: o AurumCode em um repositório de qualquer linguagem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/realimentacao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: realimentação da política
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/reaproveitamento/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: reaproveitamento de revisão e cache
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/revisao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: revisão de código com o AurumCode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/sast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: SAST com Semgrep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/sbom-dependency-track/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: SBOM e Dependency-Track
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/segredos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: segredos com gitleaks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: skills de convenção
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/xbom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial: xBOM (Build BOM e CBOM)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configurar
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Configurar
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Referência
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gate-corporativo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guia corporativo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../provedores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Provedores de LLM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Releases
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../agentes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aurum no seu agente
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plugins-agendados/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins agendados
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Como funciona
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Como funciona
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arquitetura
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extensao/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Estendendo o Aurum
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../review-quality/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Qualidade do review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../qa/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    QA no consumidor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../review-cache/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cache de review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-001/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-001: Inventariar capacidades reais do legado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-002/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-002: Fixar baseline de caracterizacao
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-003/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-003: Definir schema de card atômico
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-004/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-004: validar DAG e liberar dependências
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-005/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-005: Content-addressed evidence manifest
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-006/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-006 - OCI bootstrap profile contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-009/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-009 — redigir segredos em todos os sinks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-011/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-011 - deterministic demo Git fixture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-012/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-012 - bootstrapping the consumer demo repository
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-014/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-014: Versionar standard de code review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-015/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-015: Versionar standard de secure code review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-016/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-016: Definir uso evidencial de ISO 25010
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-017/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-017: Fixar standards de artefatos interoperáveis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-018/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-018 — Fixar contratos SCM e CI seguros
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-019/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-019: Fixar contratos oficiais de providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-020/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-020: Escolher memória e mapa incremental mínimos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-021/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-021: Fixar MCP conformance e segurança
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-233/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-233 - Verify the bootstrap lockset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-308/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-308: legacy documentation characterization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-309/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-309 — caracterização do pipeline legado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-318/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-318 — congelar taskmaster como histórico
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-359/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-359 — Fixar trust root do runner OCI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-360/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-360 — Fixar Go toolchain e módulos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-361 — bootstrap action lock (.board/bootstrap/locks/actions.yml)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-361 — bootstrap action lock (.board/bootstrap/locks/actions.yml)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-is-a-derivation-and-not-a-declaration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this is a derivation and not a declaration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#round-3-killing-the-check-that-never-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Round 3: killing "the check that never runs"
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Round 3: killing &#34;the check that never runs&#34;">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-transitive-closure-over-uses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Transitive closure over uses:
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-one-origin-policy-zero-branches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. One origin policy, zero branches
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-the-gate-proves-the-check-ran" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. The gate proves the check ran
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-scanned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is scanned
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#symlink-behaviour-declared-and-proved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Symlink behaviour (declared and proved)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#byte-hygiene" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Byte hygiene
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-uses-scanner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The uses: scanner
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-classification-and-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference classification and policy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reference classification and policy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-frozen-floating-tag-debt-register" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The frozen floating-tag debt register
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lock-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lock schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-sealed-gate-actually-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the sealed gate actually does
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fixtures-and-reference-truth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixtures and reference truth
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixtures and reference truth">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-reason-column-and-why-a-typed-code-was-not-enough" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The reason column, and why a typed code was not enough
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reproducing-offline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproducing offline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnosis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnosis
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-362/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-362 — Fixar scanners de segurança
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-363/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-363 — Fixar parsers e grammars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-364/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-364 — Fixar ferramentas de documentação
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-402/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-402 — Registry canônico de profiles OCI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-403/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-403 — Perfil Go unit offline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-404/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-404 — Perfil Go Git offline (go-git-offline-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-405/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-405 — Perfil fake provider offline (fake-provider-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-406/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-406 — Perfil parser worker offline (parser-worker-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-407/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-407 — Perfil SQLite offline (sqlite-offline-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-408/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-408 — Perfil de ferramenta de documentação offline (docs-tool-offline-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-409/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-409 — Perfil de SCM falso offline (fake-scm-offline-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-410/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-410 — Perfil de conformance OCI (oci-conformance-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-411/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-411 — Perfil polyglot toolchain offline (polyglot-toolchain-v1)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-422/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-422 — Perfil OCI bootstrap read-only (adoção formal)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-424/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-424 — Extrator de documentação Go sem dependência externa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-425/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-425 - Warn (and fail) when no documentation page was generated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-426/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-426 — aurumcode docs: run documentation generation from the command line
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-427/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-427 — Documentação nativa de Rust e C#, sem ferramenta externa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-428/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-428 — Publicar as páginas copiando um workflow que funciona
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-429/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-429 - Provar que a pagina publicada abre e navega
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-430/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-430: aurumcode review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-431/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-431 — aurumcode review --fail-on: break the build on a grave finding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-432/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-432 — Revisar código privado sem vazar segredo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-433/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-433 — aurumcode review --limite: know and cap what a review costs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-434/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-434 — Every finding cites the project review rule that sustains it
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-435/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-435 — aurumcode review --seguranca: find the vulnerability, not just the style
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-436/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-436 — aurumcode review --modelo: choose which AI reviews, including a local one
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-437/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-437 — Comentar o review no pull request (cliente GitHub restaurado)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-438/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-438 — Comentar no arquivo e na linha exata (fiacao no cmd)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-439/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-439 — Bloquear o merge quando o review reprova
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-440/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-440 — A Action revisa pull requests automaticamente
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-441/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-441 — aurumcode review --base &lt;ref&gt;: do not pay twice for the same file
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-442/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-442 — aurumcode review --seguranca: the passage finds what the catalog promises
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-443/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-443 — a first-time user discovers aurumcode without reading source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-444/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-444: the Action's entrypoint invokes flags that exist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-445/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-445 — A documentação de raiz diz a verdade sobre o que a ferramenta faz
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-446/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-446 — Os specs entregues descrevem o comportamento entregue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-447/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-447 — aurumcode docs documents Rust and C# like the pipeline already does
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-448/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-448 — no discard is silent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-449/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-449 — aurumcode review --seguranca: the deterministic pass runs without a provider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-450/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-450 — aurumcode review --seguranca: the pass names what it searched
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-451/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-451 — O review de pull request passa a usar o motor inteiro
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-452/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-452: repository context-provider configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-453/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-453 — Sugestões e resumo chegam completos ao terminal e ao PR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-454/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-454 — O review consolida ruído e respeita preferências explícitas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-455/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-455 — Um desenvolvedor novo roda as tres features em um minuto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-456/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-456 — O repositório não carrega cópia morta nem promessa falsa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-457/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-457 — Todo card done tem aceite que passa hoje
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-458/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-458 — exit 0 means reviewed and found nothing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-459/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-459 — O formato que o prompt pede e o que o parser le
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-460/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-460 — omit temperature always, let the gateway pick its own default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-461/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-461: the review prompt hands the model the rule catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-462/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-462 — the security passage sees Node's exec() and innerHTML shapes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-463/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-463: Documentacao de JavaScript sem ferramenta externa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-464/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-464 — Cabeçalho com nome do símbolo, não "## Documentation" repetido
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-465/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-465 — O site gerado nao anuncia branch mutavel nem promessa vencida
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-466/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-466 — the deterministic pass distinguishes secret from placeholder, fixture, and constant SQL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-467/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-467: the review looks at code as code and prose as prose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-468/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-468: versioned skills enter the review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-469/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-469: contexto MCP configurado chega ao review com origem e limites claros
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-470/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-470: contexto recuperado explica impacto da mudança em outros arquivos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-471/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-471 -- ISO/IEC 25010 weights and team convention are explicit configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-472/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-472 — Ref de action validada contra tags que existem, nao contra um formato
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-473/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-473: um --modelo inexistente e erro de USO, e falha antes de computar qualquer coisa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-474/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-474 — Funcao de uma linha e uma funcao
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-475/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-475: one oversized file does not discard the rest of the queue
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-476/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-476 — O usuário vê arquivos e contexto que a review não cobriu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-477/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-477 — Diff grande não vira review zero
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-479/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-479 -- Split secrets across context providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-480/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-480 - Fonte opcional de contexto falha com aviso sem apagar o review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-481/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-481: Rust idiomatic security coverage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-483/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-483: A documentacao gerada e do produto, nao dos testes dele
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-484/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-484: a página inicial ensina a usar, em vez de listar arquivos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-486/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-486 -- Go, C#, PowerShell and bash in their idiomatic spelling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-492/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-492: real linters complement the review with a verifiable origin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-494/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-494 — Novas rodadas preservam findings válidos sem repetir comentários
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-495/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-495 — Dependência alterada no PR checada contra o OSV em qualquer ecossistema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-498/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-498 - Deterministic changelog and semver engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-499/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-499 - Publishing the suggested version and changelog entry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-500/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-500: perfis de revisor prontos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-501/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-501 — Cada capacidade entregue tem tutorial e demonstração reproduzível
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-502/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-502: team-defined reviewer profiles and multi-agent review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-503/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-503 -- Command injection does not accuse a comment or prose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-504/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-504 — O --check publica o status no commit do PR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-505/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-505 — Invalid model output degrades the review instead of crashing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-509/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-509 — O merge exige uma entrada útil e concisa de changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-510/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-510 — Versão oficial com tag imutável e instalação demonstrada
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-512/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-512 — Repositório consumidor prova instalação, review e falhas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-514/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-514 — A evidência completa do achado sobrevive à combinação de perfis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-516/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-516 — O comentário distingue evidência de CI de inferência do modelo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-518/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-518 — Política central do workflow obrigatório prevalece sobre o repo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-519/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-519: skill vira gate, com bloqueio e inconclusivo configuráveis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-520/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-520: exceção aprovada pela segurança, com dono e validade
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-521/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-521: trilha de auditoria e SARIF para o code scanning da org
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-522/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-522: o review e o gate funcionam em repositorio de qualquer linguagem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-523/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-523: corpus multilinguagem mede o recall do gate real
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-524/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-524: o mesmo PR com a mesma politica tem o mesmo veredito
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-525/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-525 — Tool calling no provider OpenAI-compatível
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-526/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-526: review lê arquivos e busca no repo em qualquer linguagem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-527/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-527 — Gate de dependência e exceção por CVE no yml da política
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-528/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-528 — Pacote malicioso ou typosquat bloqueia o PR
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-529/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-529 — Licença proibida pela política bloqueia dependência nova
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-530/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-530 — Varredura agendada acha CVE publicada depois do merge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-531/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-531: review explica se o código usa a parte vulnerável da dependência
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-532/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-532 — Ciclo de realimentação melhora a política a partir do uso real
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-533/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-533 — Artefatos de análise se atualizam sozinhos com idade máxima
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-534/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-534: Toolchain Go suportado e atualizado por automacao
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-535/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-535 — Política central na Action direta e prova completa da contenção
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-536/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-536 — Contexto local do PR só com árvore limpa e prova dos casos inverificáveis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-537/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-537 — Provider failure on --pr now reaches the policy gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-538/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-538: provas que faltaram no gate do AUR-519
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-539/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-539 — Os aceites do AUR-467 e AUR-477 voltam a passar com o prompt atual
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-540/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-540 — O seletor E2E do AUR-467 volta a passar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-541/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-541: fixtures de modelo dos testes e2e passam pelo gate de evidencia
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-542/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-542: scripts e2e de cards done que ainda falham voltam a provar o prometido
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-544/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-544: o aceite do AUR-439 volta a compilar no ambiente isolado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-545/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-545: achado com evidencia fora das linhas alteradas tem destino definido
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-546/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-546: line_comments sai do parser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-547/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-547: aceites de cards done nao copiam pacotes removidos do produto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-548/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-548 — Semgrep entra no gate como SAST multilinguagem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-549/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-549 — SBOM CycloneDX 1.6 gerado com Trivy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-550/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-550 — SBOM submitted to Dependency-Track, gated by project metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-551/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-551 — SBOM e imagem assinados com Sigstore/Cosign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-552/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-552: tipos de xBOM além do SBOM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-553/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-553: provas do reaproveitamento do veredito cobrem cada termo da chave
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-554/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-554 — Guia e demonstração do gate corporativo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-555/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-555 — Workflow liga o SBOM ao Dependency-Track com secrets opcionais
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-556/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-556: analysis findings count toward the policy gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-557/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-557 -- Gate as one pipeline of contributors shared by --base and --pr
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-558/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-558 -- cmd/aurumcode organised by responsibility, with a structural guard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-559/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-559: prompt and skills without language names in Go
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-560/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-560: documentation site (MkDocs Material, container, GitHub Pages)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-561/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-561: tutoriais executáveis de revisão, skills de convenção e política central
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-562/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-562: tutoriais executáveis do gate, exceções, auditoria/SARIF e reaproveitamento
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-563/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-563: tutoriais executaveis da cadeia de suprimentos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-564/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-564: tutoriais executáveis de qualquer linguagem, benchmark de recall e operação
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-566/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-566: fix emite diff unificado padrão com contexto
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-567/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-567: linha do gate mostra a origem tipada para toda fonte
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-568/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-568: falha ao gravar auditoria ou SARIF nunca termina como sucesso
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-569/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-569: achado determinístico acima de fail_on reprova em qualquer modo de inconclusivo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-570/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-570: o gate do Dependency-Track le as metricas so depois que assentaram
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-571/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-571: endereco da API do GitHub do analysis_data vem de configuracao
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-572/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-572: ajuda completa por subcomando e parecer sem "No issues found." com inconclusivo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-573/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-573: CI verde e aceites de cards done voltam a rodar no main
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-574/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-574: generic text files are reviewed, never dropped by a documentation grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-575/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-575: o gate falha fechado por construção
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-576/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-576: one review session serves --base and --pr
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-577/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-577: scanners are registered engines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-578/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-578: the review prompt is a template with budgeted slots, sent as messages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-579/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-579: the model weighs the deterministic evidence
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-580/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-580: deliberation with tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-581/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-581: gitleaks is a registered engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-582/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-582 — regra embutida de segredo lê a base pública do gitleaks como dado pinado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-583/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-583: architecture guards cover internal/
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-584/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-584: cmd/aurumcode por responsabilidade, textos em catálogo, perfis em YAML
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-585/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-585 - Legado aposentado com evidência preservada
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-586/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-586: tutoriais e aceites sem valores volateis nem copias enumeradas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-587/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-587: guia de extensão no site e tutorial executável de exemplo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-588/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-588: documentação visual e reproduzível
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-589/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-589: evidencia historica sem podridao
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-590/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-590 — reparos medidos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-591/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-591: o Aurum revisa o Aurum por PR, com configuração mínima e skills de convenção
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-592/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-592: Aurum para quem programa com agente de IA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-593/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-593: ergonomia medida pelo Aurum no Aurum
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-594/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-594: PR grande revisada (diff local quando a API recusa, lotes quando passa do orçamento)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-595/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-595: a autorrevisão conclui em PR real
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-596/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-596: provedores de LLM conhecidos por configuração
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-597/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-597: autorrevisão do lote conclui (marcador de redação e shell dos workflows)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-598/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-598 — Achado sobre o marcador de redação é descartado; helper parseável
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-599/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-599 — Status do CI no parecer só afirma o que esta execução observou
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-600/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-600 — Veredito e texto do parecer concordam com o gate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-601/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-601 — Amostra noturna de aceites volta a verde em main
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-602/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-602 — Changelog ausente vem com a entrada sugerida
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-603/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-603: achado bloqueante do modelo passa por verificação adversarial
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-604/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-604 — Changelog em três modos e doc humana
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-605/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-605 — Provedor reserva (fallback)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-607/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-607 — Saída em pt-BR de ponta a ponta
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-608/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-608 — O modelo decide sobre a regex: gate.triage model por padrão, fail-closed e declarado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-609/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-609 — Evidência íntegra: a redação não mutila código e o catálogo não dispara em literal ou prosa
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-610/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-610 — Changelog obrigatório não reprova PR de bot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-611/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-611 — Versão da ferramenta no parecer, na auditoria e no SARIF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-612/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-612 — Documentação de integração e arquitetura sem promessa que o código não cumpre
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-613/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-613 — Camada de padrões de engenharia: segundo repositório central, abaixo da política de segurança
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-614/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-614: POC em camadas e tutorial camadas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-615/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-615 — Nenhum texto stale no código
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-616/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-616: analistas com deliberação por ferramentas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-618/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-618 — Dados de análise com retenção: pre-release e limpeza das cópias velhas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-619/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-619 — Publicação sem permissão nomeia a permissão que falta; QA do consumidor aprova a correção de ponta a ponta
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-622/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-622 — Plugin externo na validação agendada, achados só na aba Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AUR-623/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AUR-623 — Plugin agendado em repositório privado sem Code Security: achados viram issues
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/Mpaape/AurumCode" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-is-a-derivation-and-not-a-declaration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this is a derivation and not a declaration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#round-3-killing-the-check-that-never-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Round 3: killing "the check that never runs"
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Round 3: killing &#34;the check that never runs&#34;">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-transitive-closure-over-uses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Transitive closure over uses:
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-one-origin-policy-zero-branches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. One origin policy, zero branches
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-the-gate-proves-the-check-ran" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. The gate proves the check ran
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-scanned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is scanned
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#symlink-behaviour-declared-and-proved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Symlink behaviour (declared and proved)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#byte-hygiene" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Byte hygiene
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-uses-scanner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The uses: scanner
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-classification-and-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference classification and policy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reference classification and policy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-frozen-floating-tag-debt-register" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The frozen floating-tag debt register
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lock-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lock schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-sealed-gate-actually-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the sealed gate actually does
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fixtures-and-reference-truth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixtures and reference truth
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixtures and reference truth">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-reason-column-and-why-a-typed-code-was-not-enough" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The reason column, and why a typed code was not enough
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reproducing-offline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproducing offline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnosis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnosis
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="aur-361-bootstrap-action-lock-boardbootstraplocksactionsyml">AUR-361 — bootstrap action lock (<code>.board/bootstrap/locks/actions.yml</code>)</h1>
+<blockquote>
+<p>Documento histórico do board. Pode descrever componentes removidos; para uso atual, consulte o <a href="../../README/">guia do produto</a>.</p>
+</blockquote>
+<h2 id="why-this-is-a-derivation-and-not-a-declaration">Why this is a derivation and not a declaration</h2>
+<p>Round 1 of this card shipped a lock whose Section 1 (whole-file digests) was
+the <em>only</em> thing the sealed gate consulted, while Section 3 (the <code>entry_NNN_*</code>
+records that claimed "every <code>uses:</code> site is registered and pinned") was
+hand-written and read only to pick a cosmetic label. An adversarial reviewer
+reproduced the consequence end-to-end in the real container: append a job with
+<code>uses: some-untrusted-org/some-action@main</code> to a real workflow, recompute only
+that file's Section-1 digest — exactly what a legitimate author updating the
+lock does — leave Section 3 untouched, and the sealed accept exits 0 with
+<code>"result":"pass"</code>.</p>
+<p>The defect was not "the scanner missed a spelling of <code>uses:</code>". The defect was
+structural: <strong>a field that nobody derives is a field an attacker can leave
+standing.</strong> Section 3 was an assertion, and an assertion about the material
+under test is worth nothing when the material is what the attacker edits.</p>
+<p>The redesign removes the class rather than the instance:</p>
+<ol>
+<li><strong>The whole lock is generated.</strong> <code>tests/acceptance/AUR-361.sh --generate</code>
+   is a pure function of the bytes under <code>action.yml</code> and <code>.github/workflows</code>.
+   Section 1 and Section 3 come out of the same single pass over the same
+   bytes. There is no hand-written field left in the file.</li>
+<li><strong>The gate regenerates and compares byte for byte.</strong> The acceptance program
+   derives the complete lock into a temporary file and runs <code>cmp</code> against the
+   committed lock. One byte of divergence is exit 1. There is no field the
+   attacker can leave stale, because there is no field they can set: a new
+   <code>uses:</code> site changes the derived entry list, therefore the derived bytes,
+   therefore the comparison.</li>
+<li><strong>The rules run on derived entries.</strong> Trusted source, ref type, and
+   pinning are evaluated over the entries the derivation just produced, never
+   over entries a human wrote. This is what stops <code>--generate</code> from becoming
+   the new bypass: regenerating the lock after adding
+   <code>some-untrusted-org/some-action@main</code> makes the byte comparison agree and
+   then the derived-entry policy refuses the run anyway.</li>
+<li><strong>Emptiness is failure.</strong> Zero input files, zero derived <code>uses:</code> sites, a
+   missing <code>action.yml</code>, a missing <code>.github/workflows</code>, no <code>uses:</code> inside
+   <code>action.yml</code>, or no <code>uses:</code> under <code>.github/workflows</code> each exit 1. An
+   AUR-361 with no <code>uses:</code> site is a broken board, not a clean one.</li>
+</ol>
+<h2 id="round-3-killing-the-check-that-never-runs">Round 3: killing "the check that never runs"</h2>
+<p>Round 2's derivation was honest but its <em>policy</em> still classified by branch,
+and two branches skipped a check. Both were reproduced end-to-end inside the
+sealed container with <code>exit_code: 0</code> / <code>"result":"pass"</code>:</p>
+<ul>
+<li><strong>B1 — the docker branch had no owner.</strong> <code>owner_is_trusted</code> was called only
+  when <code>entry_kind == remote</code>. For <code>entry_kind == docker</code> the owner was the
+  hard-coded literal string <code>docker</code>, compared against nothing. A
+  <code>uses: docker://evil-registry.example.com/malware@sha256:&lt;64 hex&gt;</code> was
+  recorded in the generated lock and accepted.</li>
+<li><strong>B2 — a local composite action was opaque.</strong> For <code>uses: ./path</code> the
+  derivation hashed the target <code>action.yml</code> for integrity but never <em>opened</em>
+  it, and the file enumeration only ever covered <code>.github/workflows</code> plus the
+  root <code>action.yml</code>. A <code>hidden-nested/action.yml</code> containing
+  <code>uses: attacker-controlled-org/definitely-not-trusted@main</code> raised
+  <code>active_sites</code> from 29 to 30 and passed, with neither the owner nor the
+  mutable ref appearing anywhere in the lock.</li>
+</ul>
+<p>These are one defect wearing two hats: <strong>a policy expressed as a per-shape
+branch always has a shape whose branch forgot the check.</strong> Round 3 deletes the
+branches instead of adding a third one.</p>
+<h3 id="1-transitive-closure-over-uses">1. Transitive closure over <code>uses:</code></h3>
+<p><code>derive_lock</code> no longer enumerates a fixed file list. It seeds a worklist with
+<code>.github/workflows/**</code> plus the root <code>action.yml</code>, and <strong>every local <code>uses:</code>
+target discovered while scanning any file is enqueued into that same worklist</strong>,
+iterated to a fixed point. The scanner used for a nested <code>action.yml</code> is the
+same <code>scan_file</code> used for a workflow — there is no second, lighter pass.</p>
+<p>Cycle handling is structural, not heuristic: a path already <em>enqueued</em> is never
+enqueued again, so <code>A -&gt; B -&gt; A</code> terminates; and a path being <em>dequeued</em> twice
+is a hard reject (<code>closure-revisit</code>). At the fixed point four counts must
+agree — <code>head == |queue|</code>, <code>|visited| == |queue|</code>, <code>|visited| == |enqueued|</code>,
+<code>|visited| &gt;= |seeds|</code> — or the closure is declared a lie
+(<code>closure-not-drained</code>, <code>closure-visit-drift</code>, <code>closure-fixpoint-drift</code>,
+<code>closure-below-seeds</code>).</p>
+<p>An <strong>independent second opinion</strong> runs after the entries are built: every entry
+whose resolved local target is non-empty must have that target inside the closed
+file set, or the run exits 1 with <code>closure-incomplete</code>. The two counters that
+guard that loop use two <em>different</em> predicates (non-empty resolved target vs
+<code>kind == local</code>) and must agree. So a closure that silently missed an edge fails
+rather than passes.</p>
+<p>Each file in the lock carries <code>file_NNN_origin: seed | closure</code>, so which files
+entered by closure is visible in the reviewed artifact rather than implied.</p>
+<h3 id="2-one-origin-policy-zero-branches">2. One origin policy, zero branches</h3>
+<p>There is a single allowlist table keyed by <code>(source, owner)</code>:</p>
+<div class="highlight"><pre><span></span><code>github-remote       actions
+github-remote       ruby
+github-remote       Mpaape
+container-registry  docker.io/library
+repository          in-tree
+</code></pre></div>
+<p><code>origin_is_trusted</code> is called for <strong>every derived entry with no conditional
+whatsoever</strong>. <code>entry_kind</code> may change <em>how</em> the owner is extracted; it can never
+change <em>whether</em> the owner is judged. <code>repository/in-tree</code> is in the table so
+that an in-repo composite action is <em>allowed by the rule</em> rather than <em>exempt
+from it</em> — and its contents are then closed over by (1), so "in-tree" is a claim
+about provenance, not a licence to hide.</p>
+<p><code>docker://</code> references are normalised to <code>&lt;registry&gt;/&lt;namespace…&gt;/&lt;image&gt;</code>
+before judgement: <code>alpine</code> becomes <code>docker.io/library/alpine</code> with owner
+<code>docker.io/library</code>; <code>evil-registry.example.com/malware</code> keeps owner
+<code>evil-registry.example.com</code>; <code>docker.io/evilns/img</code> gets owner
+<code>docker.io/evilns</code>. Neither of the latter two is in the table, so both exit 1
+with <code>source_integrity_error</code>.</p>
+<p>Unknown <code>source</code>, unknown <code>owner</code>, an empty argument, and an empty table all
+fail closed.</p>
+<h3 id="3-the-gate-proves-the-check-ran">3. The gate proves the check ran</h3>
+<p>Not running a check is itself a failure mode with a typed code. The policy loop
+counts its own applications and refuses unless
+<code>origin_checked == reftype_checked == |entries|</code> and <code>origin_checked &gt; 0</code>. The
+count is emitted into the lock as <code>origin_policy_checked:</code>, and Phase 1b of the
+gate re-asserts <code>origin_policy_checked == active_site_count &gt; 0</code> from the
+committed bytes. Every passing fixture is held to the same equality. So "the
+policy silently did not happen" cannot look like a pass anywhere.</p>
+<h2 id="what-is-scanned">What is scanned</h2>
+<p>The seed set is exactly the card's <code>read_paths</code>:</p>
+<ul>
+<li><code>action.yml</code> — the composite action manifest at the repository root</li>
+<li>every regular file under <code>.github/workflows</code>, at any depth, with any
+  extension or none (there is no <code>*.yml</code> filter, so <code>EVIL.YML</code> and
+  <code>a/b/c/deep.yml</code> are scanned)</li>
+</ul>
+<p>The scanned set is the <strong>transitive closure</strong> of that seed set under local
+<code>uses:</code> edges: every <code>action.yml</code> / <code>action.yaml</code> reachable through a chain of
+<code>uses: ./…</code> references is scanned by the same code, to any depth, cycles
+included.</p>
+<p>Files are emitted in <code>LC_ALL=C</code> sorted order. The scan is byte-oriented and
+bounded: at most 256 input files (seeds <em>and</em> closure), at most 256 derived
+entries, at most 4 MiB in total. Crossing a bound exits 1 with
+<code>input_limit_exceeded</code>.</p>
+<p>Local path resolution is component-by-component: <code>..</code> anywhere refuses
+(<code>local-action-path-escape</code>), an empty or <code>.</code> segment refuses
+(<code>local-action-path-malformed</code>), <strong>any</strong> symlinked component — not only the last
+— refuses (<code>local-action-path-symlink</code>), a missing component refuses
+(<code>local-action-missing</code>), and a resolved target outside the scan root refuses
+(<code>local-action-outside-root</code>). The number of components walked is cross-checked
+against a separately computed segment count.</p>
+<h2 id="symlink-behaviour-declared-and-proved">Symlink behaviour (declared and proved)</h2>
+<p><code>find -type f</code> silently omits symlinks, which is precisely how a symlinked
+workflow file would escape a naive digest sweep. The derivation therefore
+enumerates symlinks <em>separately</em> and refuses them:</p>
+<ul>
+<li>any symlink anywhere under <code>.github/workflows</code> → exit 1
+  <code>source_integrity_error</code></li>
+<li><code>.github/workflows</code> itself being a symlink → exit 1 <code>source_integrity_error</code></li>
+<li><code>action.yml</code> being a symlink → exit 1 <code>source_integrity_error</code></li>
+<li>any declared card path (<code>.board/bootstrap/locks/actions.yml</code>,
+  <code>tests/bootstrap/locks/AUR-361</code>, <code>tests/acceptance/AUR-361.sh</code>,
+  <code>docs/specs/AUR-361.md</code>) being a symlink → exit 1 <code>source_integrity_error</code></li>
+</ul>
+<p>Fixtures <code>adv_symlink</code> and <code>symlinked_action_manifest</code> exercise both shapes.
+<code>.board/bin/oci-run</code> independently refuses a symlinked acceptance program and
+refuses any symlink whose target is outside the materialised allowlist, so
+the container path is covered twice.</p>
+<h2 id="byte-hygiene">Byte hygiene</h2>
+<p>A NUL byte cannot be detected with BusyBox <code>awk</code>/<code>grep</code> (they truncate) or with
+bash <code>read</code> (it drops the byte silently). The derivation counts NUL bytes with
+<code>tr -cd '\000' | wc -c</code> and refuses any input with a non-zero count
+(<code>invalid_lock_or_manifest</code>). Carriage returns are counted the same way and
+refused, so a CRLF rewrite of a workflow cannot shift the line numbers the lock
+records. Path names containing a newline are caught by a count assertion: the
+number of lines from <code>find -type f</code> must equal the number of NULs from
+<code>find -type f -print0</code>, and a disagreement exits 1.</p>
+<h2 id="the-uses-scanner">The <code>uses:</code> scanner</h2>
+<p>Derivation is line-based on purpose. A YAML object model — which the previous
+round used — loses every document after the first <code>---</code> and attributes
+merge-key reuse to the wrong site. A line scan loses neither. Each line is
+processed in three stages:</p>
+<ol>
+<li><strong>Full-line comment.</strong> If the first non-whitespace character is <code>#</code>, the
+   line is inert by YAML's own rule. If it nonetheless carries the textual
+   token <code>uses:</code> it is recorded as an <code>inert_NNN_*</code> witness so that even
+   commented references are locked bytes.</li>
+<li><strong>Unsupported construct.</strong> On a line that carries the token <code>uses</code>, an
+   explicit key indicator (<code>?</code>), a merge key (<code>&lt;&lt;:</code>), or a YAML anchor/alias
+   in key or value position exits 1 with <code>invalid_lock_or_manifest</code>. These are
+   the constructs the scanner cannot reason about, so they are <em>rejected</em>
+   rather than skipped — "no blind spot" is enforced, not claimed.</li>
+<li><strong>Flow segmentation.</strong> The line is split at <code>{</code>, <code>[</code> and <code>,</code>. A segment is
+   an active <code>uses:</code> key iff, after stripping leading whitespace and the
+   structural characters <code>-</code>, <code>"</code>, <code>'</code>, it begins with <code>uses</code>, then an optional
+   quote, then optional whitespace, then <code>:</code>.</li>
+</ol>
+<p>Splitting cannot create a false negative: splitting only produces more
+segments, and a real <code>uses:</code> key always begins its own segment. It can produce
+a false positive (a <code>uses:</code> inside a quoted scalar that follows a comma); that
+direction is fail-closed and is the deliberate bias.</p>
+<p>Forms proved by fixture: double-quoted value, single-quoted value, quoted key
+with space before the colon (<code>"uses" : "…"</code>), full-line comment, <code>uses:</code>
+inside a <code>run:</code> string, zero indentation, twenty-space indentation, no space
+after the colon, single-line flow mapping with <code>uses</code> first, single-line flow
+mapping with <code>uses</code> last, multi-line flow mapping, multi-document stream,
+uppercase filename, deep subdirectory, NUL byte, CRLF, alias value, merge-key
+reuse of an anchored <code>uses:</code>.</p>
+<p>Known and declared residue: the merge site <code>&lt;&lt;: *tpl</code> is not counted as a
+separate site. It cannot smuggle anything, because the anchor's own <code>uses:</code>
+line is scanned and judged (fixture <code>anchor_merge</code> shows the anchored floating
+tag being refused), and any merge line is rejected outright when it carries the
+token <code>uses</code>.</p>
+<h2 id="reference-classification-and-policy">Reference classification and policy</h2>
+<p>Two independent gates apply to <strong>every</strong> entry, in this order: the origin gate
+(is this owner allowed to supply code to this repository at all?) and the ref
+gate (is this reference immutable?). Neither is conditional on the shape.</p>
+<p>Origin gate — the <code>(source, owner)</code> allowlist above, applied to all entries:</p>
+<table>
+<thead>
+<tr>
+<th>shape</th>
+<th><code>source</code></th>
+<th>derived <code>owner</code></th>
+<th>verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>actions/checkout@…</code></td>
+<td><code>github-remote</code></td>
+<td><code>actions</code></td>
+<td>allowed</td>
+</tr>
+<tr>
+<td><code>some-untrusted-org/x@…</code></td>
+<td><code>github-remote</code></td>
+<td><code>some-untrusted-org</code></td>
+<td>exit 1 <code>source_integrity_error</code></td>
+</tr>
+<tr>
+<td><code>docker://alpine@…</code></td>
+<td><code>container-registry</code></td>
+<td><code>docker.io/library</code></td>
+<td>allowed</td>
+</tr>
+<tr>
+<td><code>docker://evil-registry.example.com/malware@…</code></td>
+<td><code>container-registry</code></td>
+<td><code>evil-registry.example.com</code></td>
+<td>exit 1 <code>source_integrity_error</code></td>
+</tr>
+<tr>
+<td><code>docker://docker.io/evilns/img@…</code></td>
+<td><code>container-registry</code></td>
+<td><code>docker.io/evilns</code></td>
+<td>exit 1 <code>source_integrity_error</code></td>
+</tr>
+<tr>
+<td><code>./path</code></td>
+<td><code>repository</code></td>
+<td><code>in-tree</code></td>
+<td>allowed, and the target is then scanned by closure</td>
+</tr>
+</tbody>
+</table>
+<p>Ref gate — applied to all entries after the origin gate:</p>
+<table>
+<thead>
+<tr>
+<th>shape</th>
+<th><code>ref_type</code></th>
+<th>requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>owner/repo@&lt;40 hex&gt;</code></td>
+<td><code>commit_sha</code></td>
+<td>accepted</td>
+</tr>
+<tr>
+<td><code>owner/repo@&lt;7..39 hex&gt;</code></td>
+<td><code>abbrev_sha</code></td>
+<td>exit 1 <code>action_ref_mutable</code></td>
+</tr>
+<tr>
+<td><code>owner/repo@&lt;anything else&gt;</code></td>
+<td><code>mutable_tag</code></td>
+<td>frozen-debt register only</td>
+</tr>
+<tr>
+<td><code>./path</code></td>
+<td><code>local_path</code></td>
+<td>resolves to a real <code>action.yml</code>/<code>action.yaml</code>; the lock binds its sha256 <strong>and</strong> its <code>uses:</code> lines are derived transitively; missing, escaping or symlinked → <code>source_integrity_error</code></td>
+</tr>
+<tr>
+<td><code>docker://img@sha256:&lt;64 hex&gt;</code></td>
+<td><code>docker_digest</code></td>
+<td>accepted <strong>only if the normalised registry/namespace is in the origin allowlist</strong></td>
+</tr>
+<tr>
+<td><code>docker://img:tag</code></td>
+<td><code>mutable_tag</code></td>
+<td>exit 1 <code>action_ref_mutable</code></td>
+</tr>
+<tr>
+<td>anything else</td>
+<td>—</td>
+<td>exit 1 <code>invalid_lock_or_manifest</code></td>
+</tr>
+</tbody>
+</table>
+<p>An untrusted origin exits 1 with <code>source_integrity_error</code> <strong>even when the
+reference is perfectly pinned</strong> — fixture <code>untrusted_owner</code> pins
+<code>some-untrusted-org/some-action@11bd7190…</code>, fixture
+<code>docker_untrusted_registry</code> pins a full 64-hex manifest digest, and fixture
+<code>nested_local_deep</code> pins a full commit SHA two composite-action levels down.
+All three are refused. A <code>sha256:</code> digest proves <em>which bytes</em>; it never proves
+<em>whose bytes</em>, so pinning alone is not a substitute for provenance.</p>
+<h3 id="the-frozen-floating-tag-debt-register">The frozen floating-tag debt register</h3>
+<p><code>.github/workflows/ci.yml</code> and <code>.github/workflows/documentation.yml</code> predate
+this card and reference trusted actions by mutable tag. The card's Non-goals
+forbid AUR-361 from rewriting a mutable <code>uses:</code>, and <code>.github/workflows</code> is a
+<code>read_path</code> here, so the debt cannot be repaid inside this card. It is frozen
+instead, as a hard-coded constant in <code>tests/acceptance/AUR-361.sh</code>:</p>
+<div class="highlight"><pre><span></span><code>actions/checkout@v4              3
+actions/setup-go@v5              3
+actions/upload-artifact@v4       2
+actions/upload-pages-artifact@v3 1
+actions/github-script@v7         1
+actions/deploy-pages@v4          1
+ruby/setup-ruby@v1               1
+</code></pre></div>
+<p>A floating reference is tolerated only if its <code>identity@ref</code> appears here and
+the derived count is <strong>less than or equal to</strong> the recorded count. Repaying
+debt is always allowed; growing it is not. <code>actions/checkout@v4</code> at four sites
+exits 1 (<code>debt_overflow</code>), <code>actions/checkout@main</code> exits 1 (<code>mutable_tag</code>),
+<code>actions/checkout@v9</code> exits 1 (<code>uppercase_ext</code>, <code>deep_subdir</code>). The register
+lives in the acceptance program, not in the lock, so widening it is a visible
+diff in a reviewed path and can never be done by regenerating the lock.</p>
+<p>Closing this debt is <code>.board/cards/backlog/AUR-306</code>'s job (it replaces those
+workflows with SHA-pinned ones); this card only stops it from growing.</p>
+<h2 id="lock-schema">Lock schema</h2>
+<div class="highlight"><pre><span></span><code># GENERATED by tests/acceptance/AUR-361.sh --generate. Do not hand-edit.
+# Every field below is derived from the bytes of the scanned inputs.
+schema: bootstrap-lock-v1
+card: AUR-361
+derivation: uses-closure-derived-v2
+seed_file_count: &lt;s&gt;
+file_count: &lt;n&gt;                                         (n &gt;= s: closure)
+input_bytes: &lt;total&gt;
+origin_policy_checked: &lt;a&gt;                              (must equal &lt;a&gt; below)
+file_NNN_path / _origin / _bytes / _digest              (n quadruples)
+active_site_count: &lt;a&gt;
+inert_line_count: &lt;i&gt;
+entry_NNN_file / _line / _kind / _source / _owner / _identity /
+            _ref / _ref_type / _target / _line_digest   (a decuples)
+inert_NNN_file / _line / _line_digest                   (i triples)
+</code></pre></div>
+<p><code>file_NNN_origin</code> is <code>seed</code> or <code>closure</code>. <code>entry_NNN_target</code> is the closed-set
+path a local <code>uses:</code> resolved to, or <code>-</code> for a non-local entry;
+<code>origin_policy_checked</code> is the number of times the single origin gate fired
+and is re-asserted against <code>active_site_count</code> by the gate itself.</p>
+<p>Ordering is total and deterministic: files in <code>LC_ALL=C</code> path order, entries in
+<code>(file, line)</code> order, inert witnesses likewise. <code>--generate</code> run five times in
+a row produces five identical sha256 digests.</p>
+<p>Every section is derived. There is no section a human is expected to maintain,
+and therefore no section whose staleness can be exploited.</p>
+<h2 id="error-codes">Error codes</h2>
+<table>
+<thead>
+<tr>
+<th>code</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>input_limit_exceeded</code></td>
+<td>more than 256 files (seeds plus closure), more than 256 entries, or more than 4 MiB</td>
+</tr>
+<tr>
+<td><code>invalid_lock_or_manifest</code></td>
+<td>NUL or CR byte, hostile path, unsupported YAML construct, unparseable <code>uses:</code> value or docker image, empty <code>uses:</code> value, zero derived sites, no input files, a closure/scan/policy count assertion failing (<code>closure-*-drift</code>, <code>origin-policy-drift</code>, <code>reftype-policy-drift</code>, <code>origin-policy-never-ran</code>, <code>scan-*-drift</code>), a declared card path missing or empty, or a fixture expectation not met</td>
+</tr>
+<tr>
+<td><code>source_integrity_error</code></td>
+<td>symlinked input, symlinked local path component, declared path symlink, non-regular input, <strong>untrusted origin of any kind (remote owner, container registry/namespace, or a shape whose source is unknown)</strong>, missing or escaping local action manifest, a local target outside the closed set (<code>closure-incomplete</code>), or a lock/derivation divergence that is neither a site nor an identity nor a ref change</td>
+</tr>
+<tr>
+<td><code>action_ref_mutable</code></td>
+<td>abbreviated SHA, floating tag outside the frozen register, floating tag above its registered count, or <code>docker://</code> without a digest</td>
+</tr>
+<tr>
+<td><code>action-identity-mismatch</code></td>
+<td>drift label: the derived identity at a committed <code>(file, line)</code> differs</td>
+</tr>
+<tr>
+<td><code>action-ref-mutable</code></td>
+<td>drift label: the derived ref at a committed <code>(file, line)</code> differs</td>
+</tr>
+<tr>
+<td><code>action-unlocked</code></td>
+<td>drift label: a derived site has no committed counterpart, or vice versa</td>
+</tr>
+</tbody>
+</table>
+<p>The three hyphenated labels are the card's <code>MUT-001..003</code> names. They are
+<strong>labels only</strong>: they are produced by <code>classify_drift</code>, which runs strictly
+after <code>cmp</code> has already decided the exit code is 1. <code>classify_drift</code> cannot
+select a pass, and the pass path never calls it. It keys on <code>(file, line)</code>, so
+an identity that also occurs elsewhere in the same file — which the previous
+round's file-wide substring search confused — no longer blurs the label.</p>
+<h2 id="what-the-sealed-gate-actually-does">What the sealed gate actually does</h2>
+<p><code>./.board/bin/oci-run --profile bootstrap-readonly-v1 --card AUR-361</code> runs
+<code>bash tests/acceptance/AUR-361.sh</code> inside
+<code>bash@sha256:ae4668c2560999e65e89532cd2ad1b6688bb23298189f0bd229ef80fa4bd0831</code>
+(Alpine 3.22 + BusyBox, <strong>no Go toolchain</strong>), network none, read-only rootfs,
+all capabilities dropped, non-root, with only the card's <code>paths</code> and
+<code>read_paths</code> materialised. Consequently:</p>
+<ul>
+<li>There is <strong>no Go engine</strong> in this design. Round 1 leaned on
+  <code>tests/integration/AUR-361_test.go</code> for the semantic check; that file was
+  outside the card's declared <code>paths</code> and was invoked by no gate that blocks a
+  card transition, so it was decorative. All semantics now live in the single
+  program the sealed gate actually executes.</li>
+<li><code>--generate</code> cannot run inside the container (read-only rootfs). It is an
+  author-side command; the gate only ever <em>re</em>-derives into <code>/tmp</code> and
+  compares.</li>
+</ul>
+<p>Phases, in order:</p>
+<ol>
+<li>every declared card path exists, is not a symlink, is non-empty, and is
+   actually read (byte counts accumulated, loop count asserted)</li>
+<li>re-derive the whole lock from the live tree — seed enumeration, transitive
+   closure to a fixed point, entries, then the single origin+ref policy — and
+   <code>cmp</code> against the committed lock; divergence → classify → exit 1
+1b. assert from the committed bytes that <code>origin_policy_checked</code> equals
+   <code>active_site_count</code> and that both are non-zero</li>
+<li>run all 37 fixture cases from <code>tests/bootstrap/locks/AUR-361/cases.tsv</code>,
+   asserting exit, code, active count, inert count, identity list, the
+   origin-gate count, and — for every refusing row — the <strong>named control</strong>
+   that had to fire; the number of cases executed must equal the number of
+   rows declared and must be at least 36, and the number of named controls
+   asserted must equal the number of refusing rows and be non-zero</li>
+<li>emit one bounded JSON line on stdout carrying <code>named_controls</code> (how many
+   refusing fixtures named the control that fired), <code>seed_files</code>,
+   <code>closure_files</code>, <code>active_sites</code> and <code>origin_checks</code></li>
+</ol>
+<h2 id="fixtures-and-reference-truth">Fixtures and reference truth</h2>
+<p><code>tests/bootstrap/locks/AUR-361/cases.tsv</code> is <strong>hand-written from reading the
+fixture YAML</strong>. It is not generated by the acceptance program and it is not a
+copy of the lock. This is the point: the previous round's nominal fixture was
+documented as "an exact copy of the real lock", which made the nominal
+comparison a tautology. Here the reference truth for the live tree is the
+workflow files (the lock is the derivative), and the reference truth for the
+fixtures is a human claim in <code>cases.tsv</code> (the derivation is what is on trial).</p>
+<p>Round 3 fixtures, one per blocker plus the controls that prove the mechanism
+rather than the instance:</p>
+<table>
+<thead>
+<tr>
+<th>fixture</th>
+<th>proves</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docker_untrusted_registry</code></td>
+<td>B1: a fully digest-pinned image from a foreign registry is refused</td>
+</tr>
+<tr>
+<td><code>docker_untrusted_namespace</code></td>
+<td>B1: <code>docker.io</code> alone is not trust; the namespace is judged</td>
+</tr>
+<tr>
+<td><code>nested_local_hostile</code></td>
+<td>B2: a <code>uses:</code> inside a local composite action <em>is</em> derived and <em>is</em> policed</td>
+</tr>
+<tr>
+<td><code>nested_local_deep</code></td>
+<td>B2: the closure is a fixed point, not one extra level — depth 2 is caught</td>
+</tr>
+<tr>
+<td><code>nested_local_cycle</code></td>
+<td><code>A -&gt; B -&gt; A</code> terminates and passes, so cycle handling is not "reject anything recursive"</td>
+</tr>
+<tr>
+<td><code>nested_local_trusted</code></td>
+<td>positive control: a legitimate nested composite still passes, with both sites recorded</td>
+</tr>
+<tr>
+<td><code>zero_uses</code> / <code>no_inputs</code></td>
+<td>Law 12: an empty closure and an empty seed set are FAILURES, not clean runs</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-reason-column-and-why-a-typed-code-was-not-enough">The <code>reason</code> column, and why a typed code was not enough</h3>
+<p>Round 3 mutation-tested its own controls and found that asserting the typed
+code alone let two mutants live. Deleting the <code>no-input-files</code> refusal, or
+deleting the <code>zero-uses-sites-derived</code> refusal, kept the suite green: a
+different, redundant control (<code>seed-duplicate</code>, <code>origin-policy-never-ran</code>)
+refused with the <em>same</em> code <code>invalid_lock_or_manifest</code>, and no row could tell
+the two apart. Behaviour was still fail-closed, but the <em>evidence</em> could not
+observe a control that had stopped running — the surviving class one level up.</p>
+<p>Every refusing row therefore carries a <code>reason</code>: the exact control that must
+fire. It is asserted as a <strong>colon-delimited field</strong> of the refusal detail, not
+as a substring (a substring test would match <code>local-action-missing</code> inside
+<code>local-action-missing-manifest</code>), and a count assertion requires one named
+control per refusing row, at least one overall. A refusing row without a
+reason, or a passing row with one, is itself a failure
+(<code>fixture-reason-missing</code>, <code>fixture-reason-unexpected</code>), so the column cannot
+be quietly emptied. Both mutants die on it:</p>
+<div class="highlight"><pre><span></span><code>detail fixture-reason:no_inputs:want=no-input-files:detail=seed-duplicate:0/1
+detail fixture-reason:zero_uses:want=zero-uses-sites-derived:detail=origin-policy-never-ran
+</code></pre></div>
+<p>The 24 reasons were written by hand from the fixture YAML and the policy
+before the suite was run, and all 24 matched on the first execution.</p>
+<h2 id="reproducing-offline">Reproducing offline</h2>
+<div class="highlight"><pre><span></span><code><span class="c1"># regenerate the lock after a legitimate workflow change</span>
+bash<span class="w"> </span>tests/acceptance/AUR-361.sh<span class="w"> </span>--generate
+
+<span class="c1"># the card&#39;s declared acceptance, sealed</span>
+./.board/bin/oci-run<span class="w"> </span>--profile<span class="w"> </span>bootstrap-readonly-v1<span class="w"> </span>--card<span class="w"> </span>AUR-361
+</code></pre></div>
+<h2 id="diagnosis">Diagnosis</h2>
+<p>Failures print two bounded lines on stderr and nothing else:</p>
+<div class="highlight"><pre><span></span><code>AUR-361/AC-001/&lt;code&gt;
+AUR-361/AC-001/detail &lt;file&gt;:&lt;line&gt;:&lt;reason&gt;
+</code></pre></div>
+<p>No workflow content, no environment, no secret and no credential-shaped value
+is ever echoed — only paths, line numbers, counts and the typed reason.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Voltar para o topo
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/Mpaape/AurumCode" target="_blank" rel="noopener" title="AurumCode no GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.indexes", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copiado para \u00e1rea de transfer\u00eancia", "clipboard.copy": "Copiar para \u00e1rea de transfer\u00eancia", "search.result.more.one": "mais 1 nesta p\u00e1gina", "search.result.more.other": "# mais nesta p\u00e1gina", "search.result.none": "Nenhum documento encontrado", "search.result.one": "1 documento encontrado", "search.result.other": "# documentos encontrados", "search.result.placeholder": "Digite para iniciar a busca", "search.result.term.missing": "Ausente", "select.version": "Selecione a vers\u00e3o"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/mermaid.min.js"></script>
+      
+    
+  </body>
+</html>

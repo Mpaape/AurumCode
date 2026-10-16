@@ -3,7 +3,7 @@ $ aurumcode review --base main --changelog
 ## AurumCode revisão de código
 
 > [!TIP]
-> **Aprovado: nenhum problema encontrado na mudança revisada.**
+> **Gate passou: nenhum problema encontrado na mudança revisada.**
 
 sem gate declarado · 1 arquivo revisado
 
@@ -19,7 +19,7 @@ sem gate declarado · 1 arquivo revisado
 
 ### Changed
 
-- feature: repo-exemplo/mudanca (ccdf2d8d3ead286a8c460489dfb75ecff11b669f)
+- feature: repo-exemplo/mudanca (a24e74ca8e415f4c2bf85aedbf6abf79d71f6cf1)
 
 ### Fixed
 

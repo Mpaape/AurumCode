@@ -8,10 +8,10 @@ aurumcode review: verificação: app.go:6 security/hardcoded-secret continua blo
 
 sem gate declarado · 1 arquivo revisado
 app.go:6: [error] A senha do banco esta escrita no codigo. (rule security/hardcoded-secret: Hardcoded Secrets)
+aurumcode review: 1 achado com severidade error ou maior (--fail-on error)
   - Impacto: Quem le o repositorio ou o historico reutiliza a senha.
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Correção sugerida: Leia a senha do ambiente em vez de escreve-la no codigo.
   - Verificação: Remova o literal e rode a revisao de novo; o achado deve sumir.
-aurumcode review: 1 achado com severidade error ou maior (--fail-on error)
 exit_code=3
 RESULTADO: achado do modelo citando security/hardcoded-secret reprovou

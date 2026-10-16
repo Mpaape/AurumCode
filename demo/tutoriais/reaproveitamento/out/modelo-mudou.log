@@ -21,7 +21,7 @@ $ aurumcode review --base main --politica /policy
 ## AurumCode revisão de código
 
 > [!TIP]
-> **Aprovado: nenhum problema encontrado na mudança revisada.**
+> **Gate passou: nenhum problema encontrado na mudança revisada.**
 
 gate da política: passou · 1 arquivo revisado
 Nenhum problema encontrado.
