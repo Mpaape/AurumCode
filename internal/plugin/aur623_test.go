@@ -29,7 +29,10 @@ type aur623Fake struct {
 	private    bool
 	labels     map[string]bool
 	issues     []*aur623Issue
-	comments   map[int][]string
+	comments   map[int][]aur623Comment
+	events     map[int][]aur623Event
+	noEvents   map[int]bool // events of these issues answer 500
+	clock      int
 	calls      []string
 	dropLabel  bool
 	limited    int // POST /issues answered with the rate limiter first
@@ -43,17 +46,38 @@ func aur623Oversize(in map[string]any) bool {
 	return len([]rune(t)) > 256 || len([]rune(b)) > 65536
 }
 
+type aur623Comment struct{ Body, User, At string }
+type aur623Event struct{ Event, Actor, At string }
+
+// aur623Bot is the identity of the token the plugin uses.
+const aur623Bot = "github-actions[bot]"
+
+func (f *aur623Fake) now() string {
+	f.clock++
+	return fmt.Sprintf("2026-10-15T%02d:%02d:%02dZ", f.clock/3600, f.clock/60%60, f.clock%60)
+}
+
+// act records a person's (or the bot's) close/reopen, as the timeline does.
+func (f *aur623Fake) act(n int, actor, event string) {
+	f.events[n] = append(f.events[n], aur623Event{event, actor, f.now()})
+	f.issues[n-1].State = map[string]string{"closed": "closed", "reopened": "open"}[event]
+}
+
+func (f *aur623Fake) say(n int, user, body string) {
+	f.comments[n] = append(f.comments[n], aur623Comment{body, user, f.now()})
+}
+
 type aur623Issue struct {
 	Number int      `json:"number"`
+	Author string   `json:"-"`
 	Title  string   `json:"title"`
 	Body   string   `json:"body"`
 	State  string   `json:"state"`
-	Reason string   `json:"state_reason"`
 	Labels []string `json:"-"`
 }
 
 func newAUR623Fake(visibility string, private bool) *aur623Fake {
-	return &aur623Fake{visibility: visibility, private: private, labels: map[string]bool{}, comments: map[int][]string{}}
+	return &aur623Fake{visibility: visibility, private: private, labels: map[string]bool{}, comments: map[int][]aur623Comment{}, events: map[int][]aur623Event{}, noEvents: map[int]bool{}}
 }
 
 func (f *aur623Fake) writes() []string {
@@ -73,7 +97,7 @@ func (f *aur623Fake) wire(is *aur623Issue) map[string]any {
 	for _, l := range is.Labels {
 		labels = append(labels, map[string]string{"name": l})
 	}
-	return map[string]any{"number": is.Number, "title": is.Title, "body": is.Body, "state": is.State, "state_reason": is.Reason, "labels": labels}
+	return map[string]any{"number": is.Number, "title": is.Title, "body": is.Body, "state": is.State, "labels": labels, "user": map[string]string{"login": is.Author}}
 }
 
 var aur623Route = regexp.MustCompile(`^/repos/dono/repo(/.*)?$`)
@@ -116,7 +140,7 @@ func (f *aur623Fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Retry-After", "0")
 		send(403, map[string]string{})
 	case r.Method == "POST" && route == "/issues":
-		is := &aur623Issue{Number: len(f.issues) + 1, Title: fmt.Sprint(in["title"]), Body: fmt.Sprint(in["body"]), State: "open"}
+		is := &aur623Issue{Number: len(f.issues) + 1, Author: aur623Bot, Title: fmt.Sprint(in["title"]), Body: fmt.Sprint(in["body"]), State: "open"}
 		if !f.dropLabel {
 			for _, l := range in["labels"].([]any) {
 				is.Labels = append(is.Labels, fmt.Sprint(l))
@@ -152,11 +176,21 @@ func (f *aur623Fake) list(_ http.ResponseWriter, r *http.Request, send func(int,
 	send(200, append([]map[string]any{}, match[lo:hi]...))
 }
 
-var aur623IssueRoute = regexp.MustCompile(`^/issues/(\d+)(/comments)?$`)
+var aur623IssueRoute = regexp.MustCompile(`^/issues/(\d+)(/comments|/events)?$`)
 
-// commentPage serves an issue's comments 2 per page, oldest first.
-func (f *aur623Fake) commentPage(n, page int) []map[string]string {
-	all := f.comments[n]
+// timelinePage serves an issue's comments or events 2 per page, oldest
+// first.
+func (f *aur623Fake) timelinePage(n, page int, kind string) []map[string]any {
+	var all []map[string]any
+	if kind == "/comments" {
+		for _, c := range f.comments[n] {
+			all = append(all, map[string]any{"body": c.Body, "created_at": c.At, "user": map[string]string{"login": c.User}})
+		}
+	} else {
+		for _, e := range f.events[n] {
+			all = append(all, map[string]any{"event": e.Event, "created_at": e.At, "actor": map[string]string{"login": e.Actor}})
+		}
+	}
 	lo, hi := (page-1)*2, page*2
 	if lo > len(all) {
 		lo = len(all)
@@ -164,11 +198,7 @@ func (f *aur623Fake) commentPage(n, page int) []map[string]string {
 	if hi > len(all) {
 		hi = len(all)
 	}
-	out := []map[string]string{}
-	for _, c := range all[lo:hi] {
-		out = append(out, map[string]string{"body": c})
-	}
-	return out
+	return append([]map[string]any{}, all[lo:hi]...)
 }
 
 func (f *aur623Fake) patchOrComment(method, route string, page int, in map[string]any, send func(int, any)) {
@@ -184,10 +214,12 @@ func (f *aur623Fake) patchOrComment(method, route string, page int, in map[strin
 	}
 	is := f.issues[n-1]
 	switch {
+	case method == "GET" && m[2] == "/events" && f.noEvents[n]:
+		send(500, map[string]string{})
 	case method == "GET" && m[2] != "":
-		send(200, f.commentPage(n, page))
-	case method == "POST" && m[2] != "":
-		f.comments[n] = append(f.comments[n], fmt.Sprint(in["body"]))
+		send(200, f.timelinePage(n, page, m[2]))
+	case method == "POST" && m[2] == "/comments":
+		f.say(n, aur623Bot, fmt.Sprint(in["body"]))
 		send(201, map[string]string{})
 	case method == "PATCH" && m[2] == "":
 		if v, ok := in["title"]; ok {
@@ -196,11 +228,8 @@ func (f *aur623Fake) patchOrComment(method, route string, page int, in map[strin
 		if v, ok := in["body"]; ok {
 			is.Body = fmt.Sprint(v)
 		}
-		if v, ok := in["state"]; ok {
-			is.State = fmt.Sprint(v)
-		}
-		if v, ok := in["state_reason"]; ok {
-			is.Reason = fmt.Sprint(v)
+		if v, ok := in["state"]; ok && fmt.Sprint(v) != is.State {
+			f.act(n, aur623Bot, map[string]string{"closed": "closed", "open": "reopened"}[fmt.Sprint(v)])
 		}
 		send(200, f.wire(is))
 	default:
@@ -308,7 +337,7 @@ func TestAUR623SyncKeepsClosesReopens(t *testing.T) {
 	if len(fake.issues) != 3 || fake.issues[0].State != "open" || fake.issues[1].State != "closed" || fake.issues[2].State != "open" {
 		t.Fatalf("states after second run: %+v", fake.issues)
 	}
-	if len(fake.comments[2]) != 1 || !strings.Contains(fake.comments[2][0], "varredura conclusiva") {
+	if len(fake.comments[2]) != 1 || !strings.Contains(fake.comments[2][0].Body, "varredura conclusiva") {
 		t.Fatalf("closed issue without the comment: %v", fake.comments)
 	}
 	rc, out, e = aur623Sync(t, fake, aur623SARIF(t, dir, "vvah", true, aur623A, aur623B, aur623C))
@@ -449,35 +478,65 @@ func TestAUR623RateLimitRetried(t *testing.T) {
 	}
 }
 
-// AC-002: only an issue the plugin closed (its closed marker is the last
-// comment) is reopened. One a person closed (no marker after the plugin's
-// reopen comment, or "not planned") stays closed, counted as dismissed,
-// with no write on it.
+// AC-002: who closed is decided by the AUTHOR of the last close, never by
+// the last comment. All four issues were closed by the plugin; then:
+// #1 a developer comments "fixed" and the finding returns -> reopened;
+// #2 a person reopens and closes without a comment -> stays closed,
+// dismissed, no write; #3 a forged marker by another person, then a
+// person closes -> the forgery is ignored, dismissed; #4 its events
+// cannot be read -> not dismissed in silence, reopened (fail closed).
 func TestAUR623HumanCloseStands(t *testing.T) {
 	fake := newAUR623Fake("private", true)
 	dir := t.TempDir()
-	marker := func(fp string) string { return IssueMarker("vvah", fp) + "\n" }
-	fake.issues = []*aur623Issue{
-		{Number: 1, State: "closed", Reason: "completed", Labels: []string{"aurumcode-plugin:vvah"}, Body: marker("caso-a")},
-		{Number: 2, State: "closed", Reason: "not_planned", Labels: []string{"aurumcode-plugin:vvah"}, Body: marker("caso-b")},
-		{Number: 3, State: "closed", Reason: "completed", Labels: []string{"aurumcode-plugin:vvah"}, Body: marker("caso-c")},
+	aur623D := aur623Result{"caso-d", "plugin/vvah/cwe-78", "run.py", "Comando montado da entrada"}
+	all := []aur623Result{aur623A, aur623B, aur623C, aur623D}
+	if rc, _, e := aur623Sync(t, fake, aur623SARIF(t, dir, "vvah", true, all...)); rc != 0 {
+		t.Fatalf("open rc=%d %s", rc, e)
 	}
-	fake.comments[1] = []string{closeComment("vvah"), "O achado voltou numa varredura conclusiva do plugin; a issue foi reaberta pelo AurumCode."}
-	fake.comments[2] = []string{closeComment("vvah")}
-	fake.comments[3] = []string{"x", "y", closeComment("vvah")}
-	rc, out, e := aur623Sync(t, fake, aur623SARIF(t, dir, "vvah", true, aur623A, aur623B, aur623C))
-	if rc != 0 || !strings.Contains(out, "abertas 0, mantidas 0, fechadas 0, reabertas 1, dispensadas por pessoa 2") {
+	if rc, out, _ := aur623Sync(t, fake, aur623SARIF(t, dir, "vvah", true)); rc != 0 || !strings.Contains(out, "fechadas 4") {
+		t.Fatalf("close rc=%d %s", rc, out)
+	}
+	fake.say(1, "dev", "corrigido no PR #45")
+	fake.act(2, "maria", "reopened")
+	fake.act(2, "maria", "closed")
+	fake.act(3, "mallory", "reopened")
+	fake.say(3, "mallory", closeComment("vvah"))
+	fake.act(3, "dev", "closed")
+	fake.noEvents[4] = true
+	before := len(fake.writes())
+	rc, out, e := aur623Sync(t, fake, aur623SARIF(t, dir, "vvah", true, all...))
+	if rc != 0 || !strings.Contains(out, "abertas 0, mantidas 0, fechadas 0, reabertas 2, dispensadas por pessoa 2") {
 		t.Fatalf("rc=%d out=%q err=%q", rc, out, e)
 	}
-	if fake.issues[0].State != "closed" || fake.issues[1].State != "closed" || fake.issues[2].State != "open" {
+	if fake.issues[0].State != "open" || fake.issues[1].State != "closed" || fake.issues[2].State != "closed" || fake.issues[3].State != "open" {
 		t.Fatalf("states: %+v", fake.issues)
 	}
-	for _, w := range fake.writes() {
-		if strings.Contains(w, "/issues/1") || strings.Contains(w, "/issues/2") {
-			t.Fatalf("write on a dismissed issue: %v", fake.writes())
+	for _, w := range fake.writes()[before:] {
+		if strings.Contains(w, "/issues/2") || strings.Contains(w, "/issues/3") {
+			t.Fatalf("write on a dismissed issue: %v", fake.writes()[before:])
 		}
 	}
-	if len(fake.comments[1]) != 2 || len(fake.comments[2]) != 1 {
-		t.Fatal("a dismissed issue got a comment")
+}
+
+// The rule itself: a close by the issue's author (the plugin) or by the
+// author of a closed marker written after the last reopen is the
+// plugin's; a marker older than the last reopen does not count.
+func TestAUR623DismissedRule(t *testing.T) {
+	m := closeComment("vvah")
+	cases := []struct {
+		name string
+		h    IssueHistory
+		want bool
+	}{
+		{"no-events", IssueHistory{}, false},
+		{"bot-closed", IssueHistory{Events: []IssueEvent{{"closed", aur623Bot, "t1"}}}, false},
+		{"person-closed", IssueHistory{Events: []IssueEvent{{"closed", "maria", "t1"}}}, true},
+		{"other-identity-with-fresh-marker", IssueHistory{Events: []IssueEvent{{"reopened", "x", "t1"}, {"closed", "pat-bot", "t3"}}, Comments: []IssueComment{{m, "pat-bot", "t2"}}}, false},
+		{"marker-before-reopen", IssueHistory{Events: []IssueEvent{{"closed", "maria", "t1"}, {"reopened", "maria", "t3"}, {"closed", "maria", "t4"}}, Comments: []IssueComment{{m, "maria", "t2"}}}, true},
+	}
+	for _, c := range cases {
+		if got := Dismissed("vvah", aur623Bot, c.h); got != c.want {
+			t.Fatalf("%s: dismissed=%v", c.name, got)
+		}
 	}
 }

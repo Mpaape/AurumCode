@@ -57,7 +57,7 @@ trap 'chmod -R u+w -- "$work" 2>/dev/null || true; rm -rf -- "$work"' EXIT
 
 readonly pkgs=(./internal/plugin)
 readonly t_open='^(TestAUR623OpensIssuesWithMarker|TestAUR623DroppedLabelFails|TestAUR623OversizeFindingFits|TestAUR623RateLimitRetried)$'
-readonly t_sync='^(TestAUR623SyncKeepsClosesReopens|TestAUR623ForeignIssuesUntouchedAndZeroCloses|TestAUR623HumanCloseStands)$'
+readonly t_sync='^(TestAUR623SyncKeepsClosesReopens|TestAUR623ForeignIssuesUntouchedAndZeroCloses|TestAUR623HumanCloseStands|TestAUR623DismissedRule)$'
 readonly t_refuse='^(TestAUR623RefusesPublicAndInconclusive|TestAUR623UsageBeforeAnyRequest)$'
 readonly t_workflow='^(TestAUR623WorkflowIssuesDestination|TestAUR622WorkflowPluginsJob)$'
 

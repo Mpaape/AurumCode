@@ -17,11 +17,11 @@ import (
 type RemoteIssue struct {
 	Number int
 	State  string // open or closed
-	// StateReason is the API's state_reason: "not_planned" is a person's
-	// "close as not planned", never the plugin's.
-	StateReason string
-	Body        string
-	Labels      []string
+	// Author opened the issue: for an issue of the plugin, the plugin's
+	// own identity (the workflow's github-actions[bot]).
+	Author string
+	Body   string
+	Labels []string
 }
 
 // IssuesAPI is the part of the GitHub REST API the issues destination uses.
@@ -33,7 +33,7 @@ type IssuesAPI interface {
 	CreateIssue(ctx context.Context, title, body, label string) (RemoteIssue, error)
 	UpdateIssue(ctx context.Context, number int, title, body, state string) error
 	CloseIssue(ctx context.Context, number int) error
-	LastComment(ctx context.Context, number int) (string, error)
+	History(ctx context.Context, number int) (IssueHistory, error)
 	Comment(ctx context.Context, number int, body string) error
 }
 
@@ -136,9 +136,11 @@ func asStatus(err error, target **apiStatusError) bool {
 }
 
 type wireIssue struct {
-	Number      int             `json:"number"`
-	State       string          `json:"state"`
-	StateReason string          `json:"state_reason"`
+	Number int    `json:"number"`
+	State  string `json:"state"`
+	User   struct {
+		Login string `json:"login"`
+	} `json:"user"`
 	Body        *string         `json:"body"`
 	PullRequest json.RawMessage `json:"pull_request"`
 	Labels      []struct {
@@ -147,7 +149,7 @@ type wireIssue struct {
 }
 
 func (w wireIssue) remote() RemoteIssue {
-	r := RemoteIssue{Number: w.Number, State: w.State, StateReason: w.StateReason}
+	r := RemoteIssue{Number: w.Number, State: w.State, Author: w.User.Login}
 	if w.Body != nil {
 		r.Body = *w.Body
 	}
@@ -199,26 +201,7 @@ func (g *GitHubIssues) UpdateIssue(ctx context.Context, number int, title, body,
 
 // CloseIssue closes an issue, keeping its title and body.
 func (g *GitHubIssues) CloseIssue(ctx context.Context, number int) error {
-	return g.do(ctx, http.MethodPatch, fmt.Sprintf("/issues/%d", number), nil, map[string]string{"state": "closed", "state_reason": "completed"}, nil)
-}
-
-// LastComment is the body of the issue's newest comment ("" when none),
-// read page by page to the end (no cap).
-func (g *GitHubIssues) LastComment(ctx context.Context, number int) (string, error) {
-	last := ""
-	for page := 1; ; page++ {
-		q := url.Values{"per_page": {"100"}, "page": {fmt.Sprint(page)}}
-		var batch []struct {
-			Body string `json:"body"`
-		}
-		if err := g.do(ctx, http.MethodGet, fmt.Sprintf("/issues/%d/comments", number), q, nil, &batch); err != nil {
-			return "", err
-		}
-		if len(batch) == 0 {
-			return last, nil
-		}
-		last = batch[len(batch)-1].Body
-	}
+	return g.do(ctx, http.MethodPatch, fmt.Sprintf("/issues/%d", number), nil, map[string]string{"state": "closed"}, nil)
 }
 
 // Comment adds a comment to an issue.

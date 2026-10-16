@@ -235,9 +235,9 @@ de código. Três varreduras seguidas contra o GitHub falso:
    novas;
 4. uma pessoa fecha uma issue cujo achado continua: a decisão humana vale,
    a issue fica fechada, sem escrita nela, e conta como "dispensada por
-   pessoa". Só é reaberta a issue que o **próprio plugin** fechou (o
-   comentário de fechamento dele leva o marcador oculto
-   `<!-- aurumcode-plugin:<nome>:fechado -->` e é o último da issue).
+   pessoa". Quem fechou é decidido pelo **autor** do último evento `closed`
+   da issue, nunca pelo último comentário: só a issue que o próprio plugin
+   fechou é reaberta.
 
 ```bash
 bash demo/tutoriais/plugin-agendado/run.sh issues

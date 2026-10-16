@@ -164,10 +164,3 @@ func ClosedMarker(name string) string { return "<!-- aurumcode-plugin:" + name +
 func closeComment(name string) string {
 	return ClosedMarker(name) + "\nO achado não apareceu na última varredura conclusiva do plugin; a issue foi fechada pelo AurumCode. Se ele voltar, ela é reaberta."
 }
-
-// closedByPlugin is true when the last comment's first line is the
-// plugin's closed marker.
-func closedByPlugin(name, lastComment string) bool {
-	first, _, _ := strings.Cut(lastComment, "\n")
-	return strings.TrimRight(first, "\r") == ClosedMarker(name)
-}

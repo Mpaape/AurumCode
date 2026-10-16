@@ -186,11 +186,19 @@ concedido pelo chamador):
    mudou); issue aberta cujo achado sumiu da varredura é fechada com um
    comentário que leva o marcador oculto
    `<!-- aurumcode-plugin:<nome>:fechado -->`; issue fechada cujo achado
-   volta é reaberta **só se foi o plugin que a fechou** (esse marcador é o
-   último comentário dela). Issue que uma pessoa fechou (sem o marcador por
-   último, ou "close as not planned") fica fechada: o fechamento humano é a
-   decisão de dispensar, nada é escrito nela e ela conta como "dispensada
-   por pessoa".
+   volta é reaberta, **a menos que uma pessoa a tenha fechado**. Quem fechou
+   é decidido pelo autor do último evento `closed` da issue (eventos e
+   comentários lidos página por página, sem teto), nunca pelo último
+   comentário: a identidade do plugin é a autora da issue (foi o plugin que
+   a abriu; no workflow, `github-actions[bot]`) ou a autora de um
+   comentário-marcador posterior à última reabertura. Fechada por outro
+   ator: o fechamento humano é a decisão de dispensar, a issue fica
+   fechada, nada é escrito nela e ela conta como "dispensada por pessoa".
+   Um comentário depois do fechamento automático ("corrigido no PR #45")
+   não muda nada: se o achado volta, a issue é reaberta. Um marcador forjado
+   por outra pessoa é ignorado. Na dúvida (eventos ilegíveis, sem evento
+   `closed`), a issue é reaberta: um achado presente nunca some sem decisão
+   humana explícita.
 
 Título só com campos estruturados (regra, arquivo, linha, severidade); o
 corpo, em pt-BR, traz esses campos, a descrição **redigida** de novo (num

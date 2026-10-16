@@ -24,10 +24,10 @@ type issueAction struct {
 // planIssues compares the findings of a CONCLUSIVE scan with the plugin's
 // issues. Issues whose first line is not this plugin's marker are never
 // touched; two issues with the same marker keep the first (lowest number).
-// A closed issue whose finding is back is reopened only when pluginClosed
-// says the plugin closed it; otherwise a person dismissed it and it stays
-// closed, counted, with no write.
-func planIssues(name string, findings []IssueFinding, issues []RemoteIssue, pluginClosed map[int]bool) ([]issueAction, IssueCounts) {
+// A closed issue whose finding is back is reopened unless dismissed says a
+// person closed it (see Dismissed): then it stays closed, counted, with no
+// write.
+func planIssues(name string, findings []IssueFinding, issues []RemoteIssue, dismissed map[int]bool) ([]issueAction, IssueCounts) {
 	byFP := issuesByFingerprint(name, issues)
 	var plan []issueAction
 	var c IssueCounts
@@ -39,7 +39,7 @@ func planIssues(name string, findings []IssueFinding, issues []RemoteIssue, plug
 		case !ok:
 			plan = append(plan, issueAction{kind: "open", finding: f})
 			c.Opened++
-		case is.State == "closed" && !pluginClosed[is.Number]:
+		case is.State == "closed" && dismissed[is.Number]:
 			c.Dismissed++
 		case is.State == "closed":
 			plan = append(plan, issueAction{kind: "reopen", number: is.Number, finding: f})
@@ -63,34 +63,6 @@ func planIssues(name string, findings []IssueFinding, issues []RemoteIssue, plug
 	}
 	c.Closed = len(closes)
 	return plan, c
-}
-
-// reopenCandidates are the closed issues whose finding is back. One closed
-// as "not planned" is a person's decision and is never a candidate.
-func reopenCandidates(name string, findings []IssueFinding, issues []RemoteIssue) []int {
-	byFP := issuesByFingerprint(name, issues)
-	var out []int
-	for _, f := range findings {
-		if is, ok := byFP[f.Fingerprint]; ok && is.State == "closed" && is.StateReason != "not_planned" {
-			out = append(out, is.Number)
-		}
-	}
-	return out
-}
-
-// closedByPluginSet reads the last comment of each candidate: only an issue
-// the plugin itself closed (its closed marker is the last comment) may be
-// reopened; one a person closed stays closed.
-func closedByPluginSet(ctx context.Context, api IssuesAPI, name string, candidates []int) (map[int]bool, error) {
-	out := map[int]bool{}
-	for _, n := range candidates {
-		last, err := api.LastComment(ctx, n)
-		if err != nil {
-			return nil, err
-		}
-		out[n] = closedByPlugin(name, last)
-	}
-	return out, nil
 }
 
 // issuesByFingerprint maps each fingerprint to its issue.

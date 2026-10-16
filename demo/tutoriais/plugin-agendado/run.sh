@@ -192,13 +192,14 @@ caso_issues() {
   tut_pr_parar
 }
 
-# pessoa_fecha N: fecha a issue no GitHub falso como uma pessoa (sem o
-# comentario-marcador do plugin).
+# pessoa_fecha N: uma pessoa (maria, nao o token do workflow) fecha a issue
+# no GitHub falso; o evento closed fica com ela como autora.
 pessoa_fecha() {
   python3 - "$TUT_PR_PORT" "$1" <<'PY'
 import json, sys, urllib.request
 req = urllib.request.Request("http://127.0.0.1:%s/repos/dono/privado/issues/%s" % (sys.argv[1], sys.argv[2]),
-                             data=json.dumps({"state": "closed", "state_reason": "completed"}).encode(), method="PATCH")
+                             data=json.dumps({"state": "closed"}).encode(), method="PATCH",
+                             headers={"X-Falso-Ator": "maria"})
 urllib.request.urlopen(req).read()
 PY
 }

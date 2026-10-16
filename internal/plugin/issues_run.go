@@ -54,11 +54,7 @@ func SyncIssues(ctx context.Context, api IssuesAPI, o IssuesOptions) (IssueCount
 	if err != nil {
 		return IssueCounts{}, err
 	}
-	pluginClosed, err := closedByPluginSet(ctx, api, o.Name, reopenCandidates(o.Name, findings, issues))
-	if err != nil {
-		return IssueCounts{}, err
-	}
-	plan, counts := planIssues(o.Name, findings, issues, pluginClosed)
+	plan, counts := planIssues(o.Name, findings, issues, dismissedSet(ctx, api, o.Name, findings, issues))
 	if err := applyIssues(ctx, api, o.Name, plan); err != nil {
 		return IssueCounts{}, err
 	}
