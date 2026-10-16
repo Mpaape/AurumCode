@@ -243,8 +243,20 @@ func TestAUR609RedactionIsLinear(t *testing.T) {
 	for name, build := range map[string]func(int) string{"nested": nested, "flat": flat} {
 		t.Run(name, func(t *testing.T) {
 			aur609RedactWithin(t, build(64<<10), limit) // warm up
-			half := aur609RedactWithin(t, build(128<<10), limit)
-			full := aur609RedactWithin(t, build(256<<10), limit)
+			// The fastest of a few runs per size: a shared CI runner pauses
+			// a single run at random (302ms against 81ms seen once for this
+			// linear filter); the quadratic version is slow on every run.
+			fastest := func(size int) time.Duration {
+				best := aur609RedactWithin(t, build(size), limit)
+				for i := 0; i < 4; i++ {
+					if d := aur609RedactWithin(t, build(size), limit); d < best {
+						best = d
+					}
+				}
+				return best
+			}
+			half := fastest(128 << 10)
+			full := fastest(256 << 10)
 			// Under -race the detector's shadow memory and the runner's
 			// parallel packages make the ratio noisy (3.3x measured on CI for a
 			// linear filter); the absolute budget alone still rejects the

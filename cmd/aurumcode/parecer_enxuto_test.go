@@ -143,7 +143,7 @@ func TestReviewStatusCountsProblems(t *testing.T) {
 		{File: "a.py", Line: 3, Severity: "error", RuleID: "security/sql-injection"},
 	}
 	all := func(types.ReviewIssue) bool { return true }
-	if got := repeatedProblems(issues, all); got != 1 {
-		t.Fatalf("repeated = %d, want 1", got)
+	if got := distinctIssueProblems(issues, all); got != 2 {
+		t.Fatalf("distinct problems = %d, want 2 (the secret once, the SQL injection once)", got)
 	}
 }

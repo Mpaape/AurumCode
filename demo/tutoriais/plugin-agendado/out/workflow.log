@@ -8,5 +8,8 @@ saida do plugin: arquivo em RUNNER_TEMP, nunca impresso
 envio: upload-sarif fixado por SHA
 categoria: aurumcode/plugin/<nome>
 log: so a contagem de alertas
-RESULTADO: o job plugins so publica na aba Security
-NAO EXECUTADO AQUI: o envio ao code scanning (nao ha runner nem GitHub neste ambiente)
+upload-sarif: so no destino security
+destino issues: plugin issues depois do ingest conclusivo, sem upload-sarif
+chamador: issues: write documentado
+RESULTADO: o job plugins publica na aba Security, ou em issues do proprio repositorio privado sem Code Security
+NAO EXECUTADO AQUI: o envio ao code scanning e as issues reais (nao ha runner nem GitHub neste ambiente)

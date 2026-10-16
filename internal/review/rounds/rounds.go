@@ -5,10 +5,11 @@
 // findings no earlier comment covers, and names the earlier findings this
 // round no longer reports.
 //
-// A marker is never authority over a finding: it decides only whether one
-// more comment is posted. The finding itself still counts in the review
-// body, the gate and the commit statuses, so a forged or stale marker can at
-// most suppress a repeated comment, never a rule.
+// A finding marker is never authority over a finding: it decides only
+// whether one more comment is posted. The round marker (converge.go) does
+// change what blocks: it is read only from the publisher login's parecer,
+// never turns a security finding into an observation, and anyone able to
+// post as that login could forge it.
 package rounds
 
 import (

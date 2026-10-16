@@ -45,6 +45,9 @@ func (p *prReview) fetchPullRequest() (int, bool) {
 	if p.env().permissionMode == "endpoint" {
 		p.client.AllowPullRequestWrites()
 	}
+	// The head before the diff: round convergence records a head only when
+	// it is still the head after the review (pr_convergence.go).
+	p.convergence.diffHead = p.currentHead()
 	ghDiff, err := p.client.GetPullRequestDiff(p.ctx, p.owner, p.repoName, p.prNumber)
 	switch {
 	case errors.Is(err, githubclient.ErrDiffTooLarge):

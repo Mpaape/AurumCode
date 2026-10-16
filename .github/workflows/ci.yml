@@ -52,6 +52,11 @@ jobs:
           golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
           sh scripts/ci/build-test.sh
 
+      # The scheduled-plugin example's profile generator (Python, outside the
+      # Go module): the happy path and every refusal.
+      - name: Plugin example tests
+        run: python3 -I -m unittest discover -s demo/plugins/vvah -v
+
   race:
     name: Race tests in OCI
     runs-on: ubuntu-latest
