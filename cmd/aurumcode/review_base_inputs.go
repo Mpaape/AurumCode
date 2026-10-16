@@ -35,8 +35,8 @@ func (b *baseReview) resolveInputs() (int, bool) {
 // open gate or a silently disabled limit (AUR-431/433/436).
 func (b *baseReview) validateUsage() (int, bool) {
 	f := b.f
-	if f.base == "" {
-		fmt.Fprintln(b.stderr, "aurumcode review: --base is required")
+	if f.base == "" && !f.fullReview() {
+		fmt.Fprintln(b.stderr, "aurumcode review: --base is required (or --completo for the whole tree)")
 		return 2, true
 	}
 	if f.given["fail-on"] {
@@ -81,7 +81,11 @@ func (b *baseReview) loadDiff() (int, bool) {
 	// "origin" remote, never from the model or the diff. Unknown fails
 	// closed (the exceptions contributor says so).
 	b.repoIdentity, b.repoIdentityKnown = localRepoIdentity(cwd)
-	b.diff, b.notices, err = computeDiff(cwd, b.f.base)
+	if b.f.fullReview() {
+		b.diff, b.notices, err = computeFullDiff(cwd)
+	} else {
+		b.diff, b.notices, err = computeDiff(cwd, b.f.base)
+	}
 	if err != nil {
 		fmt.Fprintf(b.stderr, "aurumcode review: %v\n", err)
 		return 1, true
@@ -185,10 +189,10 @@ func (b *baseReview) resolveProfiles() (int, bool) {
 // and bounded; missing metadata omits the section with a declared
 // limitation and never crashes the review.
 func (b *baseReview) gatherContext() (int, bool) {
-	b.codebaseText = resolveCodebaseContext(b.diff, codebaseExclude(b.cfg))
-	b.codebaseFor = func(files []types.DiffFile) string {
+	b.codebaseFor = cappedCodebaseFor(b.cfg, b.stderr, func(files []types.DiffFile) string {
 		return resolveCodebaseContext(&types.Diff{Files: files}, codebaseExclude(b.cfg))
-	}
+	})
+	b.codebaseText = b.codebaseFor(b.diff.Files)
 	b.memoryStore, b.memoryNotes, b.memoryNotesText = openReviewMemory(b.cfg.Review.Memory, "", "", b.stderr, b.filter)
 	changelogOn := b.f.changelog
 	if !changelogOn {
@@ -200,6 +204,10 @@ func (b *baseReview) gatherContext() (int, bool) {
 		changelogOn = on
 	}
 	if !changelogOn {
+		return 0, false
+	}
+	if b.f.fullReview() {
+		// A full review has no range of commits to release.
 		return 0, false
 	}
 	commits, commitErr := localRangeCommits(b.cwd, b.f.base)

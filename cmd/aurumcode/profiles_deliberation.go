@@ -26,6 +26,8 @@ type analystPasses struct {
 	dynamicRules   map[string]review.Rule
 	ruleCatalogIDs []string
 	plan           *deliberationPlan
+	// modelWindow is the declared context window every pass starts under.
+	modelWindow int
 	// spent is told, before a pass starts, that the review's tool rounds
 	// are already gone: the analyst then answers from the evidence the
 	// earlier passes gathered.
@@ -57,6 +59,7 @@ func (s *reviewState) analystPasses(profiles []reviewprofile.Profile) analystPas
 	return analystPasses{
 		provider: s.provider, tracker: s.tracker, profiles: profiles,
 		dynamicRules: s.dynamicRules, ruleCatalogIDs: s.ruleCatalogIDs, plan: plan,
+		modelWindow: modelWindowTokens(s.cfg, s.env()),
 		spent: func(analyst string) {
 			fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.deliberation_rounds_spent", analyst))
 		},
@@ -74,6 +77,7 @@ func (s *reviewState) analystPasses(profiles []reviewprofile.Profile) analystPas
 func (a analystPasses) reviewer(p reviewprofile.Profile) (*review.Reviewer, error) {
 	orchestrator := llm.NewOrchestrator(newProfileProvider(a.provider, p), nil, a.tracker)
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
+	reviewer.SetModelWindow(a.modelWindow)
 	reviewer.SetDynamicRules(a.dynamicRules)
 	if err := reviewer.SetRuleCatalog(a.ruleCatalogIDs); err != nil {
 		return nil, err

@@ -8,7 +8,7 @@ branding:
 
 inputs:
   publication:
-    description: "Publication mode: config, comments or review. config reads .aurumcode/config.yml."
+    description: "Publication mode: config, comments, review or status. config reads .aurumcode/config.yml; review publishes a formal GitHub review and approves a clean pull request; status posts nothing on the pull request (only the commit status, with --check)."
     required: false
     default: config
   inline-comments:

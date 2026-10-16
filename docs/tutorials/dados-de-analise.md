@@ -125,14 +125,14 @@ aurumcode review --base main --auditoria audit.json
 ```text
 --- A. nao declarado (o servidor local esta no ar, mas ninguem o consulta)
 $ aurumcode review --base main --auditoria audit.json
-> **Aprovado: nenhum problema encontrado na mudança revisada.**
+> **Gate passou: nenhum problema encontrado na mudança revisada.**
 --- requisicoes recebidas pelo servidor local (modo valido): 0
 exit_code=0
 RESULTADO: sem analysis_data declarado o review nao fez nenhuma requisicao e nao imprimiu linha analysis_data
 linhas citando analysis_data na saida do review: 0
 auditoria: sem campo analysis_data
 $ aurumcode review --base main --auditoria audit.json
-> **Aprovado: nenhum problema encontrado na mudança revisada.**
+> **Gate passou: nenhum problema encontrado na mudança revisada.**
 --- requisicoes recebidas pelo servidor local (modo valido): 3
     GET /repos/owner/dados-de-analise/releases -> 200
     GET /dl/manifest.json -> 200

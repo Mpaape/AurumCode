@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/Mpaape/AurumCode/internal/git/githubclient"
@@ -75,10 +76,32 @@ func (p *prReview) resolveCommit() (int, bool) {
 // still was.
 func (p *prReview) postReview() []string {
 	summaryBody := p.reviewBody()
+	// status: the gate only. Nothing is posted on the pull request; the
+	// verdict is the commit status --check publishes (#201).
+	if p.publication == "status" {
+		return p.writeStatusOnlyParecer(summaryBody)
+	}
 	if p.publication == "review" {
 		return p.postFormalReview(summaryBody)
 	}
 	return p.postSeparateComments(summaryBody)
+}
+
+// writeStatusOnlyParecer keeps the parecer off the pull request: it goes to
+// AURUMCODE_PARECER_FILE when set (the reusable workflow appends it to the
+// job summary), otherwise to stdout.
+func (p *prReview) writeStatusOnlyParecer(body string) []string {
+	defer fmt.Fprintln(p.stdout, statusOnlyLine(p.reviewLanguage, p.prNumber))
+	path := p.env().parecerFile
+	if path == "" {
+		fmt.Fprintln(p.stdout, body)
+		return nil
+	}
+	if err := os.WriteFile(path, []byte(body+"\n"), 0o600); err != nil {
+		fmt.Fprintf(p.stderr, "aurumcode review: writing the parecer to %s: %v\n", path, err)
+		return []string{"parecer: " + err.Error()}
+	}
+	return nil
 }
 
 // reviewBody assembles the parecer: the document, then the actionable

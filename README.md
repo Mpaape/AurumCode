@@ -47,7 +47,7 @@ Arquivo opcional `.aurumcode/config.yml`:
 ```yaml
 review:
   language: pt-BR
-  publication: review
+  publication: comments   # review aprova a PR limpa; status publica só o status
   inline_comments: true
 ```
 

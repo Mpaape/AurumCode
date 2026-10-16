@@ -21,3 +21,17 @@ func localScanRange(repoRoot, base string) scanner.Range {
 	}
 	return scanner.Range{Base: baseID, Head: headID}
 }
+
+// localFullScanRange is review --completo's range: HEAD and the whole
+// history behind it, every line of its tree added (#178).
+func localFullScanRange(repoRoot string) scanner.Range {
+	repo, err := analyzer.OpenRepo(repoRoot)
+	if err != nil {
+		return scanner.Range{}
+	}
+	headID, err := repo.ResolveRef("HEAD")
+	if err != nil {
+		return scanner.Range{}
+	}
+	return scanner.Range{Head: headID, Full: true}
+}

@@ -13,7 +13,7 @@ permissao checks: read: o chamador concede o que o reutilizavel declara
 --- PR grande contra um GitHub falso local
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
 aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (bd5fac0f32df...7e5b2e3855c3, 6 file(s))
-aurumcode review: o modelo recusou um prompt de cerca de 201838 tokens por ser longo demais (janela de 95000 tokens); revisando em partes menores
+aurumcode review: o modelo recusou um prompt de cerca de 201975 tokens por ser longo demais (janela de 95000 tokens); revisando em partes menores
 aurumcode review: o diff não coube em um só prompt; revisado em 3 lotes por diretório (arquivos por lote: 2, 2, 2)
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 parecer publicado na PR #7 como aprovação (sem comentários na linha).
@@ -23,7 +23,7 @@ parecer publicado em 7/reviews:
 ## AurumCode revisão de código
 
 > [!TIP]
-> **Aprovado: nenhum problema encontrado na mudança revisada.**
+> **Gate passou: nenhum problema encontrado na mudança revisada.**
 
 gate da política: passou · 6 arquivos revisados
 
@@ -39,11 +39,13 @@ Troca de mensagem sem risco.
 - 6 testes afetados em 3 pacotes
 
 </details>
+
+<!-- aurumcode:round 7e5b2e3855c3d8a9b40c936525a22571e4d8f52d  locs= -->
 RESULTADO: 406: o diff veio do checkout verificado, o modelo recusou o diff inteiro, tres lotes (um por diretorio) cobriram os 6 arquivos e o gate em block aprovou
 --- teto de lotes (batches.max_batches: 1): os arquivos fora sao listados e a aprovacao e retida
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy
 aurumcode review: the API refused the pull request diff as too large; reviewing the same range computed from the verified checkout (bd5fac0f32df...7e5b2e3855c3, 6 file(s))
-aurumcode review: o modelo recusou um prompt de cerca de 201838 tokens por ser longo demais (janela de 95000 tokens); revisando em partes menores
+aurumcode review: o modelo recusou um prompt de cerca de 201975 tokens por ser longo demais (janela de 95000 tokens); revisando em partes menores
 aurumcode review: o diff não coube em um só prompt; revisado em 1 lote por diretório (arquivos por lote: 2)
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 aurumcode review: policy gate: revisão inconclusiva — parte do diff ficou fora da revisão [partial_coverage]

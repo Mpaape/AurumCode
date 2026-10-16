@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Novo: job `scan` (opt-in) do workflow reutilizável: `review --completo` agendado e em `workflow_dispatch`, achados só na aba Security; dependências também em `workflow_dispatch`; achado repetido entre analistas é um só no SARIF (#177).
+- Novo: `aurumcode review --completo` revisa a árvore inteira do HEAD, sem commit órfão; gitleaks no histórico inteiro; SARIF na categoria `aurumcode/initial-scan` (#178).
+- Novo: `review.model_window_tokens` e `review.context.max_tokens`; contexto por lote calculado uma vez; recusa do vLLM/LiteLLM com janela e tamanho; o `--limite` avisa que o contexto não entra (#198).
+- Novo: `publication: status` (só o status do commit); exemplos com `comments`; parecer limpo abre com "Gate passou" (#201).
+
 ## 2.2.0 - 2026-10-16
 
 O plugin agendado de vulnerabilidade passa a funcionar também em repositório privado sem GitHub Code Security, e a revisão converge: todos os bloqueios na primeira rodada, sem bloqueio novo em código já revisado.

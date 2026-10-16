@@ -36,6 +36,7 @@ func (b *baseReview) runQualityPass() (int, bool) {
 	b.verifyCaller = orchestrator
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
 	reviewer.SetBatchLimits(configuredBatchLimits(b.cfg))
+	reviewer.SetModelWindow(modelWindowTokens(b.cfg, b.env()))
 	// AUR-519: teach the model the expanded catalog and accept its
 	// citations against the same dynamic set computed earlier.
 	reviewer.SetDynamicRules(b.dynamicRules)
@@ -74,6 +75,7 @@ func (b *baseReview) setupCostCap() (int, bool) {
 	b.provider = &fixedModelProvider{Provider: b.provider, model: modelKey}
 	b.tracker = buildCostTracker(b.limiteUSD, modelKey, price)
 	printCostEstimate(b.stderr, estimateCostUSD(b.diff, price), b.limiteUSD)
+	printContextNotCounted(b.stderr, b.codebaseText)
 	return 0, false
 }
 

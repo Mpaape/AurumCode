@@ -60,6 +60,12 @@ var (
 	// Anthropic, when the prompt plus the reply cap crosses the window:
 	// "input length and `max_tokens` exceed context limit: A + B > C".
 	anthropicCap = regexp.MustCompile("exceed context limit: (\\d+) \\+ (\\d+) > (\\d+)")
+	// vLLM, directly or through LiteLLM (#198): "This model's maximum
+	// context length is N tokens. However, you requested O output tokens and
+	// your prompt contains at least M input tokens", and the older "However,
+	// you requested M tokens (X in the messages, Y in the completion)".
+	vllmOverflow      = regexp.MustCompile(`maximum context length is (\d+) tokens.{0,80}?you requested (\d+) output tokens.{0,60}?prompt contains (?:at least )?(\d+) input tokens`)
+	vllmTotalOverflow = regexp.MustCompile(`maximum context length is (\d+) tokens.{0,40}?you requested (\d+) tokens`)
 	// OpenAI Responses, through a LiteLLM proxy, when one input text is
 	// longer than the API takes, in characters: "Invalid
 	// 'input[0].content[0].text': string too long. Expected a string with
@@ -124,6 +130,10 @@ func DetectPromptTooLong(status int, text string) *PromptTooLong {
 		refusal.Requested, refusal.Limit = atoi(m[1]), atoi(m[2])
 	} else if m := anthropicCap.FindStringSubmatch(lower); m != nil {
 		refusal.Requested, refusal.Limit = atoi(m[1])+atoi(m[2]), atoi(m[3])
+	} else if m := vllmOverflow.FindStringSubmatch(lower); m != nil {
+		refusal.Limit, refusal.Requested = atoi(m[1]), atoi(m[3])+atoi(m[2])
+	} else if m := vllmTotalOverflow.FindStringSubmatch(lower); m != nil {
+		refusal.Limit, refusal.Requested = atoi(m[1]), atoi(m[2])
 	}
 	return refusal
 }
