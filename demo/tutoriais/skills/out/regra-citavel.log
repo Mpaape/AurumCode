@@ -3,6 +3,7 @@
 $ aurumcode review --base main
 aurumcode review: verificação: app.go:6 convencoes#sem-segredos-no-codigo continua bloqueando: o verificador não deu uma resposta válida [invalid_answer]
 aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
+aurumcode review: policy gate: convencoes#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar error, origem skills)
 ## AurumCode revisão de código
 
 > [!CAUTION]
@@ -14,7 +15,6 @@ app.go:6: [warning] Credencial literal contraria a convencao do time. (rule conv
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Correção sugerida: Leia a senha do ambiente.
   - Verificação: Remova o literal e rode a revisao de novo.
-aurumcode review: policy gate: convencoes#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar error, origem skills)
 exit_code=3
 RESULTADO: o gate compara o MAIOR entre a severidade do modelo e a da secao
 --- uma secao nova na skill vale na execucao seguinte

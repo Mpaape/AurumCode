@@ -3,7 +3,7 @@ $ aurumcode review --base main
 ## AurumCode code review
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Gate passed: no problem found in the reviewed change.**
 
 no gate declared · 8 files reviewed
 No issues found.

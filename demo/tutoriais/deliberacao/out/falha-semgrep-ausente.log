@@ -3,6 +3,7 @@ $ aurumcode review --base main
 aurumcode review: deliberation: oferecidas [scanner_semgrep, codebase_context, read_file, search_text, find_symbol, changed_file_diff]; pedidas [scanner_semgrep]; não pedidas [codebase_context, read_file, search_text, find_symbol, changed_file_diff]; rodadas 2; desfecho answered
 aurumcode review: deliberation: rodada 1 scanner_semgrep({}) failed: varredura inconclusiva (sast_unavailable)
 aurumcode review: SAST (Semgrep) inconclusivo: a varredura não produziu resultado confiável (análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable]); nenhum achado determinístico do Semgrep foi publicado nesta execução. Detalhe da engine: semgrep: scanner: git diff: exec: "git": executable file not found in $PATH
+aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable]) [detalhe: semgrep: scanner: git diff: exec: "git": executable file not found in $PATH]
 ## AurumCode revisão de código
 
 > [!WARNING]
@@ -15,6 +16,5 @@ sem gate declarado · 1 arquivo revisado
 
 - **Varredura pedida inconclusiva** — o scanner_semgrep nao produziu resultado; nada pode ser afirmado sobre calc.js Sugestão sem localização elegível no diff adicionado; exibida como orientação, sem substituição aplicável.
 Sem achados nas fontes concluídas; inconclusivo: análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable]
-aurumcode review: policy gate: SAST (semgrep, origem sast, secao repo) inconclusivo (análise estática habilitada, mas o Semgrep não está instalado [sast_unavailable]) [detalhe: semgrep: scanner: git diff: exec: "git": executable file not found in $PATH]
 exit_code=1
 RESULTADO: scanner_semgrep pedido sem binario: sast_unavailable, inconclusivo e o gate reprova
