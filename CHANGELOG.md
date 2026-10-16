@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-- Novo: job `scan` do workflow reutilizável (opt-in, `scan: true`): em `schedule` e `workflow_dispatch` da branch padrão roda `review --completo` e envia os achados à aba Security, categoria `aurumcode/initial-scan`, sem nada no log; a varredura de dependências também roda em `workflow_dispatch`; o mesmo achado de vários analistas é um resultado só no SARIF (#177).
-- Novo: `aurumcode review --completo` (`--full`) revisa a árvore inteira do HEAD com as camadas, os analistas e os scanners da PR, sem commit órfão; `gitleaks` varre o histórico inteiro e o SARIF sai na categoria `aurumcode/initial-scan/` (#178).
-- Novo: `review.model_window_tokens` (ou `AURUMCODE_MODEL_WINDOW_TOKENS`) dimensiona o prompt à janela do modelo desde o primeiro pedido, e `review.context.max_tokens` limita o contexto de código; o contexto de cada lote é calculado uma vez; a recusa do vLLM/LiteLLM dá a janela e o tamanho; o `--limite` avisa que o contexto não entra na estimativa (#198).
-- Novo: `publication: status` publica só o status do commit, nada na PR; o parecer vai ao resumo do job. Os exemplos usam `comments` e avisam que `review` aprova a PR limpa; o parecer limpo abre com "Gate passou" em vez de "Aprovado" (#201).
+- Novo: job `scan` (opt-in) do workflow reutilizável: `review --completo` agendado e em `workflow_dispatch`, achados só na aba Security; dependências também em `workflow_dispatch`; achado repetido entre analistas é um só no SARIF (#177).
+- Novo: `aurumcode review --completo` revisa a árvore inteira do HEAD, sem commit órfão; gitleaks no histórico inteiro; SARIF na categoria `aurumcode/initial-scan` (#178).
+- Novo: `review.model_window_tokens` e `review.context.max_tokens`; contexto por lote calculado uma vez; recusa do vLLM/LiteLLM com janela e tamanho; o `--limite` avisa que o contexto não entra (#198).
+- Novo: `publication: status` (só o status do commit); exemplos com `comments`; parecer limpo abre com "Gate passou" (#201).
 
 ## 2.2.0 - 2026-10-16
 
