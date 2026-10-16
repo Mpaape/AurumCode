@@ -71,7 +71,7 @@ async function main() {
     const configCode = page.locator("#config-code");
     assert.equal(await page.locator("#instalar .code-head").filter({ hasText: configPath }).count(), 1);
     assert.match(await page.locator("#instalar").textContent(), /preset de exemplo[\s\S]*não com os padrões[\s\S]*inglês, comentários na conversa e sem sugestões inline/i);
-    assert.equal((await configCode.textContent()).trim(), "review:\n  language: pt-BR\n  publication: review\n  inline_comments: true");
+    assert.equal((await configCode.textContent()).trim(), "review:\n  language: pt-BR\n  inline_comments: true");
 
     // Each control changes the copied YAML; selecting all product defaults
     // yields a no-file-needed note that still points to the canonical path.
@@ -91,7 +91,7 @@ async function main() {
     assert.equal((await staticPage.goto(base)).status(), 200);
     const staticInstall = staticPage.locator("#instalar");
     assert.equal(await staticInstall.locator(".code-head").filter({ hasText: configPath }).count(), 1);
-    assert.equal((await staticInstall.locator("#config-code").textContent()).trim(), "review:\n  language: pt-BR\n  publication: review\n  inline_comments: true");
+    assert.equal((await staticInstall.locator("#config-code").textContent()).trim(), "review:\n  language: pt-BR\n  inline_comments: true");
     assert.match(await staticInstall.textContent(), /preset de exemplo[\s\S]*não com os padrões[\s\S]*inglês, comentários na conversa e sem sugestões inline/i);
     assert.equal(await staticInstall.locator(".config-controls").isHidden(), true);
     await staticContext.close();

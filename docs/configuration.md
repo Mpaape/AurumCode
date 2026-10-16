@@ -6,12 +6,17 @@ sem comentários nas linhas. Para mudar, crie `.aurumcode/config.yml`:
 ```yaml
 review:
   language: pt-BR
-  publication: review
+  publication: comments
   inline_comments: true
 ```
 
-`publication: review` usa a revisão formal do GitHub. `comments` publica o
-parecer na conversa. `inline_comments` habilita comentários nas linhas, só para
+`comments` (padrão) publica o parecer na conversa. `review` usa a revisão
+formal do GitHub e, numa execução limpa, **aprova** a PR (`APPROVE`; exige
+*Allow GitHub Actions to create and approve pull requests*); para usar o
+AurumCode só como gate de validação, prefira `comments` ou `status`. `status`
+não publica nada na PR: o veredito é só o status `aurumcode/policy-gate` (e o
+`aurumcode/review` do `--check`), e o parecer fica no terminal e no resumo do
+job. `inline_comments` habilita comentários nas linhas, só para
 os achados que bloqueiam o merge (os demais ficam no parecer), e, nos dois
 modos, publica cada sugestão com código pronto como substituição aplicável
 pelo GitHub (um clique) na linha alterada. Um achado da passagem de segurança
@@ -1466,7 +1471,7 @@ consumidor.
 | Chave | Efeito | Padrão |
 |---|---|---|
 | `review.language` | Idioma enviado ao modelo e títulos do parecer | inglês |
-| `review.publication` | `review` (revisão formal) ou `comments` (conversa) | `comments` |
+| `review.publication` | `comments` (conversa), `review` (revisão formal: aprova a PR limpa) ou `status` (nada na PR, só o status do commit) | `comments` |
 | `review.inline_comments` | Comentários nas linhas alteradas, só para achados bloqueantes | `false` |
 | `review.context.prompt` | Caminho do prompt adicional | `.aurumcode/prompt.md` |
 | `review.context.skills` | Lista de Markdown de orientação | vazio |
@@ -1563,7 +1568,7 @@ do token do job que chama o workflow (ou que roda a action):
 
 | O que o produto publica | Permissão no job | Quando |
 | --- | --- | --- |
-| o parecer (comentário geral), os comentários na linha, a revisão formal e a edição do parecer de uma rodada anterior | `pull-requests: write` | `publication: comments` ou `review`; comentários na linha com `inline_comments: true` |
+| o parecer (comentário geral), os comentários na linha, a revisão formal e a edição do parecer de uma rodada anterior | `pull-requests: write` | `publication: comments` ou `review` (`status` não publica na PR); comentários na linha com `inline_comments: true` |
 | os status de commit `aurumcode/review` e `aurumcode/policy-gate` | `statuses: write` | `check: true` (o segundo só quando há `gate:` declarado) |
 
 A leitura do diff, dos arquivos de contexto e do histórico da PR usa

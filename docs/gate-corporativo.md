@@ -433,7 +433,7 @@ aurumcode review: policy gate: ssor_dtrack: aprovado (critical=0, high=0, policy
 ## AurumCode code review
 
 > [!TIP]
-> **Approved: no problem found in the reviewed change.**
+> **Gate passed: no problem found in the reviewed change.**
 
 policy gate: passed · 5 files reviewed
 No issues found.

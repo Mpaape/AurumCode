@@ -67,6 +67,12 @@ func parecerLine(language, how string, prNumber, comments int) string {
 	return i18n.Format(language, "terminal.parecer_posted", how, prNumber, lineCommentsText(language, comments))
 }
 
+// statusOnlyLine is the stdout line of publication: status, where the
+// parecer is not posted and the commit status carries the verdict.
+func statusOnlyLine(language string, prNumber int) string {
+	return i18n.Format(language, "terminal.parecer_status_only", prNumber)
+}
+
 // lineCommentsText counts the comments published on the changed lines.
 func lineCommentsText(language string, comments int) string {
 	switch comments {

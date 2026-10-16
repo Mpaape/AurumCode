@@ -81,7 +81,7 @@ aurumcode review: 1 finding(s) discarded: 1 citing an unknown rule_id (seguranca
 exit_code=0
 RESULTADO: sem politica nao ha gate
 $ aurumcode review --base main --politica /policy
-> **Approved: no problem proven in the reviewed change.**
+> **Gate passed: no problem proven in the reviewed change.**
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)
 aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3

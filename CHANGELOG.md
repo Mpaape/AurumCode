@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Novo: `publication: status` publica só o status do commit, nada na PR; o parecer vai ao resumo do job. Os exemplos usam `comments` e avisam que `review` aprova a PR limpa; o parecer limpo abre com "Gate passou" em vez de "Aprovado" (#201).
+
 ## 2.2.0 - 2026-10-16
 
 O plugin agendado de vulnerabilidade passa a funcionar também em repositório privado sem GitHub Code Security, e a revisão converge: todos os bloqueios na primeira rodada, sem bloqueio novo em código já revisado.
