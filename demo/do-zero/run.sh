@@ -594,6 +594,19 @@ with open(dest, "w") as f:
     f.write("\n")
 PY
 }
+# ia_cmd_completo: o comando da varredura inicial do modo ia (#178), na mesma
+# imagem e com as mesmas camadas do .mcp.json, numa linha para copiar. mock:
+# sem rede, modelo = fixture; real: o modelo do ambiente.
+ia_cmd_completo() {
+  local modelo
+  if [ "$MODO" = mock ]; then
+    modelo="--network none -e AURUMCODE_LLM_FIXTURE=/fixtures/fixture-llm.json -v $HERE:/fixtures:ro"
+  else
+    modelo="-e LLM_API_KEY -e LLM_BASE_URL -e LLM_MODEL"
+  fi
+  printf 'docker run --rm --user %s -e HOME=/tmp %s -v %s:/github/policy:ro -v %s:/github/standards:ro -v %s:/work -w /work --entrypoint /app/aurumcode %s review --completo --seguranca --sarif /tmp/inicial.sarif %s' \
+    "$(id -u):$(id -g)" "$modelo" "$SEC_DIR" "$DEV_DIR" "$TUT_WORK" "$TUT_IMAGE" "${CAMADAS_FLAGS[*]}"
+}
 ia_preparar() {
   if [ -e "$TUT_WORK" ] && [ -n "$(ls -A "$TUT_WORK" 2>/dev/null)" ]; then
     echo "o destino $TUT_WORK já existe e não está vazio; use --destino OUTRO ou: run.sh limpar --destino $TUT_WORK" >&2; exit 2
@@ -648,20 +661,22 @@ PEDIDO
   ui_copia "cd $TUT_WORK && claude"
   ui_diz "2. Cole o pedido (o mesmo texto está no arquivo: cat $pedido):"
   sed 's/^/      │ /' "$pedido"
-  ui_diz "3. Quando o Aurum estiver configurado, commitado e (no GitHub) na main, simule o dev com pressa, em outro terminal:"
+  ui_diz "3. Com o Aurum configurado e commitado na main, rode a varredura inicial: o código que já existia nunca passa por uma PR, então o repositório inteiro é revisado uma vez, com as duas camadas (o histórico só é varrido por segredos com o gitleaks em quality_gates.scanners):"
+  ui_copia "$(ia_cmd_completo)"
+  ui_diz "4. Quando o Aurum estiver configurado, commitado e (no GitHub) na main, simule o dev com pressa, em outro terminal:"
   ui_copia "bash $HERE/run.sh ia-defeito --destino $TUT_WORK"
   if [ "$MODO" = real ]; then
-    ui_diz "4. Peça a PR com o defeito (a main fica protegida pelo ia-defeito: merge só com o Aurum aprovando):"
+    ui_diz "5. Peça a PR com o defeito (a main fica protegida pelo ia-defeito: merge só com o Aurum aprovando):"
     printf '      │ %s\n' "Faça push da branch feature e abra a PR para a main, sem corrigir nada ainda."
     ui_diz "   O workflow leva alguns minutos (gh pr checks --watch): o parecer chega \"Bloqueado: 2 problemas\", com os achados da engenharia marcados [padrões de engenharia], e o botão de merge fica travado."
-    ui_diz "5. Peça a correção guiada pelo parecer:"
+    ui_diz "6. Peça a correção guiada pelo parecer:"
     printf '      │ %s\n' "Leia o parecer do AurumCode na PR, confirme com o Aurum (aurum_gate, base main), explique cada problema em uma frase e de que repositório veio a regra, corrija, consulte de novo e faça push."
     ui_diz "   O mesmo parecer é editado para \"Aprovado\" e o merge é liberado."
     ui_diz "Os secrets do serviço o agente só orienta; você digita (cada um pede o valor):"
     ui_copia "gh secret set LLM_API_KEY && gh secret set LLM_BASE_URL && gh variable set LLM_MODEL"
     [ "$PRIVADO" = 0 ] || ui_copia "gh secret set AURUMCODE_POLICY_TOKEN && gh secret set AURUMCODE_STANDARDS_TOKEN   # leitura dos dois repositórios privados"
   else
-    ui_diz "4. Peça ao agente:"
+    ui_diz "5. Peça ao agente:"
     printf '      │ %s\n' "Mudei o assistente na branch feature. Antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main), explique o que ele bloqueou e de que repositório veio cada regra, e corrija; depois consulte de novo."
   fi
   ui_diz "Sem tempo para o agente corrigir:"

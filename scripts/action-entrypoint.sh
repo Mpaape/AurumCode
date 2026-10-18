@@ -107,10 +107,33 @@ if [[ "$changelog" == true ]]; then
     export AURUMCODE_OUTPUT_FILE="$output_file"
 fi
 
+# #201: publication: status keeps the parecer off the pull request; the CLI
+# writes it to AURUMCODE_PARECER_FILE, and the action appends it to the job
+# summary, as the reusable workflow does. Set for every publication input,
+# because config can resolve to status through .aurumcode/config.yml; the CLI
+# writes the file only in status mode. A caller's own AURUMCODE_PARECER_FILE
+# is left alone.
+parecer_file=""
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" && -z "${AURUMCODE_PARECER_FILE:-}" ]]; then
+    parecer_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
+    parecer_file="$(mktemp "${parecer_dir%/}/aurumcode-parecer.XXXXXX")"
+    export AURUMCODE_PARECER_FILE="$parecer_file"
+fi
+
 set +e
 "$cli" "${args[@]}"
 status=$?
 set -e
+
+# The parecer goes to the summary on any exit status, 3 (the gate closing on
+# findings) included: in status mode the summary is the only place that says
+# why the gate failed.
+if [[ -n "$parecer_file" && -s "$parecer_file" ]]; then
+    cat "$parecer_file" >> "$GITHUB_STEP_SUMMARY"
+fi
+if [[ -n "$parecer_file" ]]; then
+    rm -f "$parecer_file" 2>/dev/null || true
+fi
 
 # AUR-499: expose the suggested version and changelog entry to the consumer
 # workflow through the modern $GITHUB_OUTPUT file (the deprecated output

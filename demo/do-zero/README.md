@@ -55,7 +55,10 @@ em `.mcp.json` (pela imagem do produto, já recebendo as duas camadas por
 para colar no agente, que segue
 [Instalar com ajuda da IA](../../docs/tutorials/instalacao-ia.md): pergunta uma
 coisa por vez e aponta o serviço para os dois repositórios (`policy_repository`
-e `standards_repository`, cada um fixado em SHA). Depois:
+e `standards_repository`, cada um fixado em SHA). Com a configuração na
+`main`, os próximos passos impressos incluem a varredura inicial: o comando
+`aurumcode review --completo --seguranca` na mesma imagem e com as duas
+camadas, para revisar uma vez o código que já existia. Depois:
 
 ```sh
 bash demo/do-zero/run.sh ia-defeito     # a mudança com os dois defeitos, na branch feature
