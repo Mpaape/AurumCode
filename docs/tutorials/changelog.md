@@ -88,7 +88,7 @@ aurumcode changelog --base main
 <!-- saida: entrada-valida -->
 ```text
 $ aurumcode changelog --base main
-changelog: aprovado (entrada_valida): 1 linha(s) nova(s) em Unreleased, 0 em notas de versão
+changelog: aprovado (entrada_valida): 1 linha nova em Unreleased, 0 em notas de versão
 exit_code=0
 RESULTADO: a PR acrescentou uma entrada util em Unreleased e o check aprovou
 ```
@@ -119,7 +119,7 @@ Destaques: o relatório de pedidos agora soma por cliente.
 <!-- saida: consolidar-release -->
 ```text
 $ aurumcode changelog --base main
-changelog: aprovado (entrada_valida): 0 linha(s) nova(s) em Unreleased, 1 em notas de versão
+changelog: aprovado (entrada_valida): 0 linhas novas em Unreleased, 1 em notas de versão
 exit_code=0
 RESULTADO: a consolidacao da release com resumo novo foi aprovada
 ```
@@ -253,7 +253,8 @@ O que observar: exit 0. Use este modo para criar o hábito sem travar ninguém.
 ## Problemas comuns
 
 - `indeterminado: não foi possível obter o diff`: a base não está no clone;
-  no CI use `fetch-depth: 0` (o workflow reutilizável já usa).
+  no CI rode `scripts/ci/fetch-pr-range.sh` depois do checkout, ou use
+  `fetch-depth: 0` (o workflow reutilizável já busca o histórico da PR).
 - `sem_informacao_nova` numa release: escreva um resumo curto na seção da
   versão.
 - `entrada_longa`: resuma; o limite é `max_entry_lines` e `max_line_length`.

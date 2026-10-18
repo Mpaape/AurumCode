@@ -13,7 +13,7 @@ generated file, skipped: schema.pb.txt
 no gate declared
 
 Review coverage — 0 of 0 file(s) in the diff were covered; 3 were not fully reviewed.
-- 3 file(s) were filtered before the review (generated, too large, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
+- 3 file(s) were filtered before the review (generated, no patch, or binary outside the format catalog); a file that was not reviewed never counts as approved.
   - ferramenta.bin (binary)
   - leia-me.txt (binary)
   - schema.pb.txt (generated)
@@ -36,7 +36,7 @@ arquivo gerado, não revisado: schema.pb.txt
 gate da política: reprovou
 
 Cobertura da revisão — arquivos do diff cobertos: 0 de 0; sem revisão completa: 3.
-- 3 arquivos foram filtrados antes da revisão (gerado, grande demais, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
+- 3 arquivos foram filtrados antes da revisão (gerado, sem patch ou binário fora do catálogo de formatos); arquivo não revisado nunca conta como aprovado.
   - ferramenta.bin (binary)
   - leia-me.txt (binary)
   - schema.pb.txt (generated)

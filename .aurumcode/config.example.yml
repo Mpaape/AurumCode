@@ -2,7 +2,7 @@
 # realmente precisa. Sem este arquivo, os defaults já executam o review.
 review:
   language: pt-BR            # opcional: en-US é o default
-  publication: review        # opcional: review formal ou comments
+  publication: comments      # opcional: comments (padrão), review (review formal: aprova a PR limpa) ou status (só o status do commit)
   inline_comments: true      # opcional: âncoras nas linhas adicionadas
   context:
     # O prompt embutido sempre continua ativo. Este arquivo é opcional e

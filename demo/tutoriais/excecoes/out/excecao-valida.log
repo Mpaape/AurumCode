@@ -24,7 +24,7 @@ aurumcode review: policy gate: seguranca#sem-segredos-no-codigo em app.go: aceit
 ## AurumCode revisão de código
 
 > [!NOTE]
-> **Aprovado com 1 observação que não bloqueia o merge.**
+> **Gate passou com 1 observação que não bloqueia o merge.**
 
 gate da política: passou · 1 arquivo revisado
 app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (rule seguranca#sem-segredos-no-codigo: Sem segredos no codigo)

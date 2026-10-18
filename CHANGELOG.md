@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+## 2.3.0 - 2026-10-18
+
+A varredura inicial e a agendada passam a revisar o repositório inteiro com o modelo e mandar o resultado para a aba Security. A revisão de PR deixa
+de baixar e de percorrer o histórico inteiro do repositório. Num monorepo, informar a janela do modelo faz a revisão nascer no tamanho certo.
+
+### Entregue
+
+- Varredura inicial: `aurumcode review --completo` revisa a árvore inteira na adoção, com as mesmas camadas e analistas de uma PR, e manda os achados para a aba Security numa categoria própria (#178).
+- Varredura agendada: o workflow reutilizável faz a varredura periódica da branch padrão com todos os tipos de vulnerabilidade, ligada com `scan: true`,
+  e também roda à mão com `gh workflow run` (#177).
+- `publication: status`: o veredito fica só no status do commit e o parecer vai para o resumo do job, também com a Action direta. Os exemplos usam
+  `comments`, e o parecer limpo abre com "Gate passou", não "Aprovado" (#201).
+- Janela do modelo em `review.model_window_tokens`: a revisão já começa dividida no tamanho certo. A recusa do vLLM e do LiteLLM informa a janela e o
+  tamanho, o repositório é lido uma vez por execução e o `--limite` estima o prompt montado. Uma janela declarada pequena demais é ignorada com aviso,
+  sem derrubar a revisão (#198).
+- A PR baixa só o próprio histórico: checkout raso, aprofundado até o ancestral comum. O ancestral comum e o Gitleaks funcionam em clone raso.
+- `review --base` parte do ancestral comum, como `git diff base...HEAD` (o mais novo, num histórico criss-cross): uma branch atrás da base não aparece
+  mais desfazendo o que a base ganhou, e um clone raso que não alcança o ancestral falha com a causa.
+- Com `--fail-on`, título, contagem, evento formal da review e status do commit acompanham a saída, com ou sem gate declarado: nada de "Gate passou" num run que falha pelo limiar.
+- `--limite` funciona com analistas e estima todos os passes; quando não dá para estimar, diz isso em vez de mostrar $0.
+- O parecer limpo com observações abre com "Gate passou com N observações", e a varredura completa bloqueada não fala de merge.
+- Skills de convenção novas no próprio repositório (`coerencia-da-mudanca`, `teste-prova-a-mudanca`), tiradas da comparação com uma revisão independente.
+- A imagem do produto compila com Go 1.27.2, e o CI de PR passa a construí-la.
+
+### Limites
+
+- Achado do modelo só conta no gate da política quando cita uma skill da política; achado do catálogo embutido é observação, a menos que `--fail-on` o pegue.
+- Com o workflow reutilizável em `publication: status` e o gate fechado, o parecer ainda não chega ao resumo do job (a Action direta já faz).
+- Com analistas, os tetos `batches.max_batches` e `batches.max_prompt_tokens` ainda não limitam os passes.
+- A primeira PR com o workflow novo usa a ferramenta da base, que ainda não tem o script de histórico raso, e busca o histórico inteiro, com aviso.
+
+### Migração do v1
+
+- Da 2.2.0 para a 2.3.0, troque `@v2.2.0` por `@v2.3.0`. Nada mais muda na configuração; `scan: true` e `review.model_window_tokens` são opcionais.
+
 ## 2.2.0 - 2026-10-16
 
 O plugin agendado de vulnerabilidade passa a funcionar também em repositório privado sem GitHub Code Security, e a revisão converge: todos os bloqueios na primeira rodada, sem bloqueio novo em código já revisado.

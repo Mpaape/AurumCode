@@ -23,7 +23,7 @@
 O exemplo fixa a release `v2.0.0`:
 
 ```yaml
-    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.2.0
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.3.0
 ```
 
 Prefira a tag de uma release a `@main`: `@main` recebe toda mudança do
@@ -178,6 +178,45 @@ A saída local abre com a mesma decisão do parecer da PR (Aprovado, Aprovado
 com observações, Bloqueado ou Inconclusivo), seguida dos achados, um por
 linha. O contexto do checkout e a memória opcional usam os mesmos
 passes do review de PR.
+
+### Varredura inicial
+
+Na adoção, revise o repositório inteiro uma vez, com as mesmas regras, camadas
+e scanners da PR (o código que já existia nunca passa por uma PR):
+
+```bash
+docker run --rm \
+  -v "$PWD:/workspace:ro" -w /workspace \
+  -e LLM_API_KEY -e LLM_BASE_URL -e LLM_MODEL \
+  aurumcode:local review --completo --seguranca --sarif /tmp/inicial.sarif
+```
+
+`--completo` trata a árvore do `HEAD` como adicionada; nada é escrito no
+repositório. O SARIF sai na categoria `aurumcode/initial-scan/`, separada da
+das PRs.
+
+O histórico inteiro só é varrido por segredos quando o gitleaks está ligado em
+`quality_gates.scanners`, no `.aurumcode/config.yml` ou na política central.
+Sem ele, a varredura inicial revisa a árvore, mas não procura segredo em
+commits antigos. O mínimo:
+
+```yaml
+quality_gates:
+  scanners:
+    - engine: gitleaks  # com --completo: o histórico inteiro
+      required: true
+```
+
+Na CI, o mesmo roda agendado e à mão: veja
+[Varredura agendada](configuration.md#varredura-agendada-da-branch-padrao).
+Com o workflow do serviço já na branch padrão, com `workflow_dispatch:` no
+`on:`, `scan: true` e `security-events: write`, a primeira varredura roda sem
+esperar o agendamento (o nome é o do arquivo do passo 3; nos exemplos de
+configuração, `code-review.yml`):
+
+```bash
+gh workflow run aurumcode.yml --ref <branch padrão>
+```
 
 Sem configurar um provedor, execute apenas a análise determinística:
 

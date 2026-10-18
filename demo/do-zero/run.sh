@@ -230,6 +230,16 @@ for l in open(sys.argv[1]):
     elif "event" in c: print("review %s" % c["event"])
 ' "$TUT_PR_LOG" | ui_saida
 }
+# az_parecer_publicado: o corpo do ultimo parecer publicado no GitHub falso.
+az_parecer_publicado() {
+  python3 -I -c 'import json,sys
+corpo = ""
+for l in open(sys.argv[1]):
+    m = json.loads(l); c = m["corpo"]
+    if "aurumcode-review" in c.get("body", ""): corpo = c["body"]
+print(corpo)
+' "$TUT_PR_LOG"
+}
 # az_pr args...: `review --pr` contra o GitHub falso, como o workflow do
 # servico a roda: as camadas vem do que o PROPRIO workflow da main declara
 # (policy_repository e standards_repository), cada uma montada da main do
@@ -253,24 +263,25 @@ az_pr() {
   printf '%s\n' "$LAST_OUT" | ui_saida
   echo "    exit_code=$LAST_RC"
 }
-# az_legenda TEXTO: conclusao do roteiro, nao saida do produto. Para cada achado
-# do parecer (linha arquivo:linha, no terminal ou no comentario da PR), a
-# camada de origem: o repositorio central (clonado em .estado/) que tem a skill
-# cujo nome prefixa a regra; sem skill, e a verificacao deterministica do
-# proprio AurumCode. O analista vem do rotulo [perfil ...].
+# az_legenda TEXTO: conclusao do roteiro, nao saida do produto. Para cada regra
+# da secao "Regras citadas" do parecer (regra e arquivo:linha), a camada de
+# origem: o repositorio central (clonado em .estado/) que tem a skill cujo nome
+# prefixa a regra; sem skill, e a verificacao deterministica do proprio
+# AurumCode.
 az_legenda() {
-  local linha regra perfil prefixo origem achados
-  achados="$(printf '%s\n' "$1" | sed -E 's/^- \*\*`([^`]*)`\*\* — /\1: /; s/^- `([^`]*)` — /\1: /' | grep -F '(rule ' | grep -E '^[^ :]+:[0-9]+: ' || true)"
-  if [ -z "$achados" ]; then echo "nenhum achado arquivo:linha no parecer" | ui_saida; return 0; fi
+  local linha regra loc prefixo origem achados
+  achados="$(printf '%s\n' "$1" | sed 's/^[[:space:]]*│ //' | sed -n '/^#### Regras citadas/,/^#### /p' | grep -E '^- `[^`]+`' || true)"
+  if [ -z "$achados" ]; then echo "nenhuma regra citada no parecer" | ui_saida; return 0; fi
   printf '%s\n' "$achados" | while IFS= read -r linha; do
-    regra="$(printf '%s' "$linha" | sed -n 's/.*(rule \([^ :)]*\).*/\1/p')"
-    perfil="$(printf '%s' "$linha" | sed -n 's/.*\[perfil \([^]]*\)\].*/\1/p')"
+    regra="$(printf '%s' "$linha" | sed -n 's/^- `\([^`]*\)`.*/\1/p')"
     prefixo="${regra%%#*}"
     if [ "$prefixo" != "$regra" ] && [ -f "$SEC_DIR/.aurumcode/skills/$prefixo/SKILL.md" ]; then origem="$NOME_SEC (política de segurança)"
     elif [ "$prefixo" != "$regra" ] && [ -f "$DEV_DIR/.aurumcode/skills/$prefixo/SKILL.md" ]; then origem="$NOME_DEV (padrões de engenharia)"
     elif [ "$prefixo" != "$regra" ] && [ -f "$TUT_WORK/.aurumcode/skills/$prefixo/SKILL.md" ]; then origem="$NOME (o próprio serviço)"
     else origem="verificação determinística do AurumCode, cobrada pelo gate do $NOME_SEC"; fi
-    printf '%s  %s → %s%s\n' "$(printf '%s' "$linha" | cut -d' ' -f1)" "$regra" "$origem" "${perfil:+, analista $perfil}"
+    printf '%s\n' "${linha#*:}" | grep -oE '`[^`]+:[0-9]+`' | tr -d '`' | while IFS= read -r loc; do
+      printf '%s:  %s → %s\n' "$loc" "$regra" "$origem"
+    done
   done | sort -u | ui_saida
 }
 # az_remoto_real DIR NOME DESCRICAO: liga DIR ao GitHub. Repositorio ja
@@ -514,7 +525,7 @@ passo_9() {
     ui_diz "O que foi publicado na PR #1:"
     az_publicado
     ui_diz "De onde veio cada achado (conclusão do roteiro, lida dos repositórios clonados):"
-    az_legenda "$LAST_OUT"
+    az_legenda "$(az_parecer_publicado)"
   else
     ia_protege_main
     ui_run "abre a PR na sua conta" -- gh pr create --base main --head feature --title "assistente: chave fixa para testar rápido" --body "POC AurumCode do zero: a revisão deve reprovar esta mudança."
@@ -594,6 +605,19 @@ with open(dest, "w") as f:
     f.write("\n")
 PY
 }
+# ia_cmd_completo: o comando da varredura inicial do modo ia (#178), na mesma
+# imagem e com as mesmas camadas do .mcp.json, numa linha para copiar. mock:
+# sem rede, modelo = fixture; real: o modelo do ambiente.
+ia_cmd_completo() {
+  local modelo
+  if [ "$MODO" = mock ]; then
+    modelo="--network none -e AURUMCODE_LLM_FIXTURE=/fixtures/fixture-llm.json -v $HERE:/fixtures:ro"
+  else
+    modelo="-e LLM_API_KEY -e LLM_BASE_URL -e LLM_MODEL"
+  fi
+  printf 'docker run --rm --user %s -e HOME=/tmp %s -v %s:/github/policy:ro -v %s:/github/standards:ro -v %s:/work -w /work --entrypoint /app/aurumcode %s review --completo --seguranca --sarif /tmp/inicial.sarif %s' \
+    "$(id -u):$(id -g)" "$modelo" "$SEC_DIR" "$DEV_DIR" "$TUT_WORK" "$TUT_IMAGE" "${CAMADAS_FLAGS[*]}"
+}
 ia_preparar() {
   if [ -e "$TUT_WORK" ] && [ -n "$(ls -A "$TUT_WORK" 2>/dev/null)" ]; then
     echo "o destino $TUT_WORK já existe e não está vazio; use --destino OUTRO ou: run.sh limpar --destino $TUT_WORK" >&2; exit 2
@@ -648,20 +672,22 @@ PEDIDO
   ui_copia "cd $TUT_WORK && claude"
   ui_diz "2. Cole o pedido (o mesmo texto está no arquivo: cat $pedido):"
   sed 's/^/      │ /' "$pedido"
-  ui_diz "3. Quando o Aurum estiver configurado, commitado e (no GitHub) na main, simule o dev com pressa, em outro terminal:"
+  ui_diz "3. Com o Aurum configurado e commitado na main, rode a varredura inicial: o código que já existia nunca passa por uma PR, então o repositório inteiro é revisado uma vez, com as duas camadas (o histórico só é varrido por segredos com o gitleaks em quality_gates.scanners):"
+  ui_copia "$(ia_cmd_completo)"
+  ui_diz "4. Quando o Aurum estiver configurado, commitado e (no GitHub) na main, simule o dev com pressa, em outro terminal:"
   ui_copia "bash $HERE/run.sh ia-defeito --destino $TUT_WORK"
   if [ "$MODO" = real ]; then
-    ui_diz "4. Peça a PR com o defeito (a main fica protegida pelo ia-defeito: merge só com o Aurum aprovando):"
+    ui_diz "5. Peça a PR com o defeito (a main fica protegida pelo ia-defeito: merge só com o Aurum aprovando):"
     printf '      │ %s\n' "Faça push da branch feature e abra a PR para a main, sem corrigir nada ainda."
     ui_diz "   O workflow leva alguns minutos (gh pr checks --watch): o parecer chega \"Bloqueado: 2 problemas\", com os achados da engenharia marcados [padrões de engenharia], e o botão de merge fica travado."
-    ui_diz "5. Peça a correção guiada pelo parecer:"
+    ui_diz "6. Peça a correção guiada pelo parecer:"
     printf '      │ %s\n' "Leia o parecer do AurumCode na PR, confirme com o Aurum (aurum_gate, base main), explique cada problema em uma frase e de que repositório veio a regra, corrija, consulte de novo e faça push."
     ui_diz "   O mesmo parecer é editado para \"Aprovado\" e o merge é liberado."
     ui_diz "Os secrets do serviço o agente só orienta; você digita (cada um pede o valor):"
     ui_copia "gh secret set LLM_API_KEY && gh secret set LLM_BASE_URL && gh variable set LLM_MODEL"
     [ "$PRIVADO" = 0 ] || ui_copia "gh secret set AURUMCODE_POLICY_TOKEN && gh secret set AURUMCODE_STANDARDS_TOKEN   # leitura dos dois repositórios privados"
   else
-    ui_diz "4. Peça ao agente:"
+    ui_diz "5. Peça ao agente:"
     printf '      │ %s\n' "Mudei o assistente na branch feature. Antes de abrir a PR, pergunte ao Aurum (aurum_gate, base main), explique o que ele bloqueou e de que repositório veio cada regra, e corrija; depois consulte de novo."
   fi
   ui_diz "Sem tempo para o agente corrigir:"

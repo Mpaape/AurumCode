@@ -185,9 +185,10 @@ RESULTADO: sem gitleaks a varredura e inconclusiva (secrets_unavailable) e o gat
 
 - O valor do token não aparece em `demo/tutoriais/segredos/out/`: o adaptador
   descarta `Secret` e `Match` do relatório do gitleaks antes de qualquer coisa.
-- No CI, o workflow reutilizável faz checkout do PR com histórico completo
-  (`fetch-depth: 0`); um clone raso cortaria o intervalo e a engine o recusa
-  como inconclusivo.
+- No CI, o workflow reutilizável busca só o histórico da PR
+  (`scripts/ci/fetch-pr-range.sh` sobre um checkout raso), até o intervalo
+  `base..head` estar inteiro no clone; um clone raso que corta o intervalo a
+  engine recusa como inconclusivo.
 
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
 ## Como fica

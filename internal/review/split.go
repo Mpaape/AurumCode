@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
@@ -63,10 +64,14 @@ func (e *promptRefused) Unwrap() error { return e.err }
 // reviewed in batches (batches.go): the same four stages per batch, one
 // consolidated result.
 func (r *Reviewer) GenerateReviewWithContext(ctx context.Context, diff *types.Diff, reviewContext ReviewContext) (*types.ReviewResult, error) {
-	r.learnedBudget, r.refusals = 0, nil
-	r.contextFits, r.contextReduction = nil, nil
+	r.learnedBudget, r.refusals = declaredCeiling(r.cfg.ModelWindowTokens), nil
+	r.contextFits, r.contextReduction, r.droppedWindow = nil, nil, 0
 	for {
 		result, err := r.reviewOnce(ctx, diff, reviewContext)
+		if r.declaredWindowTooSmall(err) {
+			r.dropDeclaredWindow(err)
+			continue
+		}
 		var refused *promptRefused
 		if err == nil || !errors.As(err, &refused) {
 			return result, r.explainNoRoom(err)
@@ -139,9 +144,41 @@ func refuse(err error, prepared preparedPrompt) error {
 	}
 }
 
+// declaredCeiling is the prompt ceiling a declared window gives before any
+// refusal, in the product's estimated tokens. Zero when no window was
+// declared.
+func declaredCeiling(window int) int {
+	return windowShare(window)
+}
+
+// windowShare converts a window in the provider's tokens into the prompt
+// ceiling in the product's estimated tokens, when nothing measured the ratio
+// between the two counts: the reply's room (promptMargin), on the window as
+// the provider would count a prompt written densely (estimateRatio).
+func windowShare(window int) int {
+	if window <= 0 {
+		return 0
+	}
+	return int(float64(window) * promptMargin * estimateRatio)
+}
+
 // promptMargin is the share of the model's window a split prompt may take:
 // the rest is left for the reply, which the product does not cap.
 const promptMargin = 0.9
+
+// estimateRatio is the provider's tokens per estimated token assumed when
+// none was measured, inverted: the product estimates four characters per
+// token, and a real tokenizer counted about 3.6 on source code (#198), so a
+// prompt estimated at the ceiling is sized for 3.5 characters per token.
+const estimateRatio = 3.5 / 4.0
+
+// ProviderTokens is estimated, a count in the product's four-characters
+// estimate, as the provider is assumed to count it: the same ratio the
+// declared window is shared by (estimateRatio), so the --limite pre-flight
+// prices what a split sizes for.
+func ProviderTokens(estimated int) int {
+	return int(math.Ceil(float64(estimated) / estimateRatio))
+}
 
 // learnedCeiling is the prompt ceiling, in the product's estimated tokens, to
 // try after a refusal. When the provider said its window and the size it
@@ -158,9 +195,9 @@ func learnedCeiling(refusal PromptRefusal, previous int) int {
 		next = int(float64(refusal.EstimatedTokens) * float64(refusal.Limit) / float64(refusal.Requested) * promptMargin)
 	case refusal.Limit > 0 && refusal.Requested == 0:
 		// The provider said its window but not the size it counted (a
-		// request larger than the tokens per minute allowed): the window,
-		// with the margin, is the ceiling.
-		next = int(float64(refusal.Limit) * promptMargin)
+		// request larger than the tokens per minute allowed): the window's
+		// share, as for a declared window, is the ceiling.
+		next = windowShare(refusal.Limit)
 	}
 	if next >= refusal.EstimatedTokens {
 		next = refusal.EstimatedTokens - 1
@@ -186,6 +223,10 @@ func (r *Reviewer) explainNoRoom(err error) error {
 	if r.refusals[0].Cut {
 		what = "cut its reply short on a prompt of about %d tokens"
 	}
-	return fmt.Errorf("the model "+what+", and splitting the review down to %d tokens still leaves no room for a code change: what goes with every part (instructions, policy, context and evidence) takes about %d tokens; shorten the policy or use a model with a larger context window: %w",
-		r.refusals[0].EstimatedTokens, noRoom.MaxTokens, noRoom.FixedTokens, err)
+	declared := ""
+	if r.droppedWindow > 0 {
+		declared = fmt.Sprintf(" (the declared model window of %d tokens was set aside as too small)", r.droppedWindow)
+	}
+	return fmt.Errorf("the model "+what+"%s, and splitting the review down to %d tokens still leaves no room for a code change: what goes with every part (instructions, policy, context and evidence) takes about %d tokens; shorten the policy or use a model with a larger context window: %w",
+		r.refusals[0].EstimatedTokens, declared, noRoom.MaxTokens, noRoom.FixedTokens, err)
 }

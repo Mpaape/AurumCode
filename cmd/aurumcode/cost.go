@@ -12,7 +12,9 @@ import (
 
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/llm/cost"
+	"github.com/Mpaape/AurumCode/internal/llm/tokens"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/reviewprofile"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -153,55 +155,66 @@ func realCostUSD(tracker *cost.Tracker, limiteUSD float64) float64 {
 	return limiteUSD - remaining
 }
 
-// estimateCostUSD is a pre-flight, informational estimate of what this
-// review will cost, printed before the model is ever invoked. It is
-// intentionally never the number a refusal message attributes the
-// decision to (see reportBudgetExceeded): it prices the diff text already
-// in hand (computeDiff's result) with the same $-per-1000-token
-// arithmetic the tracker itself applies, using:
-//
-//   - tokensIn: the model-independent heuristic llm.NewEstimator already
-//     exposes (llm.Estimator.EstimateTokens), the same ~4-chars-per-token
-//     heuristic every provider in this engine falls back to
-//     (internal/llm/estimator.go, internal/review/fakeprovider.go,
-//     internal/llm/provider/litellm).
-//   - tokensOut: the orchestrator's bounded planning estimate when the
-//     provider owns the actual response limit. This is an estimate for the
-//     optional financial gate, never a client-side truncation.
-//
-// It is NOT the number the budget decision is made against -- that check
-// happens inside internal/llm.Orchestrator.Complete, against the actual
-// assembled prompt (system template plus the diff, redacted a second time
-// right before that prompt is built; see internal/review.redactDiff). This
-// command deliberately never re-derives that prompt, so this figure is
-// reported honestly as a pre-flight estimate over the diff alone, not a
-// guarantee of what the enforced check will see.
-func estimateCostUSD(diff *types.Diff, price cost.PriceMap) float64 {
-	var diffText strings.Builder
-	for _, file := range diff.Files {
-		diffText.WriteString(file.Path)
-		diffText.WriteByte('\n')
-		for _, hunk := range file.Hunks {
-			for _, line := range hunk.Lines {
-				diffText.WriteString(line)
-				diffText.WriteByte('\n')
-			}
-		}
-	}
-
-	tokensIn := llm.NewEstimator().EstimateTokens(diffText.String())
-
+// estimateCostUSD prices the AUR-433 pre-flight: tokensIn is the size of
+// what the review will send, in the provider's tokens (preflightEstimate:
+// the prompt the review's own builder assembles -- instructions, policy,
+// codebase context, evidence and diff, #198 -- once per model pass), and
+// tokensOut the orchestrator's bounded planning estimate per pass when the
+// provider owns the actual response limit. It is an estimate for the
+// optional financial gate, never a client-side truncation, and not the
+// number the budget decision is made against: that check happens inside
+// internal/llm.Orchestrator.Complete, request by request, and a refusal
+// that makes the review split or retry is not foreseen here.
+func estimateCostUSD(tokensIn, passes int, price cost.PriceMap) float64 {
 	cfg := review.DefaultConfig()
 	tokensOut := cfg.MaxTokens - cfg.ReserveReply
 	if tokensOut <= 0 {
 		tokensOut = llm.DefaultOutputTokenEstimate()
 	}
-
-	return priceUSD(tokensIn, tokensOut, price)
+	return priceUSD(tokensIn, tokensOut*passes, price)
 }
 
 func priceUSD(tokensIn, tokensOut int, price cost.PriceMap) float64 {
 	return (float64(tokensIn)/1000.0)*price.InputPer1K + (float64(tokensOut)/1000.0)*price.OutputPer1K
+}
+
+// costEstimate is what the pre-flight priced: the model passes the review
+// will run and the provider tokens they send in all.
+type costEstimate struct {
+	passes int
+	tokens int
+}
+
+// preflightEstimate counts what the review is about to send. Without
+// analysts it is the single reviewer's assembled prompt. With analysts
+// (runProfilePasses) every analyst sends the whole review in its own pass,
+// behind its own profile prefix, from a reviewer configured as the passes'
+// own (analystPasses.promptReviewer, built here without the deliberation
+// and budget a pass wires): the count is that prompt plus each prefix,
+// summed over the passes. The product's estimate becomes the provider's
+// count by the ratio the declared window is shared by (review.ProviderTokens).
+func (s *reviewState) preflightEstimate(reviewer *review.Reviewer, analysts []reviewprofile.Profile, diff *types.Diff, reviewContext review.ReviewContext) (costEstimate, error) {
+	if len(analysts) == 0 {
+		body, err := reviewer.EstimatePromptTokens(diff, reviewContext)
+		if err != nil {
+			return costEstimate{}, err
+		}
+		return costEstimate{passes: 1, tokens: review.ProviderTokens(body)}, nil
+	}
+	passes := analystPasses{dynamicRules: s.dynamicRules, ruleCatalogIDs: s.ruleCatalogIDs, declareWindow: s.declareModelWindow}
+	estimator, err := passes.promptReviewer(nil)
+	if err != nil {
+		return costEstimate{}, err
+	}
+	body, err := estimator.EstimatePromptTokens(diff, reviewContext)
+	if err != nil {
+		return costEstimate{}, err
+	}
+	total := 0
+	for _, p := range analysts {
+		total += body + tokens.Estimate(profileProvider{profile: p}.prefix())
+	}
+	return costEstimate{passes: len(analysts), tokens: review.ProviderTokens(total)}, nil
 }
 
 // printCostEstimate reports the AUR-433 pre-flight estimate on stderr,
@@ -210,14 +223,40 @@ func priceUSD(tokensIn, tokensOut int, price cost.PriceMap) float64 {
 // through the same redacted stderr writer runReview already holds, not a
 // new sink.
 //
-// This figure is explicitly labeled "diff-only, pre-flight": it prices the
-// diff alone (estimateCostUSD), while the enforced check inside
-// internal/llm.Orchestrator.Complete prices the larger, fully assembled
-// prompt. The two can disagree at the margin (see reportBudgetExceeded),
-// so this line must never be read as a promise that this exact number is
-// what the enforced check compares against --limite.
-func printCostEstimate(stderr io.Writer, estimatedUSD, limiteUSD float64) {
-	fmt.Fprintf(stderr, "aurumcode review: estimated cost $%.4f, diff-only pre-flight (--limite $%.4f)\n", estimatedUSD, limiteUSD)
+// The figure prices what the review assembles (preflightEstimate, #198),
+// with the tokens it counted, and says how many model passes send it. The
+// enforced check inside internal/llm.Orchestrator.Complete prices each
+// request as it is sent, so a refusal that makes the review split can
+// still take it past this figure (see reportBudgetExceeded): the line is
+// never a promise of what the enforced check compares against --limite.
+func printCostEstimate(stderr io.Writer, estimatedUSD float64, estimate costEstimate, limiteUSD float64) {
+	if estimate.passes > 1 {
+		fmt.Fprintf(stderr, "aurumcode review: estimated cost $%.4f, pre-flight of the assembled prompt sent once per analyst, %d model passes (about %d tokens in all: instructions, policy, context and diff, each pass) (--limite $%.4f)\n", estimatedUSD, estimate.passes, estimate.tokens, limiteUSD)
+		return
+	}
+	fmt.Fprintf(stderr, "aurumcode review: estimated cost $%.4f, pre-flight of the assembled prompt (about %d tokens: instructions, policy, context and diff) (--limite $%.4f)\n", estimatedUSD, estimate.tokens, limiteUSD)
+}
+
+// printCostUnknown says the pre-flight priced nothing, and why, instead of
+// printing a figure no prompt backs. It decides nothing: --limite is still
+// enforced on every request inside internal/llm.Orchestrator.Complete.
+func printCostUnknown(stderr io.Writer, cause error, limiteUSD float64) {
+	fmt.Fprintf(stderr, "aurumcode review: cost not estimated before the call: %v; --limite $%.4f is still enforced on every request\n", cause, limiteUSD)
+}
+
+// preflight prints the pre-flight estimate of the review about to run,
+// when --limite set a price: the single reviewer's prompt, or the passes of
+// analysts when a selection applies (nil otherwise).
+func (s *reviewState) preflight(reviewer *review.Reviewer, analysts []reviewprofile.Profile, diff *types.Diff, reviewContext review.ReviewContext) {
+	if s.costPrice == nil || reviewer == nil {
+		return
+	}
+	estimate, err := s.preflightEstimate(reviewer, analysts, diff, reviewContext)
+	if err != nil {
+		printCostUnknown(s.stderr, err, s.limiteUSD)
+		return
+	}
+	printCostEstimate(s.stderr, estimateCostUSD(estimate.tokens, estimate.passes, *s.costPrice), estimate, s.limiteUSD)
 }
 
 // printRealCost reports the AUR-433 actual cost after a successful review,

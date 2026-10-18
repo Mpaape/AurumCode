@@ -26,6 +26,9 @@ import (
 type complianceArtifactInputs struct {
 	auditoriaPath string
 	sarifPath     string
+	// sarifCategory names the SARIF's automationDetails category; "" keeps
+	// the review's uncategorized document.
+	sarifCategory string
 
 	// deliberation is the tool conversation's transcript, nil when the
 	// model was offered no tool.
@@ -231,6 +234,10 @@ func writeSARIFFile(in complianceArtifactInputs, filter *redaction.Filter) error
 		if findings[i].Assessment != nil && findings[i].Origin == "" && i < len(issues) {
 			findings[i].Origin = issues[i].Origin
 		}
+	}
+	findings = render.MergeSameFindings(findings)
+	if in.sarifCategory != "" {
+		return render.WriteCategorizedSARIFWithReason(in.sarifPath, toolVersion().Label(), in.sarifCategory, findings, in.gateInconclusiveReason, filter)
 	}
 	return render.WriteSARIF(in.sarifPath, toolVersion().Label(), findings, in.gateInconclusiveReason, filter)
 }

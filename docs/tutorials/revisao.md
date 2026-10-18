@@ -72,7 +72,7 @@ fora.
 
 <!-- saida: primeira-revisao -->
 ```text
-> **Aprovado: nenhum problema encontrado na mudança revisada.**
+> **Gate passou: nenhum problema encontrado na mudança revisada.**
 Nenhum problema encontrado.
 exit_code=0
 ```
@@ -457,7 +457,7 @@ nil }`, numa linha só) não existe no arquivo.
 ```text
 $ aurumcode review --base main --fail-on error --auditoria auditoria.json
 aurumcode review: limites.go:23 quality/missing-error-handling refutado pela verificação: deixou de bloquear e segue como comentário não bloqueante (motivo: Validar comeca com a guarda de nil: com l nil, retorna nil sem acessar campo.; citação: func (l *Limites) Validar() error { if l == nil { return nil })
-> **Aprovado: nenhum problema encontrado na mudança revisada.**
+> **Gate passou: nenhum problema encontrado na mudança revisada.**
 exit_code=0
 RESULTADO: refutado com citacao literal: o achado deixa de bloquear e fica marcado
 --- a auditoria guarda o achado refutado, com o motivo e a citacao

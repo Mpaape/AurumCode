@@ -30,12 +30,16 @@ import (
 // reviewEnv is the process environment a review reads, captured once at
 // the command's edge so no phase reads os.Getenv on its own.
 type reviewEnv struct {
-	githubSHA      string // GITHUB_SHA: the reviewed commit
-	baseSHA        string // AURUMCODE_BASE_SHA: the trusted base commit
-	repository     string // GITHUB_REPOSITORY
-	llmModel       string // LLM_MODEL
-	outputFile     string // AURUMCODE_OUTPUT_FILE
-	permissionMode string // AURUMCODE_PR_PERMISSION_MODE
+	githubSHA   string // GITHUB_SHA: the reviewed commit
+	baseSHA     string // AURUMCODE_BASE_SHA: the trusted base commit
+	repository  string // GITHUB_REPOSITORY
+	llmModel    string // LLM_MODEL
+	outputFile  string // AURUMCODE_OUTPUT_FILE
+	parecerFile string // AURUMCODE_PARECER_FILE: where publication status writes the parecer
+	// modelWindowTokens (AURUMCODE_MODEL_WINDOW_TOKENS) declares the model's
+	// context window, overriding review.model_window_tokens (#198).
+	modelWindowTokens string
+	permissionMode    string // AURUMCODE_PR_PERMISSION_MODE
 	// publisherLogin (AURUMCODE_PUBLISHER_LOGIN) is the login this product
 	// publishes as; only its comments' round markers are read.
 	publisherLogin string
@@ -54,15 +58,17 @@ type reviewEnv struct {
 // readReviewEnv snapshots the environment.
 func readReviewEnv() reviewEnv {
 	return reviewEnv{
-		githubSHA:      os.Getenv("GITHUB_SHA"),
-		baseSHA:        os.Getenv("AURUMCODE_BASE_SHA"),
-		repository:     os.Getenv("GITHUB_REPOSITORY"),
-		llmModel:       os.Getenv("LLM_MODEL"),
-		outputFile:     os.Getenv("AURUMCODE_OUTPUT_FILE"),
-		permissionMode: os.Getenv("AURUMCODE_PR_PERMISSION_MODE"),
-		publisherLogin: os.Getenv("AURUMCODE_PUBLISHER_LOGIN"),
-		ci:             os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "",
-		trustLocalMCP:  os.Getenv("AURUMCODE_TRUST_LOCAL_MCP") == "true",
+		githubSHA:         os.Getenv("GITHUB_SHA"),
+		baseSHA:           os.Getenv("AURUMCODE_BASE_SHA"),
+		repository:        os.Getenv("GITHUB_REPOSITORY"),
+		llmModel:          os.Getenv("LLM_MODEL"),
+		outputFile:        os.Getenv("AURUMCODE_OUTPUT_FILE"),
+		parecerFile:       os.Getenv("AURUMCODE_PARECER_FILE"),
+		modelWindowTokens: os.Getenv("AURUMCODE_MODEL_WINDOW_TOKENS"),
+		permissionMode:    os.Getenv("AURUMCODE_PR_PERMISSION_MODE"),
+		publisherLogin:    os.Getenv("AURUMCODE_PUBLISHER_LOGIN"),
+		ci:                os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "",
+		trustLocalMCP:     os.Getenv("AURUMCODE_TRUST_LOCAL_MCP") == "true",
 
 		standardsRepository: os.Getenv("AURUMCODE_STANDARDS_REPOSITORY"),
 		standardsRef:        os.Getenv("AURUMCODE_STANDARDS_REF"),
@@ -127,16 +133,25 @@ type reviewState struct {
 	filter *redaction.Filter
 	deps   reviewDeps
 	run    *gateRun // flushed when the session ends
+	// window is the declared model window, resolved once per run
+	// (model_window.go).
+	window *modelWindow
+	// costPrice is --limite's price, set when the cost cap is; the
+	// pre-flight prices the assembled prompt with it (cost.go).
+	costPrice *cost.PriceMap
 
 	// invocation
-	policyDir                    string
-	standardsDir                 string
-	threshold                    int
-	thresholdName                string
-	limiteUSD                    float64
-	modelFlag                    string
-	seguranca, exigirQualidade   bool
-	auditoriaPath, sarifPath     string
+	policyDir                  string
+	standardsDir               string
+	threshold                  int
+	thresholdName              string
+	limiteUSD                  float64
+	modelFlag                  string
+	seguranca, exigirQualidade bool
+	auditoriaPath, sarifPath   string
+	// sarifCategory, when set, is the SARIF's automationDetails category
+	// (review --completo: aurumcode/initial-scan); "" for a review's own.
+	sarifCategory                string
 	repoIdentity                 string
 	repoIdentityKnown            bool
 	artifactRepo, artifactCommit string

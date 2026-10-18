@@ -23,10 +23,10 @@ um `config.yml` dela com qualquer seção é recusado antes de o modelo ser
 chamado. Para destravar, quem muda é o time de segurança, por uma PR no
 `security-policy`. O passo 10 do roteiro mostra isso acontecendo.
 
-Cada achado do parecer diz quem o encontrou: o analista (`[perfil seguranca]`,
-`[perfil padroes]`, `[perfil qa]`) e, quando a regra vem da camada de padrões,
-a camada (`[padrões de engenharia]`). O roteiro ainda imprime, lendo os
-repositórios clonados, de que repositório veio cada regra:
+Quando a regra vem da camada de padrões, o achado traz a camada
+(`[padrões de engenharia]`), e os detalhes do parecer listam as regras citadas
+com os arquivos e linhas. O roteiro ainda imprime, lendo essas regras e os
+repositórios clonados, de que repositório veio cada uma:
 
 - a **chave fixa no código** (linha 10) é achada pela verificação
   determinística do AurumCode, cobrada pelo gate do `security-policy`;
@@ -55,7 +55,10 @@ em `.mcp.json` (pela imagem do produto, já recebendo as duas camadas por
 para colar no agente, que segue
 [Instalar com ajuda da IA](../../docs/tutorials/instalacao-ia.md): pergunta uma
 coisa por vez e aponta o serviço para os dois repositórios (`policy_repository`
-e `standards_repository`, cada um fixado em SHA). Depois:
+e `standards_repository`, cada um fixado em SHA). Com a configuração na
+`main`, os próximos passos impressos incluem a varredura inicial: o comando
+`aurumcode review --completo --seguranca` na mesma imagem e com as duas
+camadas, para revisar uma vez o código que já existia. Depois:
 
 ```sh
 bash demo/do-zero/run.sh ia-defeito     # a mudança com os dois defeitos, na branch feature

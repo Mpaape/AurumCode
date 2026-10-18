@@ -595,19 +595,43 @@ func (r *Repo) blobBytes(sha string) ([]byte, error) {
 // model call is ever made for it -- and reported through the returned
 // notices instead, in the same sorted path order. That is not an error
 // condition; callers print the notices and carry on.
+//
+// The base side is the merge base of baseRef and headRef when they have
+// exactly one, as `git diff base...head`: a branch behind its base is never
+// shown undoing what the base gained since the fork; with several best
+// common ancestors (criss-cross) it starts from the newest, as git does. In
+// a complete clone, unrelated histories compare baseRef's own tree, as
+// before. In a shallow clone a missing merge base is an error
+// (the clone may be cut before the fork point), and so is any failure to
+// read the history: never a silent tree comparison.
 func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) {
 	baseSHA, err := r.ResolveRef(baseRef)
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolving base ref %q: %w", baseRef, err)
 	}
-	headSHA, err := r.ResolveRef(headRef)
-	if err != nil {
-		return nil, nil, fmt.Errorf("resolving head ref %q: %w", headRef, err)
+	if baseSHA, err = r.forkPoint(baseSHA, headRef); err != nil {
+		return nil, nil, err
 	}
-
 	baseTree, _, err := r.readCommit(baseSHA)
 	if err != nil {
 		return nil, nil, err
+	}
+	return r.diffTrees(baseTree, headRef)
+}
+
+// DiffFromEmpty is the whole tree of headRef as added files: the diff of a
+// full review (review --completo, #178), with no base commit and no orphan
+// commit written to the repository. Binary and oversized files are notices,
+// as in Diff.
+func (r *Repo) DiffFromEmpty(headRef string) (*types.Diff, []DiffNotice, error) {
+	return r.diffTrees("", headRef)
+}
+
+// diffTrees diffs baseTree (empty for no tree) against headRef's tree.
+func (r *Repo) diffTrees(baseTree, headRef string) (*types.Diff, []DiffNotice, error) {
+	headSHA, err := r.ResolveRef(headRef)
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolving head ref %q: %w", headRef, err)
 	}
 	headTree, _, err := r.readCommit(headSHA)
 	if err != nil {
@@ -616,8 +640,10 @@ func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) 
 
 	before := map[string]blobAt{}
 	after := map[string]blobAt{}
-	if err := r.flattenTree(baseTree, "", before); err != nil {
-		return nil, nil, fmt.Errorf("reading base tree: %w", err)
+	if baseTree != "" {
+		if err := r.flattenTree(baseTree, "", before); err != nil {
+			return nil, nil, fmt.Errorf("reading base tree: %w", err)
+		}
 	}
 	if err := r.flattenTree(headTree, "", after); err != nil {
 		return nil, nil, fmt.Errorf("reading head tree: %w", err)

@@ -117,3 +117,17 @@ func TestAUR509AC004EntryTextIsData(t *testing.T) {
 		t.Errorf("invalid rules must be indeterminate: %+v", got)
 	}
 }
+
+// The approval detail counts new lines in real singular and plural, never
+// "linha(s) nova(s)".
+func TestApprovalDetailPluralizesNewLines(t *testing.T) {
+	for n, want := range map[int]string{0: "0 linhas novas", 1: "1 linha nova", 2: "2 linhas novas"} {
+		if got := newLines(n); got != want {
+			t.Errorf("newLines(%d) = %q, want %q", n, got, want)
+		}
+	}
+	got := aur509Requirement(t).Verify(Change{State: FileChanged, Old: aur509Base, New: aur509WithEntry("- O check de changelog bloqueia PR sem entrada.\n")})
+	if !got.OK || !strings.HasPrefix(got.Detail, "1 linha nova em ") || strings.Contains(got.Detail, "(s)") {
+		t.Errorf("approval detail = %q, want it to start with \"1 linha nova em \"", got.Detail)
+	}
+}

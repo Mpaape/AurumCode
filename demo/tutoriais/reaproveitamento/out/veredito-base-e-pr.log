@@ -1,6 +1,7 @@
 == veredito-base-e-pr
 $ aurumcode review --base main --politica /policy
 aurumcode review: verificação: app.go:6 seguranca#sem-segredos-no-codigo continua bloqueando: o verificador não deu uma resposta válida [invalid_answer]
+aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 ## AurumCode revisão de código
 
 > [!CAUTION]
@@ -12,7 +13,6 @@ app.go:6: [warning] Credencial literal proibida pela politica da organizacao. (r
   - Evidência: A linha adicionada atribui o literal "hunter2" a dbPassword em app.go.
   - Correção sugerida: Leia a senha do ambiente.
   - Verificação: Remova o literal e rode a revisao de novo.
-aurumcode review: policy gate: seguranca#sem-segredos-no-codigo - Sem segredos no codigo (severidade warning, limiar warning, origem skills)
 exit_code=3
 cache: 1 entrada(s) de veredito, 1 entrada(s) por arquivo
 $ aurumcode review --pr 7 --repo OWNER/REPO --publicar --modo-publicacao review --politica /policy

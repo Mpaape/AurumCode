@@ -26,6 +26,9 @@ type analystPasses struct {
 	dynamicRules   map[string]review.Rule
 	ruleCatalogIDs []string
 	plan           *deliberationPlan
+	// declareWindow gives every pass the declared context window it starts
+	// under, and its notices.
+	declareWindow func(*review.Reviewer)
 	// spent is told, before a pass starts, that the review's tool rounds
 	// are already gone: the analyst then answers from the evidence the
 	// earlier passes gathered.
@@ -51,12 +54,14 @@ func analystsOf(res *reviewprofile.MultiResult) []reviewprofile.Profile {
 // without a budget gets one here, so analysts never deliberate unbudgeted.
 func (s *reviewState) analystPasses(profiles []reviewprofile.Profile) analystPasses {
 	plan := s.deliberation
+	s.modelWindowTokens() // resolved here, before the passes may run at once
 	if plan != nil && plan.budget == nil {
 		plan.budget = deliberation.NewBudget(plan.limits)
 	}
 	return analystPasses{
 		provider: s.provider, tracker: s.tracker, profiles: profiles,
 		dynamicRules: s.dynamicRules, ruleCatalogIDs: s.ruleCatalogIDs, plan: plan,
+		declareWindow: s.declareModelWindow,
 		spent: func(analyst string) {
 			fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.deliberation_rounds_spent", analyst))
 		},
@@ -73,9 +78,8 @@ func (s *reviewState) analystPasses(profiles []reviewprofile.Profile) analystPas
 // tools are offered, drawing from the budget the passes share.
 func (a analystPasses) reviewer(p reviewprofile.Profile) (*review.Reviewer, error) {
 	orchestrator := llm.NewOrchestrator(newProfileProvider(a.provider, p), nil, a.tracker)
-	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
-	reviewer.SetDynamicRules(a.dynamicRules)
-	if err := reviewer.SetRuleCatalog(a.ruleCatalogIDs); err != nil {
+	reviewer, err := a.promptReviewer(orchestrator)
+	if err != nil {
 		return nil, err
 	}
 	if a.plan != nil {
@@ -83,6 +87,22 @@ func (a analystPasses) reviewer(p reviewprofile.Profile) (*review.Reviewer, erro
 			a.spent(p.Name)
 		}
 		reviewer.SetDeliberation(a.plan.forCaller(orchestrator, a.plan.budget))
+	}
+	return reviewer, nil
+}
+
+// promptReviewer is a pass's reviewer as far as its prompt goes: the
+// declared window, the dynamic rules and the catalog every pass accepts.
+// The --limite pre-flight counts with it (preflightEstimate), so what it
+// counts is what a pass assembles.
+func (a analystPasses) promptReviewer(completer review.Completer) (*review.Reviewer, error) {
+	reviewer := review.NewReviewer(completer, review.DefaultConfig())
+	if a.declareWindow != nil {
+		a.declareWindow(reviewer)
+	}
+	reviewer.SetDynamicRules(a.dynamicRules)
+	if err := reviewer.SetRuleCatalog(a.ruleCatalogIDs); err != nil {
+		return nil, err
 	}
 	return reviewer, nil
 }

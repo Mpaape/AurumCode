@@ -35,7 +35,7 @@ ignore:
   - "docs/specs/**"          # historico de cada card, por desenho
   - "docs/site/**"          # pagina estatica antiga com saidas embutidas; nao e codigo
 gate:
-  fail_on: [error]      # achado error (modelo, skill ou scanner) reprova
+  fail_on: [error]      # achado error de skill ou de scanner reprova; achado do modelo so conta citando uma skill
   inconclusive: block   # revisao que nao concluiu nunca aprova
 quality_gates:
   scanners:

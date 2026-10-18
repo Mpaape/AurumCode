@@ -19,7 +19,7 @@ jobs:
     name: Documentation browser checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       # MkDocs site built with the digest-pinned image (scripts/docs/image.lock).
       - name: Build the documentation site
         run: scripts/docs/build.sh
@@ -42,7 +42,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build and test with the project toolchain
         run: >-
@@ -51,6 +51,12 @@ jobs:
           -w /src
           golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
           sh scripts/ci/build-test.sh
+
+      # The product image every consumer builds from a pinned SHA: a base
+      # image bump (Dependabot) that breaks it fails here, not in the review
+      # of a consumer.
+      - name: Build the product image (Dockerfile)
+        run: docker build --tag aurumcode-ci .
 
       # The scheduled-plugin example's profile generator (Python, outside the
       # Go module): the happy path and every refusal.
@@ -63,7 +69,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Run race tests with the project toolchain
         run: >-

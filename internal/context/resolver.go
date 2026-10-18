@@ -68,6 +68,9 @@ type Resolver struct {
 	limits  Limits
 	grammar grammar.Provider
 	exclude func(rel string) bool
+	// reading, when set, shares one reading of the repository across
+	// resolutions (reading.go).
+	reading *reading
 }
 
 // NewResolver returns a Resolver without ceilings.
@@ -136,7 +139,7 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 	if restrict {
 		repoFiles = r.normalizeAllowed(root, allowedFiles, pack)
 	} else {
-		repoFiles = r.enumerate(root, pack)
+		repoFiles = r.enumerateOnce(root, pack)
 	}
 	repoFiles = r.keepIncluded(repoFiles, pack)
 
@@ -148,15 +151,15 @@ func (r *Resolver) resolve(root string, changed []string, restrict bool, allowed
 	changedDirs := make(map[string]struct{})        // directories of changed files, "" for the root
 
 	for _, rel := range changedPaths {
-		data, truncated, err := r.readFile(root, rel)
+		file, err := r.load(root, rel)
 		if err != nil {
 			pack.Dropped = appendDropped(pack.Dropped, "unreadable "+rel+": "+err.Error())
 			continue
 		}
-		if truncated {
+		if file.truncated {
 			pack.Dropped = appendDropped(pack.Dropped, "truncated "+rel+" at "+itoa(r.limits.MaxBytes)+" bytes")
 		}
-		st := r.structureOf(rel, data)
+		st := file.structure
 		if !st.HasStructure {
 			// No grammar (or binary content): the model reads the text and the
 			// pack says the structural context was not produced.
@@ -388,29 +391,35 @@ func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]b
 			truncated = true
 			break
 		}
-		data, wasTruncated, err := r.readFile(root, rel)
+		file, err := r.load(root, rel)
 		if err != nil {
 			pack.Dropped = appendDropped(pack.Dropped, "unreadable "+rel+": "+err.Error())
 			continue
 		}
-		if wasTruncated {
+		if file.truncated {
 			pack.Dropped = appendDropped(pack.Dropped, "truncated "+rel+" at "+itoa(r.limits.MaxBytes)+" bytes")
 		}
-		st := r.structureOf(rel, data)
+		st := file.structure
 		dir, _, _ := importKeys(rel)
 		// A file that declares no import gives the grammar nothing to tell
 		// its dependencies by: its text is scanned.
 		_, linked := imports.changedDirs[dir]
 		linked = linked || len(st.Imports) == 0
-		for _, imp := range st.Imports {
+		for i, imp := range st.Imports {
 			if matchesImport(imp, imports.dirKeys, imports.stemKeys, imports.dirBaseKeys) {
 				linked = true
-				offset := indexOf(data, []byte(imp))
-				refs = append(refs, Reference{File: rel, Symbol: imp, Line: lineOf(data, offset)})
+				refs = append(refs, Reference{File: rel, Symbol: imp, Line: file.importLines[i]})
 			}
 		}
 		symRegex := regexByLang[st.Language]
 		if !linked || !st.HasStructure || symRegex == nil {
+			continue
+		}
+		// Only now is the text needed: a Reading resolver kept the
+		// structure, not the content.
+		data, err := r.contentOf(root, rel, file)
+		if err != nil {
+			pack.Dropped = appendDropped(pack.Dropped, "unreadable "+rel+": "+err.Error())
 			continue
 		}
 		for _, sym := range st.Symbols {

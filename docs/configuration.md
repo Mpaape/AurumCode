@@ -6,12 +6,17 @@ sem comentários nas linhas. Para mudar, crie `.aurumcode/config.yml`:
 ```yaml
 review:
   language: pt-BR
-  publication: review
+  publication: comments
   inline_comments: true
 ```
 
-`publication: review` usa a revisão formal do GitHub. `comments` publica o
-parecer na conversa. `inline_comments` habilita comentários nas linhas, só para
+`comments` (padrão) publica o parecer na conversa. `review` usa a revisão
+formal do GitHub e, numa execução limpa, **aprova** a PR (`APPROVE`; exige
+*Allow GitHub Actions to create and approve pull requests*); para usar o
+AurumCode só como gate de validação, prefira `comments` ou `status`. `status`
+não publica nada na PR: o veredito é só o status `aurumcode/policy-gate` (e o
+`aurumcode/review` do `--check`), e o parecer fica no terminal e no resumo do
+job, tanto no workflow reutilizável quanto na Action (`action.yml`). `inline_comments` habilita comentários nas linhas, só para
 os achados que bloqueiam o merge (os demais ficam no parecer), e, nos dois
 modos, publica cada sugestão com código pronto como substituição aplicável
 pelo GitHub (um clique) na linha alterada. Um achado da passagem de segurança
@@ -210,7 +215,7 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
   ou veredito.
 - Workflow reutilizável: `model`, `publication`, `inline_comments`, `security`.
   Ele publica um status de commit; só bloqueia merge se exigido pela branch.
-- Action Docker direta: usa `Mpaape/AurumCode@v2.2.0` (a tag da release;
+- Action Docker direta: usa `Mpaape/AurumCode@v2.3.0` (a tag da release;
   `@main` recebe toda mudança sem aviso), exige
   `GITHUB_TOKEN`, `LLM_API_KEY`, `LLM_BASE_URL` no ambiente e evento de PR.
   Acrescenta inputs `check` e `fail-on`; não coleta CI automaticamente.
@@ -227,7 +232,7 @@ sujeito à janela de contexto, ao timeout e às restrições do modelo.
   - uses: actions/checkout@v4
     with:
       ref: ${{ github.event.pull_request.head.sha }}
-  - uses: Mpaape/AurumCode@v2.2.0
+  - uses: Mpaape/AurumCode@v2.3.0
     env:
       GITHUB_TOKEN: ${{ github.token }}
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
@@ -832,8 +837,11 @@ quality_gates:
   (versão + `secrets_rulebase_sha256`) vai no `Version` do resultado.
 - O workflow reutilizável (`review.yml`) instala o binário a partir da imagem
   fixada por digest no lock (o pull por digest falha se os bytes divergirem),
-  confere `gitleaks version` contra a versão do lock e faz checkout do PR com
-  histórico completo (`fetch-depth: 0`).
+  confere `gitleaks version` contra a versão do lock e faz checkout do PR só
+  com o histórico da PR: checkout raso (`fetch-depth: 1`) e
+  `scripts/ci/fetch-pr-range.sh`, que busca a base e aprofunda em rodadas até
+  o ancestral comum estar no clone e nenhuma fronteira rasa cair no intervalo
+  `base..head`. Um clone raso que corta o intervalo é `secrets_execution_error`.
 - O review entrega à engine o intervalo revisado: no `--pr`, a base do pull
   request (`AURUMCODE_BASE_SHA`) e o `HEAD` do checkout já verificado como a
   cabeça que a API do pull request informa; no `--base`, a ref e o `HEAD`
@@ -1466,11 +1474,13 @@ consumidor.
 | Chave | Efeito | Padrão |
 |---|---|---|
 | `review.language` | Idioma enviado ao modelo e títulos do parecer | inglês |
-| `review.publication` | `review` (revisão formal) ou `comments` (conversa) | `comments` |
+| `review.publication` | `comments` (conversa), `review` (revisão formal: aprova a PR limpa) ou `status` (nada na PR, só o status do commit) | `comments` |
 | `review.inline_comments` | Comentários nas linhas alteradas, só para achados bloqueantes | `false` |
 | `review.context.prompt` | Caminho do prompt adicional | `.aurumcode/prompt.md` |
 | `review.context.skills` | Lista de Markdown de orientação | vazio |
 | `review.context.docs` | Lista de documentos de contexto | vazio |
+| `review.context.max_tokens` | Teto do contexto de código (o pacote de dependências enviado com o diff), em tokens estimados; maior que isso, ele é reduzido e a redução é declarada | sem teto |
+| `review.model_window_tokens` | Janela de contexto do modelo, em tokens: o prompt é dimensionado a ela desde o primeiro pedido, sem aprender a janela por recusa; `AURUMCODE_MODEL_WINDOW_TOKENS` sobrepõe (e o stderr avisa). Janela menor que o mínimo da revisão é ignorada com aviso | desconhecida |
 | `review.memory` | `off`, `ephemeral` ou `local` | `off` |
 | `review.changelog` | Publica versão sugerida e entrada de changelog (só sugestão; o check obrigatório é `changelog_check`) | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
@@ -1513,7 +1523,7 @@ consumidor.
 | `--modo-publicacao` | `review` ou `comments` na publicação do PR |
 | `--na-linha` | Inclui achados elegíveis comentados na linha exata |
 | `--check` | Publica status de commit que bloqueia merge em achado grave |
-| `--limite` | Teto em USD estimado antes de chamar o modelo |
+| `--limite` | Teto em USD; antes de chamar o modelo, imprime a estimativa do prompt montado, somada sobre os passes dos analistas |
 | `--exigir-qualidade` | Falha se a revisão por modelo não aconteceu |
 | `--changelog` | Força a seção de changelog |
 | `--perfis`, `--profile` | Perfis de revisor selecionados para a revisão |
@@ -1563,7 +1573,7 @@ do token do job que chama o workflow (ou que roda a action):
 
 | O que o produto publica | Permissão no job | Quando |
 | --- | --- | --- |
-| o parecer (comentário geral), os comentários na linha, a revisão formal e a edição do parecer de uma rodada anterior | `pull-requests: write` | `publication: comments` ou `review`; comentários na linha com `inline_comments: true` |
+| o parecer (comentário geral), os comentários na linha, a revisão formal e a edição do parecer de uma rodada anterior | `pull-requests: write` | `publication: comments` ou `review` (`status` não publica na PR); comentários na linha com `inline_comments: true` |
 | os status de commit `aurumcode/review` e `aurumcode/policy-gate` | `statuses: write` | `check: true` (o segundo só quando há `gate:` declarado) |
 
 A leitura do diff, dos arquivos de contexto e do histórico da PR usa
@@ -1968,7 +1978,8 @@ antes paravam a revisão:
   `AURUMCODE_BASE_SHA` quando é um commit do checkout, senão o `base.sha` que
   a API informa. Checkout não verificado ou base ausente (clone raso): a
   revisão falha (saída 1) sem enviar nada ao modelo nem publicar. O
-  workflow reutilizável já faz o checkout do head com histórico completo. Com
+  workflow reutilizável já busca a base e o histórico da PR até o ancestral
+  comum (`scripts/ci/fetch-pr-range.sh`), sem baixar o resto. Com
   a API respondendo o diff, nada muda: o diff local é só o caminho da recusa.
   O diff local não deixa arquivo de texto de fora por tamanho: um arquivo de
   qualquer tamanho entra na revisão. Quando a busca do diff mínimo passaria do
@@ -2021,12 +2032,83 @@ da auditoria, a cobertura fica parcial e a aprovação é retida
 negativo é erro de configuração; zero, ou a ausência da chave, não limita.
 Sob política central, uma seção `batches` da política decide sozinha (a do
 repositório é ignorada com aviso). Os tetos de custo somam todos os lotes:
-`max_prompt_tokens` é a soma estimada dos prompts, e `--limite` usa um só
+`max_prompt_tokens` é a soma estimada dos prompts, o pré-voo do `--limite`
+soma os lotes que a janela declarada planeja, e o `--limite` usa um só
 rastreador de custo para a revisão inteira; só `deliberation.max_cost_tokens`,
 quando declarado, vale por lote. Um teto que não admite nenhum lote (um
 `max_prompt_tokens` menor que um prompt) é uma revisão de modelo que não
 rodou: não revisada (saída 1) sem gate e inconclusiva com gate, nunca
 aprovada. Tutorial: [Revisão, caso 5](tutorials/revisao.md).
+
+Com `--limite`, a estimativa impressa antes da chamada conta o prompt
+montado (instruções, política, contexto e diff) em tokens do provedor, a
+3,5 caracteres por token, como a janela declarada; com analistas, um passe
+por analista, e a linha diz quantos passes. Quando não há o que contar, como
+um `max_prompt_tokens` que não admite nenhum lote, a linha diz que o custo
+não foi estimado e o motivo, sem número; o `--limite` continua valendo em
+cada chamada. Os tokens dessa linha estão na contagem do provedor;
+`batches.max_prompt_tokens` e as linhas de lote e de recusa seguem na
+estimativa do produto (4 caracteres por token), então os dois números não se
+comparam diretamente.
+
+**Janela conhecida e contexto grande (#198).** Num monorepo o contexto de
+código (o pacote de dependências dos arquivos alterados) pode ser muitas vezes
+o diff. Duas chaves evitam aprender a janela por recusa:
+
+```yaml
+review:
+  model_window_tokens: 262144   # janela do modelo; ou AURUMCODE_MODEL_WINDOW_TOKENS
+  context:
+    max_tokens: 40000           # teto do contexto de código, em tokens estimados
+```
+
+Com a janela declarada, a primeira tentativa já usa o teto que uma recusa
+ensinaria: 90% da janela fica para o prompt e o resto para a resposta,
+contados a 3,5 caracteres por token (o produto estima 4, e tokenizadores
+reais contam cerca de 3,6 em código), ou seja, cerca de 79% da janela em
+tokens estimados. Lotes e redução do contexto saem, em geral, sem recusa; se
+o modelo ainda recusar, a revisão se ajusta numa tentativa. Uma janela
+declarada menor do que instruções, política e o menor lote precisam não
+derruba a revisão: o stderr avisa e a revisão segue como se nenhuma janela
+tivesse sido declarada, aprendendo a janela pela recusa do modelo. Se
+`AURUMCODE_MODEL_WINDOW_TOKENS` sobrepõe um `review.model_window_tokens`
+diferente, o stderr também avisa. O teto do contexto reduz o pacote (trechos,
+depois referências, dependentes e símbolos) e o stderr diz quanto ficou. O
+repositório é lido uma vez por execução: cada lote resolve o próprio contexto
+dessa mesma leitura. O `--limite` estima o prompt montado pelo mesmo
+construtor da revisão (instruções, política, contexto, evidências e diff;
+somado por lote quando a janela declarada divide a revisão) e diz quantos
+tokens contou. O `ignore` tira caminhos do contexto; sob política central, só
+o `ignore` da política vale. A recusa do vLLM (direta ou pelo LiteLLM:
+`maximum context length is N tokens ... prompt contains at least M input
+tokens`) dá a janela e o tamanho, e o teto vai direto a ela.
+
+<a id="varredura-completa"></a>
+
+## Varredura do repositório inteiro (`review --completo`, #178)
+
+`aurumcode review --completo` (apelido `--full`) revisa a árvore inteira do
+`HEAD`: cada arquivo rastreado entra como adicionado, sem base e sem commit
+órfão. Valem as mesmas camadas (política, padrões, skills do repositório),
+analistas, passe de segurança e scanners da PR; os scanners de intervalo
+tratam a árvore toda como adicionada (`sast` e `govet` olham todas as linhas)
+e o `gitleaks` varre todo o histórico alcançável do `HEAD` (o checkout
+precisa do histórico completo). Não aceita `--base` nem `--pr`, não publica em
+PR nem status, e o changelog não roda (não há intervalo de commits).
+
+- Lotes, cobertura e custo como numa PR grande: um repositório que não cabe
+  na janela se divide em lotes (declare `review.model_window_tokens` para
+  dividir desde o primeiro pedido); `batches.max_batches` e
+  `max_prompt_tokens` limitam o custo, e o que ficou de fora aparece no aviso
+  de cobertura e em `coverage.omitted_files`.
+- O SARIF (`--sarif`) leva `automationDetails.id` `aurumcode/initial-scan/`,
+  separado das PRs e da varredura de dependências, com as mesmas impressões
+  digitais; uma varredura inconclusiva marca a invocação como não concluída.
+- Saída 0 (sem bloqueante) ou 3 (com achados acima de `--fail-on` ou do
+  gate) é varredura concluída; qualquer outro código não é.
+
+Na CI, o job `scan` do workflow reutilizável roda esta varredura agendada e à
+mão (veja [Varredura agendada da branch padrão](#varredura-agendada-da-branch-padrao)).
 
 ## xBOM além do SBOM: Build BOM e CBOM (AUR-552)
 
@@ -2479,6 +2561,7 @@ on:
   pull_request:
   schedule:
     - cron: "17 5 * * *"
+  workflow_dispatch:
 
 jobs:
   review:
@@ -2487,7 +2570,7 @@ jobs:
 
   upload-dependencies-sarif:
     needs: review
-    if: ${{ github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2504,8 +2587,70 @@ jobs:
 ```
 
   Com o job `review` falhando (varredura inconclusiva), `needs` impede o
-  upload. A action standalone (`action.yml`) é só de PR e não roda a
+  upload. Num `workflow_dispatch` de outra branch o job `dependencies` não
+  roda e o upload é pulado pela mesma condição. A action standalone (`action.yml`) é só de PR e não roda a
   varredura agendada.
+
+<a id="varredura-agendada-da-branch-padrao"></a>
+
+## Varredura agendada da branch padrão, todos os tipos (#177)
+
+O que entra por PR é revisado na hora; o código que já existia antes da
+adoção, a regra nova da política e a CVE publicada depois do merge não passam
+por PR nenhuma. O workflow reutilizável cobre a branch padrão em três jobs,
+todos em `schedule` e em `workflow_dispatch` da branch padrão (o job `review`
+roda só em PR):
+
+| Job | O que faz | Onde aparece |
+|---|---|---|
+| `dependencies` | `aurumcode dependencies` contra a base OSV | aba Security, categoria `aurumcode/dependencies-scheduled/` (artefato que o caller sobe, acima) |
+| `scan` (opt-in, `scan: true`) | `aurumcode review --completo`: modelo, camadas, analistas, passe de segurança, `gitleaks` no histórico inteiro, `sast`, `govet` | aba Security, categoria `aurumcode/initial-scan/`, enviado pelo próprio job |
+| `plugins` | plugins de `scheduled.plugins` | aba Security, categoria `aurumcode/plugin/<nome>/` |
+
+```yaml
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  review:
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@<sha>
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      statuses: write
+      checks: read
+      security-events: write   # o job scan envia o SARIF
+    with:
+      scan: true
+    secrets: inherit
+```
+
+- **Custo.** `scan` revisa todo arquivo da branch com o modelo, por isso é
+  opt-in. Declare `review.model_window_tokens` para dividir em lotes desde o
+  primeiro pedido e limite com `batches.max_batches`/`max_prompt_tokens`; o
+  que não coube aparece na cobertura da auditoria.
+- **Nada no log.** Como nos plugins, a saída da revisão vai para um arquivo do
+  runner que nunca é impresso nem enviado (em repositório público o log é
+  público); o log diz só quantos resultados foram enviados.
+- **Inconclusivo não fecha alerta.** Saída 0 ou 3 é varredura concluída e o
+  SARIF sobe; qualquer outro código falha o job sem enviar nada. Repositório
+  privado sem GitHub Code Security: o envio falha e nada vai a outro canal.
+- **Um achado, um alerta.** O mesmo achado (regra, arquivo, linha) de vários
+  analistas é um resultado só no SARIF, com a maior severidade.
+- **Onde olhar.** A aba Security abre filtrada por `is:open branch:<padrão>`:
+  antes da primeira varredura ela parece vazia, porque o alerta de PR vive na
+  ref da PR (filtre por `pr:<N>`). O `schedule` só vale depois que o arquivo
+  está na branch padrão, o GitHub pode atrasá-lo em horário de pico e, em
+  repositório público, 60 dias sem atividade o desligam.
+- **Primeira varredura agora**, sem esperar o cron:
+  `gh workflow run code-review.yml --ref <branch padrão>`. Localmente:
+  `aurumcode review --completo --seguranca --sarif inicial.sarif` (veja
+  [`review --completo`](#varredura-completa)).
 
 ## Quais arquivos saem da revisão como documentação
 

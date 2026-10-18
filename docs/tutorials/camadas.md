@@ -230,7 +230,7 @@ aurumcode review --base main --politica /policy --padroes /standards
 <!-- saida: servico-nao-afrouxa -->
 ```text
 $ aurumcode review --base main --padroes /standards
-> **Aprovado: nenhum problema encontrado na mudança revisada.**
+> **Gate passou: nenhum problema encontrado na mudança revisada.**
 - 1 arquivo ignorado (regra `ignore` do repositório ou binário): não foi revisado e não entra na cobertura. Ignorado não significa aprovado.
 exit_code=0
 RESULTADO: sozinho, o servico aprova a propria mudanca

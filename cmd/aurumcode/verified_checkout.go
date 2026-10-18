@@ -173,10 +173,12 @@ func walkVerified(dir string, limit int, visit func(rel string, isSymlink bool, 
 // verifiedCleanCheckoutReason's own proven-clean set -- so the set this
 // check verified and the set the resolver actually reads can never
 // diverge, not even by a future, independent bug in either side's walk.
-// resolveFiles is the session's injected resolver call.
-func resolveVerifiedCodebaseContext(resolveFiles codebaseResolver, diff *types.Diff, dir string, files []string) string {
+// resolveFiles is the session's injected resolver call, and resolver the
+// run's one (#198): every batch's context comes from the same reading of
+// the checkout.
+func resolveVerifiedCodebaseContext(resolveFiles codebaseResolver, resolver *codebasectx.Resolver, diff *types.Diff, dir string, files []string) string {
 	return codebaseContextJSON(func() (*codebasectx.Pack, error) {
-		return resolveFiles(codebasectx.NewResolver(), dir, diffPaths(diff), files)
+		return resolveFiles(resolver, dir, diffPaths(diff), files)
 	})
 }
 

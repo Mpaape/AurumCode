@@ -65,12 +65,14 @@ func collapseAllowed(rule blocking.Rule, inconclusive bool) bool {
 	if inconclusive {
 		return false
 	}
-	return !(rule.Gated() && rule.Fails() && rule.Count(nil) == 0)
+	return !(rule.Gated() && rule.GateFails() && rule.GateCount() == 0)
 }
 
 // publishedResult is the run's result with the published findings, for the
-// review body. The occurrences merged into another that block under rule
-// are recorded, so the headline counts each problem once.
+// review body. The occurrences merged into another that the gate itself
+// names are recorded, so the headline counts each problem once: Count
+// counts every gate key, published or not, but reads the --fail-on
+// catches only from the published findings, absorbed ones never included.
 func (pr presentation) publishedResult(result *types.ReviewResult, language string, rule blocking.Rule) *types.ReviewResult {
 	shown := *result
 	shown.Issues = pr.withSources(language)
@@ -80,7 +82,7 @@ func (pr presentation) publishedResult(result *types.ReviewResult, language stri
 	}
 	absorbed := 0
 	for _, issue := range pr.Absorbed {
-		if rule.Blocks(issue) {
+		if rule.GateBlocks(issue) {
 			absorbed++
 		}
 	}

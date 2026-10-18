@@ -62,6 +62,11 @@ type Reviewer struct {
 	// context went whole (context_fit.go). Both are per review.
 	contextFits      map[contextFitKey]contextFit
 	contextReduction *ContextReduction
+	// droppedWindow is the declared window set aside during the current
+	// review as too small (declared_window.go), zero when none was; notify
+	// receives the operator notices.
+	droppedWindow int
+	notify        func(string)
 }
 
 // Completer is what the Reviewer needs from the model side: one call that
@@ -87,6 +92,10 @@ type Config struct {
 	PromptTokenBudget int
 	// Batches optionally bounds a review split in batches (batches.go).
 	Batches BatchLimits
+	// ModelWindowTokens, when positive, is the model's declared context
+	// window: the review starts under its ceiling (split.go) instead of
+	// learning it from a refusal.
+	ModelWindowTokens int
 }
 
 // ReviewContext contains optional evidence available beside the diff. It is

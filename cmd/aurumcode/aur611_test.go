@@ -37,8 +37,8 @@ func aur611Result() *types.ReviewResult {
 // The parecer of aur611Result and of an empty result as the formatter wrote
 // them before AUR-611 (captured from the unchanged code).
 const (
-	aur611ParecerBefore = "<!-- aurumcode-review -->\n## AurumCode revisão de código\n\n> [!NOTE]\n> **Aprovado com 1 observação que não bloqueia o merge.**\n\nsem gate declarado\n\n### Observações (não bloqueiam)\n\n- `app.go:7` — ReadAll could say what it reads\n\n<details>\n<summary>Detalhes da revisão</summary>\n\n#### Regras citadas\n\n- `quality/poor-naming`: `app.go:7`\n\n#### Limitações da revisão\n\n- diff grande\n\n</details>\n"
-	aur611EmptyBefore   = "<!-- aurumcode-review -->\n## AurumCode revisão de código\n\n> [!TIP]\n> **Aprovado: nenhum problema encontrado na mudança revisada.**\n\nsem gate declarado\n"
+	aur611ParecerBefore = "<!-- aurumcode-review -->\n## AurumCode revisão de código\n\n> [!NOTE]\n> **Gate passou com 1 observação que não bloqueia o merge.**\n\nsem gate declarado\n\n### Observações (não bloqueiam)\n\n- `app.go:7` — ReadAll could say what it reads\n\n<details>\n<summary>Detalhes da revisão</summary>\n\n#### Regras citadas\n\n- `quality/poor-naming`: `app.go:7`\n\n#### Limitações da revisão\n\n- diff grande\n\n</details>\n"
+	aur611EmptyBefore   = "<!-- aurumcode-review -->\n## AurumCode revisão de código\n\n> [!TIP]\n> **Gate passou: nenhum problema encontrado na mudança revisada.**\n\nsem gate declarado\n"
 )
 
 // detailsOf is the content of the parecer's collapsed block, or "".

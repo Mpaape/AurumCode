@@ -50,12 +50,14 @@ var reviewPolicyFields = []struct {
 	{key: "publication", field: func(r *ReviewConfig) *string { return &r.Publication }},
 }
 
-// reviewRepositoryFields are the eight review keys that stay the
+// reviewRepositoryFields are the nine review keys that stay the
 // repository's own, additive choice under any policy: inline_comments,
-// context, memory, changelog, version, profiles, presentation and
-// verification. verification is the repository's too: turning it off only
-// keeps more findings blocking, and its ceiling only bounds the extra calls.
-var reviewRepositoryFields = []string{"inline_comments", "context", "memory", "changelog", "version", "profiles", "presentation", "verification"}
+// context, memory, changelog, version, profiles, presentation, verification
+// and model_window_tokens. verification is the repository's too: turning it
+// off only keeps more findings blocking, and its ceiling only bounds the
+// extra calls. model_window_tokens only sizes the prompt to the model the
+// repository's workflow calls; it changes no rule, severity or gate.
+var reviewRepositoryFields = []string{"inline_comments", "context", "memory", "changelog", "version", "profiles", "presentation", "verification", "model_window_tokens"}
 
 // qualityGateSections are the quality_gates keys. Scanners (and sast, the
 // semgrep alias) resolve engine by engine; every other subsection is

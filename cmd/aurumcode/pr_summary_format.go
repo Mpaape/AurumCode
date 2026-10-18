@@ -142,8 +142,9 @@ const (
 	decisionBlocked
 )
 
-// decide reads the run's decision: blocking findings block; a declared
-// gate that failed without one, a model review that did not complete and
+// decide reads the run's decision: blocking findings block (a finding the
+// --fail-on threshold caught always is one); a declared policy gate that
+// failed without one, a model review that did not complete and
 // an approval the gate withheld are inconclusive (never approved); findings
 // below the threshold are observations; nothing is approval.
 func decide(result *types.ReviewResult, rule blocking.Rule) (reviewDecision, int) {
@@ -156,7 +157,7 @@ func decide(result *types.ReviewResult, rule blocking.Rule) (reviewDecision, int
 		}
 		return decisionBlocked, n
 	}
-	if rule.Fails() || result.Metadata["quality_degraded"] == metaTrue || result.Metadata[prompt.PolicyGateWithheldKey] == metaTrue {
+	if rule.GateFails() || result.Metadata["quality_degraded"] == metaTrue || result.Metadata[prompt.PolicyGateWithheldKey] == metaTrue {
 		return decisionInconclusive, 0
 	}
 	if n := len(result.Issues) + len(review.OutsideDiffFindings(result)); n > 0 {
@@ -168,12 +169,19 @@ func decide(result *types.ReviewResult, rule blocking.Rule) (reviewDecision, int
 // metaTrue is the value of a set metadata flag.
 const metaTrue = "true"
 
+// metaFullScan flags the result of review --completo: the whole tree, no
+// pull request and no merge.
+const metaFullScan = "full_scan"
+
 // formatHeadline is the decision as a GitHub alert block: the host draws
 // the colored band, the text says what the reader must do.
 func formatHeadline(result *types.ReviewResult, copy reviewCopy, rule blocking.Rule) string {
 	decision, n := decide(result, rule)
 	switch decision {
 	case decisionBlocked:
+		if result.Metadata[metaFullScan] == metaTrue {
+			return alertBlock("CAUTION", countText(n, copy.headlineBlockedScanOne, copy.headlineBlockedScan), "")
+		}
 		return alertBlock("CAUTION", countText(n, copy.headlineBlockedOne, copy.headlineBlocked), "")
 	case decisionInconclusive:
 		reason := copy.gateFailed

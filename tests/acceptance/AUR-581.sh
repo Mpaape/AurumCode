@@ -172,7 +172,8 @@ run_mut003() {
 }
 
 # AC-004: the review workflow pulls the lock's image by digest, reads the
-# version from the lock and refuses another one, and checks out full history.
+# version from the lock and refuses another one, and fetches the whole pull
+# request range (fetch-pr-range.sh deepens the shallow checkout until it is).
 run_ac004() {
   local wf="$repo_root/$workflow"
   grep -Fq "image=\"\$(sed -n 's/^secrets_scanner_image: //p' \"\$lock\")\"" "$wf" || fail workflow-image-not-from-lock
@@ -180,7 +181,7 @@ run_ac004() {
   grep -Fq '@sha256:[0-9a-f]{64}$' "$wf" || fail workflow-digest-not-required
   grep -Fq 'docker pull "$image"' "$wf" || fail workflow-not-pulled-by-digest
   grep -Fq 'if [ "$got" != "$version" ]; then' "$wf" || fail workflow-version-not-checked
-  grep -Fq 'fetch-depth: 0' "$wf" || fail workflow-history-cut
+  grep -Fq 'sh "$fetcher" .aurumcode-target "$BASE_SHA" "$HEAD_SHA"' "$wf" || fail workflow-history-cut
   grep -Eq '^secrets_scanner_image: docker\.io/zricethezav/gitleaks@sha256:[0-9a-f]{64}$' "$repo_root/$lock_file" || fail lock-not-by-digest
   local locked_image locked_version
   locked_image="$(sed -n 's/^secrets_scanner_image: //p' "$repo_root/$lock_file")"

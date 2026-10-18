@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -38,5 +39,17 @@ func TestDiffIsRelativeToTheRoot(t *testing.T) {
 	args := diffArgs(Range{Base: "a", Head: "b"})
 	if args[2] != "diff" || args[3] != "--relative" {
 		t.Fatalf("args = %v, want git diff --relative", args)
+	}
+}
+
+// #178: a full range diffs git's empty tree against Head, never base...head.
+func TestDiffArgsOfAFullRangeStartFromTheEmptyTree(t *testing.T) {
+	args := diffArgs(Range{Head: "deadbeef", Full: true})
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, EmptyTree+" deadbeef --") || strings.Contains(joined, "...") {
+		t.Fatalf("full range diff args: %v", args)
+	}
+	if got := strings.Join(diffArgs(Range{Base: "a", Head: "b"}), " "); !strings.Contains(got, "a...b --") {
+		t.Fatalf("ordinary range diff args: %s", got)
 	}
 }

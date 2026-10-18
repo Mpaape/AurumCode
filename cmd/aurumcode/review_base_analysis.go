@@ -34,7 +34,11 @@ func (b *baseReview) collectEvidence() (int, bool) {
 		return code, true
 	}
 	b.analysisIssues = staticAnalysisIssues(b.diff, b.reviewLanguage)
-	b.runScanners(b.cwd, localScanRange(b.cwd, b.f.base), "")
+	scanRange := localScanRange(b.cwd, b.f.base)
+	if b.f.fullReview() {
+		scanRange = localFullScanRange(b.cwd)
+	}
+	b.runScanners(b.cwd, scanRange, "")
 	b.offerEvidence()
 	return 0, false
 }

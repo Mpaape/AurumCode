@@ -5,7 +5,7 @@ aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_
 ## AurumCode revisão de código
 
 > [!TIP]
-> **Aprovado: nenhum problema encontrado na mudança revisada.**
+> **Gate passou: nenhum problema encontrado na mudança revisada.**
 
 gate da política: passou · 2 arquivos revisados
 Nenhum problema encontrado.
@@ -20,7 +20,7 @@ aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_
 ## AurumCode revisão de código
 
 > [!TIP]
-> **Aprovado: nenhum problema encontrado na mudança revisada.**
+> **Gate passou: nenhum problema encontrado na mudança revisada.**
 
 gate da política: passou · 2 arquivos revisados
 Nenhum problema encontrado.
@@ -31,6 +31,6 @@ Nenhum problema encontrado.
 exit_code=0
 RESULTADO: artefato valido: o review aprovou e registrou digest e data na auditoria
 auditoria analysis_data.source: remote
-auditoria analysis_data.tag: analysis-data/20261013T124402Z
-auditoria analysis_data.generated_at: 2026-10-13T12:44:02Z
+auditoria analysis_data.tag: analysis-data/20261017T173235Z
+auditoria analysis_data.generated_at: 2026-10-17T17:32:35Z
 auditoria analysis_data.digest: sha256:339a66c28f655d6e784598fee6b2259858279bbd2a33b01f33a1d8ee162b19c1

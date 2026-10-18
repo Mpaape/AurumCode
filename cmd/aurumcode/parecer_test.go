@@ -305,3 +305,28 @@ func TestKeptObservationIsNotAnnouncedAsBlocking(t *testing.T) {
 		t.Fatalf("a blocking finding must say why it still blocks: %q", stderr.String())
 	}
 }
+
+// review --completo has no pull request: its blocked headline says what
+// must be fixed without speaking of a merge, in both languages, and a
+// review of a change keeps the merge wording.
+func TestHeadlineBlockedFullScanDoesNotMentionMerge(t *testing.T) {
+	two := []types.ReviewIssue{{File: "a.go", Line: 1, Severity: "error"}, {File: "b.go", Line: 2, Severity: "error"}}
+	cases := []struct {
+		language, one, many string
+	}{
+		{"pt-BR", "Bloqueado: 1 problema precisa de correção.", "Bloqueado: 2 problemas precisam de correção."},
+		{"en-US", "Blocked: 1 problem must be fixed.", "Blocked: 2 problems must be fixed."},
+	}
+	scan := map[string]string{metaFullScan: metaTrue}
+	for _, tc := range cases {
+		copy := reviewCopyFor(tc.language)
+		one := formatHeadline(&types.ReviewResult{Issues: two[:1], Metadata: scan}, copy, blocking.Ungated())
+		many := formatHeadline(&types.ReviewResult{Issues: two, Metadata: scan}, copy, blocking.Ungated())
+		if !strings.Contains(one, tc.one) || !strings.Contains(many, tc.many) || strings.Contains(one+many, "merge") {
+			t.Fatalf("%s full-scan headline:\n%s\n%s", tc.language, one, many)
+		}
+		if change := formatHeadline(&types.ReviewResult{Issues: two}, copy, blocking.Ungated()); !strings.Contains(change, "merge") {
+			t.Fatalf("%s change headline lost the merge wording: %s", tc.language, change)
+		}
+	}
+}

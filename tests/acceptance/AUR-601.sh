@@ -35,7 +35,7 @@ ac003() {
   log="$(mktemp)"
   # AUR-541, 574, 576 and 578 rerun e2e programs and tutorials that need git
   # and the tutorial image; the sealed profile has neither. There they are
-  # proved by the nightly sample (acceptance-sample.yml), not here.
+  # proved by running AUR-589.sh full by hand (no longer in CI), not here.
   pairs='AUR-441:AC-001 AUR-491:all AUR-560:all'
   if command -v git >/dev/null 2>&1 && command -v docker >/dev/null 2>&1; then
     pairs="$pairs AUR-541:all AUR-574:all AUR-576:all AUR-578:all"
