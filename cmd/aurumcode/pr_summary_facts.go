@@ -17,7 +17,7 @@ func factsLine(result *types.ReviewResult, diff *types.Diff, copy reviewCopy, ru
 	gate := copy.factsNoGate
 	if rule.Gated() {
 		gate = copy.factsGatePassed
-		if rule.Fails() {
+		if rule.GateFails() {
 			gate = copy.factsGateFailed
 		}
 	}

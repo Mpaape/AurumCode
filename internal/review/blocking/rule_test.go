@@ -41,3 +41,33 @@ func TestRuleFollowsDeclaredGate(t *testing.T) {
 		}
 	}
 }
+
+// An explicit --fail-on catches on top of a passing gate: the issue it
+// catches blocks, the run fails and the formal event requests changes, so
+// the parecer agrees with the --fail-on exit.
+func TestThresholdCatchesOnTopOfAPassingGate(t *testing.T) {
+	observation := types.ReviewIssue{RuleID: "q/e", File: "a.go", Line: 3, Severity: "error"}
+	note := types.ReviewIssue{RuleID: "q/i", File: "a.go", Line: 4, Severity: "info"}
+	catches := func(issue types.ReviewIssue) bool { return issue.Severity == "error" }
+
+	passing := FromGate(true, gate.Result{Active: true}).WithThreshold(catches, true)
+	if !passing.Blocks(observation) || passing.Blocks(note) {
+		t.Error("the threshold's catch blocks; what it misses stays an observation")
+	}
+	if passing.GateFails() {
+		t.Error("the policy gate itself still passed")
+	}
+	if !passing.Fails() || passing.Count([]types.ReviewIssue{observation, note}) != 1 {
+		t.Error("a passing gate under a threshold that caught one fails with one blocking finding")
+	}
+	if got := passing.Event("APPROVE"); got != EventRequestChanges {
+		t.Errorf("event: got %s, want %s", got, EventRequestChanges)
+	}
+	if FromGate(true, gate.Result{Active: true}).WithThreshold(nil, false).Fails() {
+		t.Error("no threshold leaves the gate's reading")
+	}
+	ungated := Ungated().WithThreshold(func(types.ReviewIssue) bool { return true }, true)
+	if ungated.Count([]types.ReviewIssue{observation, note}) != 2 {
+		t.Error("ungated: the threshold adds the info it catches to the errors and warnings")
+	}
+}

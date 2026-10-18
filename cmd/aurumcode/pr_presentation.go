@@ -65,7 +65,7 @@ func collapseAllowed(rule blocking.Rule, inconclusive bool) bool {
 	if inconclusive {
 		return false
 	}
-	return !(rule.Gated() && rule.Fails() && rule.Count(nil) == 0)
+	return !(rule.Gated() && rule.GateFails() && rule.Count(nil) == 0)
 }
 
 // publishedResult is the run's result with the published findings, for the
