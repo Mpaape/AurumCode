@@ -23,7 +23,7 @@
 O exemplo fixa a release `v2.0.0`:
 
 ```yaml
-    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.2.0
+    uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.3.0
 ```
 
 Prefira a tag de uma release a `@main`: `@main` recebe toda mudança do

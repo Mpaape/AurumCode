@@ -2,23 +2,40 @@
 
 ## Unreleased
 
-- Corrigido: `review --base` nunca compara com a árvore da base em silêncio: clone raso que não alcança o ancestral falha com a causa; histórico criss-cross parte do ancestral mais novo, como o git.
-- Novo: skills de convenção `coerencia-da-mudanca` e `teste-prova-a-mudanca`, das lacunas que a revisão cega achou e o Aurum não; com elas o Aurum passou a pegar a incoerência do #218.
-- Corrigido: com `--fail-on`, título, evento formal, status `aurumcode/review` e saída concordam também sem gate; o título conta achados de segurança em seção separada e conta uma vez o problema que duas fontes reportaram.
-- Corrigido: o pré-voo do `--limite` soma os passes dos analistas e diz quando não estima; com analistas o `--limite` não recusa mais todo passe; o cache de leitura não guarda o texto dos arquivos (#198).
-- Mudado: parecer limpo com observações abre com "Gate passou com N observações"; changelog conta "1 linha nova"/"N linhas novas"; varredura completa bloqueada não fala de merge; doc, tutoriais e capturas regravados.
-- Corrigido: com `--fail-on`, o parecer acompanha a saída: achado que o limiar pega aparece como bloqueante, e a linha do gate da política continua dizendo o que a política decidiu.
-- Corrigido: `review --base` e o check do changelog partem do ancestral comum, como `git diff base...HEAD`; branch atrás da base não aparece desfazendo o que a base ganhou.
-- Novo: a PR baixa só o próprio histórico (checkout raso + `fetch-pr-range.sh`, que aprofunda até o ancestral comum, sem teto); ancestral comum e gitleaks funcionam em clone raso.
-- Corrigido: a imagem do produto voltou a compilar depois da subida do Go para 1.27.2; o CI de PR passa a construir a imagem.
-- Corrigido: a Action direta grava o parecer de `publication: status` no resumo do job, inclusive com o gate fechado; o guia e a demo mostram a varredura inicial na CI e que o histórico só é varrido com gitleaks (#177, #178, #201).
-- Corrigido: janela declarada pequena demais é ignorada com aviso, não derruba a revisão; margem a 3,5 caracteres por token; repositório lido uma vez por execução; --limite estima o prompt montado (#198).
-- Mantido: o changelog obrigatório volta a reprovar entrada longa (240 caracteres por linha, 12 linhas por entrada).
-- Corrigido: os aceites do board saem do CI agendado; achados tardios dizem "1 finding"/"N findings", sem "(s)".
-- Novo: job `scan` (opt-in) do workflow reutilizável: `review --completo` agendado e em `workflow_dispatch`, achados só na aba Security; dependências também em `workflow_dispatch`; achado repetido entre analistas é um só no SARIF (#177).
-- Novo: `aurumcode review --completo` revisa a árvore inteira do HEAD, sem commit órfão; gitleaks no histórico inteiro; SARIF na categoria `aurumcode/initial-scan` (#178).
-- Novo: `review.model_window_tokens` e `review.context.max_tokens`; contexto por lote calculado uma vez; recusa do vLLM/LiteLLM com janela e tamanho; o `--limite` avisa que o contexto não entra (#198).
-- Novo: `publication: status` (só o status do commit); exemplos com `comments`; parecer limpo abre com "Gate passou" (#201).
+## 2.3.0 - 2026-10-18
+
+A varredura inicial e a agendada passam a revisar o repositório inteiro com o modelo e mandar o resultado para a aba Security. A revisão de PR deixa
+de baixar e de percorrer o histórico inteiro do repositório. Num monorepo, informar a janela do modelo faz a revisão nascer no tamanho certo.
+
+### Entregue
+
+- Varredura inicial: `aurumcode review --completo` revisa a árvore inteira na adoção, com as mesmas camadas e analistas de uma PR, e manda os achados para a aba Security numa categoria própria (#178).
+- Varredura agendada: o workflow reutilizável faz a varredura periódica da branch padrão com todos os tipos de vulnerabilidade, ligada com `scan: true`,
+  e também roda à mão com `gh workflow run` (#177).
+- `publication: status`: o veredito fica só no status do commit e o parecer vai para o resumo do job, também com a Action direta. Os exemplos usam
+  `comments`, e o parecer limpo abre com "Gate passou", não "Aprovado" (#201).
+- Janela do modelo em `review.model_window_tokens`: a revisão já começa dividida no tamanho certo. A recusa do vLLM e do LiteLLM informa a janela e o
+  tamanho, o repositório é lido uma vez por execução e o `--limite` estima o prompt montado. Uma janela declarada pequena demais é ignorada com aviso,
+  sem derrubar a revisão (#198).
+- A PR baixa só o próprio histórico: checkout raso, aprofundado até o ancestral comum. O ancestral comum e o Gitleaks funcionam em clone raso.
+- `review --base` parte do ancestral comum, como `git diff base...HEAD` (o mais novo, num histórico criss-cross): uma branch atrás da base não aparece
+  mais desfazendo o que a base ganhou, e um clone raso que não alcança o ancestral falha com a causa.
+- Com `--fail-on`, título, contagem, evento formal da review e status do commit acompanham a saída, com ou sem gate declarado: nada de "Gate passou" num run que falha pelo limiar.
+- `--limite` funciona com analistas e estima todos os passes; quando não dá para estimar, diz isso em vez de mostrar $0.
+- O parecer limpo com observações abre com "Gate passou com N observações", e a varredura completa bloqueada não fala de merge.
+- Skills de convenção novas no próprio repositório (`coerencia-da-mudanca`, `teste-prova-a-mudanca`), tiradas da comparação com uma revisão independente.
+- A imagem do produto compila com Go 1.27.2, e o CI de PR passa a construí-la.
+
+### Limites
+
+- Achado do modelo só conta no gate da política quando cita uma skill da política; achado do catálogo embutido é observação, a menos que `--fail-on` o pegue.
+- Com o workflow reutilizável em `publication: status` e o gate fechado, o parecer ainda não chega ao resumo do job (a Action direta já faz).
+- Com analistas, os tetos `batches.max_batches` e `batches.max_prompt_tokens` ainda não limitam os passes.
+- A primeira PR com o workflow novo usa a ferramenta da base, que ainda não tem o script de histórico raso, e busca o histórico inteiro, com aviso.
+
+### Migração do v1
+
+- Da 2.2.0 para a 2.3.0, troque `@v2.2.0` por `@v2.3.0`. Nada mais muda na configuração; `scan: true` e `review.model_window_tokens` são opcionais.
 
 ## 2.2.0 - 2026-10-16
 
