@@ -91,6 +91,7 @@ func (b *baseReview) loadDiff() (int, bool) {
 		return 1, true
 	}
 	b.rawDiffFileCount = len(b.diff.Files)
+	b.rawDiff = b.diff
 	return 0, false
 }
 

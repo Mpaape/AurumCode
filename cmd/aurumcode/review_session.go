@@ -171,7 +171,10 @@ type reviewState struct {
 	// the repository requires a changelog entry the pull request lacks.
 	changelogSuggestion string
 	changelogLimitation string
-	codebaseText        string
+	// changelogCheck is the changelog check's verdict for the gate: set
+	// by the local review only (review_base_changelog.go).
+	changelogCheck *changelogGateCheck
+	codebaseText   string
 	// codebaseFor renders the codebase context of just some files: a batch
 	// of a split review carries the context of its own files.
 	codebaseFor     func(files []types.DiffFile) string

@@ -2,9 +2,9 @@
 // runs to reach a gate decision. Each source of gate evidence (exceptions,
 // verdict reuse, policy skills, the registered scanners, the embedded
 // analysis catalog, the deterministic security pass, analysis data,
-// Dependency-Track, dependencies) is a Contributor; the Pipeline applies
-// them in declared order against one Result and decides, in one place,
-// what a failing contributor means.
+// Dependency-Track, dependencies, the local changelog check) is a
+// Contributor; the Pipeline applies them in declared order against one
+// Result and decides, in one place, what a failing contributor means.
 package gate
 
 import (

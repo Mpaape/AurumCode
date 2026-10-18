@@ -131,3 +131,16 @@ func TestApprovalDetailPluralizesNewLines(t *testing.T) {
 		t.Errorf("approval detail = %q, want it to start with \"1 linha nova em \"", got.Detail)
 	}
 }
+
+func TestSectionLineFindsTheConfiguredHeading(t *testing.T) {
+	req, err := DefaultRequirement()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := req.SectionLine("# Changelog\n\n## [Unreleased]\n\n- x\n"); got != 3 {
+		t.Fatalf("SectionLine = %d, want 3", got)
+	}
+	if got := req.SectionLine("# Changelog\n\n## 1.0.0\n"); got != 0 {
+		t.Fatalf("SectionLine without the section = %d, want 0", got)
+	}
+}

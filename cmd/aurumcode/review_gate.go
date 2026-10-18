@@ -32,6 +32,7 @@ type (
 	artifactFailure      = gate.ArtifactFailure
 	gateScan             = gate.Scan
 	gateDemotion         = gate.Demotion
+	changelogGateCheck   = gate.ChangelogCheck
 )
 
 const (
@@ -39,6 +40,7 @@ const (
 	gateOriginRepo          = gate.OriginRepo
 	gateOriginSecurity      = gate.OriginSecurity
 	gateOriginAnalysis      = gate.OriginAnalysis
+	gateOriginChangelog     = gate.OriginChangelog
 	acceptedExceptionMarker = gate.AcceptedExceptionMarker
 	expiredExceptionMarker  = gate.ExpiredExceptionMarker
 
@@ -116,6 +118,10 @@ type gatePipelineInputs struct {
 
 	// Dependencies is the dependency check's report (nil: not declared).
 	Dependencies *dependencies.Report
+
+	// Changelog is the changelog check's verdict: set by the local review
+	// only (nil on --pr, where the changelog workflow decides).
+	Changelog *gate.ChangelogCheck
 }
 
 // assembleGatePipeline declares the one gate pipeline, in the order the
@@ -131,6 +137,7 @@ func assembleGatePipeline(in gatePipelineInputs) *gate.Pipeline {
 		gate.AnalysisDataContributor{},
 		gate.DependencyTrackContributor{},
 		gate.DependenciesContributor{Report: in.Dependencies},
+		gate.ChangelogContributor{Check: in.Changelog},
 	)
 }
 
@@ -291,6 +298,7 @@ func (s *reviewState) gatePipelineInputs() gatePipelineInputs {
 		DynamicRules:   s.dynamicRules,
 		Scans:          s.scans,
 		Dependencies:   s.dependencyReportForGate(),
+		Changelog:      s.changelogCheck,
 		PromptDigest:   s.deps.digestBuilder().FixedContentDigest,
 	}
 }
