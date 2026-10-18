@@ -1,9 +1,10 @@
 == sugestao-separada
 $ aurumcode review --base main --changelog
+aurumcode review: policy gate: changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
 ## AurumCode revisão de código
 
-> [!TIP]
-> **Gate passou: nenhum problema encontrado na mudança revisada.**
+> [!CAUTION]
+> **Bloqueado: 1 problema precisa de correção antes do merge.**
 
 sem gate declarado · 1 arquivo revisado
 
@@ -19,17 +20,23 @@ sem gate declarado · 1 arquivo revisado
 
 ### Changed
 
-- feature: repo-exemplo/mudanca (e0624277c83b05758f9d4b44424a3e46d967b6ef)
+- feature: repo-exemplo/mudanca (880468ec5581e9ea3cfbc9b3e2fbeeabf0cadf07)
 
 ### Fixed
 
 ### Removed
-Nenhum problema encontrado.
-exit_code=0
-RESULTADO: o review publicou a sugestao de changelog sem decidir o merge
+
+### Changelog obrigatório
+
+changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
+
+CHANGELOG.md:1: [error] changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
+  - Verificação: aurumcode changelog --base main
+exit_code=3
+RESULTADO: o review publicou a sugestao de versao e, com changelog_check required na base, reprovou a PR sem entrada
 $ aurumcode changelog --base main
 changelog: reprovado (entrada_ausente): a PR não altera CHANGELOG.md
-changelog: sem entrada sugerida (nenhum commit ou resposta do modelo utilizável)
 aurumcode changelog: sugestão do modelo descartada, usando os commits: resposta do modelo sem entrada utilizável
+changelog: sem entrada sugerida (nenhum commit ou resposta do modelo utilizável)
 exit_code=1
 RESULTADO: a sugestao nao substitui a entrada: o check obrigatorio reprovou

@@ -69,6 +69,11 @@ Saída: exit 0 com `changelog: aprovado (entrada_valida)`, exit 1 com
 O texto da entrada é dado: o check o compara e conta palavras, mas nunca o
 repete na saída nem obedece ao que ele diz.
 
+O gate local (`review --base` e o servidor `aurumcode mcp`) roda a mesma
+verificação: em `required`, a entrada reprovada bloqueia antes do push; em
+`suggest`, aparece como observação. Veja
+[Changelog obrigatório no gate local](getting-started.md#changelog-obrigatorio-no-gate-local).
+
 ## Manter o `Unreleased`
 
 Escreva o que muda para quem usa, não como foi feito:

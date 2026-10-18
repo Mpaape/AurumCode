@@ -1484,7 +1484,7 @@ consumidor.
 | `review.memory` | `off`, `ephemeral` ou `local` | `off` |
 | `review.changelog` | Publica versão sugerida e entrada de changelog (só sugestão; o check obrigatório é `changelog_check`) | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
-| `changelog_check.mode` | `required` faz a PR sem entrada útil no `CHANGELOG.md` reprovar no check `aurumcode changelog` | `off` |
+| `changelog_check.mode` | `required` faz a PR sem entrada útil no `CHANGELOG.md` reprovar no check `aurumcode changelog` e no gate local (`review --base`) | `off` |
 | `changelog_check.bots` | Modo para PR aberta por bot (Dependabot, Renovate): `off`, `suggest` ou `required`; só rebaixa `mode`, nunca eleva | `suggest` |
 | `review.profiles` | Analistas (perfis de revisor) executados na mesma revisão, local, MCP e PR: cada um faz a sua passada do modelo, pede as ferramentas da deliberação dentro do teto somado da revisão, e o achado diz quem o encontrou; os do time ficam no arquivo `profiles.yml` da pasta `.aurumcode`, lido da branch base na PR | vazio |
 | `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado, e numa execução inconclusiva nada é agrupado | vazio (todo achado publicado um a um) |
@@ -2679,8 +2679,8 @@ O AurumCode confere se a pull request acrescenta uma linha útil ao
 | Modo | O que acontece numa PR sem entrada útil | Quando usar |
 | --- | --- | --- |
 | `off` (padrão) | Nada. | O time não mantém changelog. |
-| `suggest` | O parecer traz a entrada sugerida, pronta para colar. A PR não reprova. | Quer criar o hábito sem travar ninguém. |
-| `required` | O check reprova e traz a mesma sugestão. | O changelog é parte da entrega. |
+| `suggest` | O parecer traz a entrada sugerida, pronta para colar. A PR não reprova. No gate local (`review --base`, `aurumcode mcp`), o veredito e a sugestão aparecem como observação. | Quer criar o hábito sem travar ninguém. |
+| `required` | O check reprova e traz a mesma sugestão. O gate local reprova antes do push, com a entrada reprovada como achado bloqueante. | O changelog é parte da entrega. |
 
 ```mermaid
 flowchart LR
@@ -2709,6 +2709,24 @@ Os limites também são configuráveis (padrões entre parênteses):
 `max_entry_lines` (12), `max_line_length` (240), `max_release_lines` (120),
 `min_words` (3) e `agent_log_markers` (somam-se aos padrões). Um modo
 desconhecido é recusado ao ler a configuração, com a lista dos três.
+
+### No gate local
+
+`review --base`, e o servidor `aurumcode mcp` que usa a mesma sessão, roda a
+mesma verificação do `aurumcode changelog --base`: a configuração da base (com
+a política central, se houver), o diff a partir do ancestral comum e autor
+pessoa, como o comando sem `--autor`. O parecer ganha a seção
+*Changelog obrigatório* com o veredito:
+
+| Modo na base | No gate local |
+| --- | --- |
+| `required` | Entrada reprovada vira achado bloqueante em `CHANGELOG.md` (regra `changelog/<motivo>`, por exemplo `changelog/entrada_longa`), com o motivo, a entrada sugerida pelos commits e `aurumcode changelog --base <base>` para conferir. Exit 3, mesmo sem `--fail-on`; `indeterminado` dá exit 1. |
+| `suggest` | Veredito e entrada sugerida só como observação: nenhum achado e nenhum efeito no exit, nem com `--fail-on info`. |
+| `off` ou sem a seção | Nada muda. |
+
+A entrada sugerida vem dos assuntos dos commits; o gate não chama o modelo
+para ela. O `review --pr` da CI não repete a verificação, que lá é o workflow
+**Changelog obrigatório**.
 
 ### PR de bot (`changelog_check.bots`)
 

@@ -303,6 +303,7 @@ contribuidores se aplicam nesta ordem:
 7. `analysis-data`: o artefato de dados de análise.
 8. `dependency-track`: a submissão do SBOM; pode substituir o filtro de redação.
 9. `dependencies`: a verificação de dependências da seção `dependencies` (vulnerabilidade introduzida ou pré-existente, pacote malicioso, licença); sem a seção, não acrescenta nada.
+10. `changelog`: o changelog obrigatório (`changelog_check`), só no `review --base` e no servidor MCP; no `--pr` não acrescenta nada, porque lá decide o workflow próprio. Em `required`, a entrada reprovada é achado bloqueante.
 
 Um contribuidor que retorna um erro comum não aborta e nunca é lido como "sem
 achados": o resultado se torna inconclusivo (e falha sob

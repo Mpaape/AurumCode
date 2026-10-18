@@ -60,6 +60,9 @@ func (b *baseReview) printReport() {
 	if b.changelogText != "" {
 		fmt.Fprint(b.stdout, "\n"+b.changelogText)
 	}
+	if b.changelogReport != "" {
+		fmt.Fprint(b.stdout, "\n"+b.changelogReport)
+	}
 	if !b.qualityDidNotRun() || len(result.Issues) > 0 {
 		printFindings(b.stdout, result, b.gateRes.Reason, b.reviewLanguage)
 	}

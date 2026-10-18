@@ -8,6 +8,9 @@ corrige o que vier, sem esperar o CI.
 - **Mesmo gate.** Cada pergunta do agente é uma sessão `review --base`, a
   mesma da CLI e do CI: mesma política central, mesmas skills, mesma redação
   de segredos, mesmo fail-closed. O servidor não tem caminho de gate próprio.
+  Com `changelog_check: {mode: required}` na base, a entrada do `CHANGELOG.md`
+  que o check **Changelog obrigatório** da CI reprovaria (por exemplo
+  `entrada_longa`) também reprova aqui, como achado bloqueante.
 - **Só leitura.** Nenhuma ferramenta escreve arquivo, abre PR ou muda
   política. O agente escolhe só a ref de comparação (`base`) e os caminhos
   que quer consultar; nenhum argumento desliga regra ou aponta outra política.

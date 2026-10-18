@@ -14,6 +14,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/review/session"
 	"github.com/Mpaape/AurumCode/internal/reviewprofile"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
+	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
 // reviewFlags is the parsed command line of `review`. given records which
@@ -136,9 +137,14 @@ type baseReview struct {
 	reviewState
 	f *reviewFlags
 
-	limiteSet       bool
-	cwd             string
-	notices         []analyzer.DiffNotice
+	limiteSet bool
+	cwd       string
+	notices   []analyzer.DiffNotice
+	// rawDiff is the diff of --base before the ignore filter: the one the
+	// changelog check reads, as `aurumcode changelog` does.
+	rawDiff *types.Diff
+	// changelogReport is the changelog check's section of the report.
+	changelogReport string
 	profileRes      *reviewprofile.MultiResult
 	profilesApplied bool
 	providerErr     error
