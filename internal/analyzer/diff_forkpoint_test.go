@@ -1,9 +1,11 @@
 package analyzer
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -93,7 +95,33 @@ func TestDiffInAShallowCloneCutBeforeTheForkPointFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if diff, _, err := repo.Diff(base, head); err == nil {
+	diff, _, err := repo.Diff(base, head)
+	if err == nil {
 		t.Fatalf("a cut shallow clone gave a diff of %d files instead of an error", len(diff.Files))
+	}
+	if !errors.Is(err, errNoCommonAncestor) || !strings.Contains(err.Error(), "shallow clone") || !strings.Contains(err.Error(), "git fetch") {
+		t.Fatalf("error does not say the shallow clone cuts the range and how to fetch more: %v", err)
+	}
+}
+
+// A history that cannot be read (a commit object missing from a complete
+// clone) is an error, never a silent tree comparison.
+func TestDiffWithAnUnreadableHistoryFails(t *testing.T) {
+	dir := forkRepo(t)
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "main~1").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed := strings.TrimSpace(string(out))
+	object := filepath.Join(dir, ".git", "objects", seed[:2], seed[2:])
+	if err := os.Remove(object); err != nil {
+		t.Fatalf("removing the seed commit object: %v", err)
+	}
+	repo, err := OpenRepo(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff, _, err := repo.Diff("main", "feature"); err == nil {
+		t.Fatalf("a history missing a commit gave a diff of %d files instead of an error", len(diff.Files))
 	}
 }

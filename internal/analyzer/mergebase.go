@@ -147,7 +147,7 @@ func (r *Repo) forkPoint(baseSHA, headRef string) (string, error) {
 			return "", serr
 		}
 		if len(shallow) > 0 {
-			return "", fmt.Errorf("%w: the shallow clone does not reach the merge base of the range; fetch more history", err)
+			return "", fmt.Errorf("%w: the shallow clone does not reach the merge base of the range; fetch more history (git fetch --deepen=<n> origin <base> <head>, or git fetch --unshallow)", err)
 		}
 		return baseSHA, nil
 	}
