@@ -39,7 +39,7 @@ var changelogModeRank = map[ChangelogMode]int{ChangelogOff: 0, ChangelogSuggest:
 
 // ChangelogCheckConfig is the changelog_check section (nil = not declared =
 // off): whether a pull request must add a changelog entry, may only receive
-// a suggested one, or neither.
+// a suggested one, or neither, and the limits that keep the entry concise.
 // Zero values keep the embedded defaults of internal/changelog
 // (require_defaults.yml). It is independent of review.changelog, which only
 // suggests a release and never gates.
@@ -49,12 +49,9 @@ type ChangelogCheckConfig struct {
 	// Bots is the mode for a pull request opened by a bot account
 	// (AUR-610): "suggest" (the default), "off" or "required". It only
 	// lowers Mode, never raises it.
-	Bots    string `yaml:"bots"`
-	File    string `yaml:"file"`
-	Section string `yaml:"section"`
-	// MaxEntryLines, MaxLineLength and MaxReleaseLines are accepted so a
-	// config.yml that still declares them keeps loading, and ignored: the
-	// size of an entry never fails the check.
+	Bots            string   `yaml:"bots"`
+	File            string   `yaml:"file"`
+	Section         string   `yaml:"section"`
 	MaxEntryLines   int      `yaml:"max_entry_lines"`
 	MaxLineLength   int      `yaml:"max_line_length"`
 	MaxReleaseLines int      `yaml:"max_release_lines"`
@@ -128,8 +125,8 @@ func parseChangelogModeField(field, raw string) (ChangelogMode, error) {
 	return mode, nil
 }
 
-// Validate refuses an unknown mode, a negative min_words and a path that
-// leaves the repository. The ignored size keys are never refused.
+// Validate refuses an unknown mode, negative limits and a path that leaves
+// the repository.
 func (c *ChangelogCheckConfig) Validate() error {
 	if c == nil {
 		return nil
@@ -140,8 +137,10 @@ func (c *ChangelogCheckConfig) Validate() error {
 	if _, err := ParseChangelogBotsMode(c.Bots); err != nil {
 		return err
 	}
-	if c.MinWords < 0 {
-		return fmt.Errorf("changelog_check.min_words: deve ser positivo (recebido %d)", c.MinWords)
+	for name, v := range map[string]int{"max_entry_lines": c.MaxEntryLines, "max_line_length": c.MaxLineLength, "max_release_lines": c.MaxReleaseLines, "min_words": c.MinWords} {
+		if v < 0 {
+			return fmt.Errorf("changelog_check.%s: deve ser positivo (recebido %d)", name, v)
+		}
 	}
 	if strings.TrimSpace(c.File) != "" {
 		if err := validateContextPath(c.File); err != nil {

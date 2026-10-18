@@ -256,6 +256,7 @@ O que observar: exit 0. Use este modo para criar o hábito sem travar ninguém.
   no CI use `fetch-depth: 0` (o workflow reutilizável já usa).
 - `sem_informacao_nova` numa release: escreva um resumo curto na seção da
   versão.
+- `entrada_longa`: resuma; o limite é `max_entry_lines` e `max_line_length`.
 - `changelog: não exigido`: a base está em `off` (ou sem a seção).
 
 <!-- capturas:inicio (gerado por scripts/docs/capturas.sh; nao editar a mao) -->
