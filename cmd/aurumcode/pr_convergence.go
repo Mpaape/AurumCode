@@ -163,7 +163,8 @@ func (p *prReview) demoteLateFindings(changes rounds.Changes) {
 		p.convergence.late++
 	}
 	if p.convergence.late > 0 {
-		fmt.Fprintf(p.stderr, "aurumcode review: %d finding(s) new on code unchanged since the earlier round (%s) published as observations\n", p.convergence.late, shortSHA(p.convergence.earlier.SHA))
+		what := countText(p.convergence.late, "1 finding", "%d findings")
+		fmt.Fprintf(p.stderr, "aurumcode review: %s new on code unchanged since the earlier round (%s) published as observations\n", what, shortSHA(p.convergence.earlier.SHA))
 	}
 }
 

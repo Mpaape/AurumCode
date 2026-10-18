@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Corrigido: os aceites do board saem do CI agendado; achados tardios dizem "1 finding"/"N findings", sem "(s)".
 - Novo: job `scan` (opt-in) do workflow reutilizável: `review --completo` agendado e em `workflow_dispatch`, achados só na aba Security; dependências também em `workflow_dispatch`; achado repetido entre analistas é um só no SARIF (#177).
 - Novo: `aurumcode review --completo` revisa a árvore inteira do HEAD, sem commit órfão; gitleaks no histórico inteiro; SARIF na categoria `aurumcode/initial-scan` (#178).
 - Novo: `review.model_window_tokens` e `review.context.max_tokens`; contexto por lote calculado uma vez; recusa do vLLM/LiteLLM com janela e tamanho; o `--limite` avisa que o contexto não entra (#198).
