@@ -837,8 +837,11 @@ quality_gates:
   (versão + `secrets_rulebase_sha256`) vai no `Version` do resultado.
 - O workflow reutilizável (`review.yml`) instala o binário a partir da imagem
   fixada por digest no lock (o pull por digest falha se os bytes divergirem),
-  confere `gitleaks version` contra a versão do lock e faz checkout do PR com
-  histórico completo (`fetch-depth: 0`).
+  confere `gitleaks version` contra a versão do lock e faz checkout do PR só
+  com o histórico da PR: checkout raso (`fetch-depth: 1`) e
+  `scripts/ci/fetch-pr-range.sh`, que busca a base e aprofunda em rodadas até
+  o ancestral comum estar no clone e nenhuma fronteira rasa cair no intervalo
+  `base..head`. Um clone raso que corta o intervalo é `secrets_execution_error`.
 - O review entrega à engine o intervalo revisado: no `--pr`, a base do pull
   request (`AURUMCODE_BASE_SHA`) e o `HEAD` do checkout já verificado como a
   cabeça que a API do pull request informa; no `--base`, a ref e o `HEAD`
@@ -1975,7 +1978,8 @@ antes paravam a revisão:
   `AURUMCODE_BASE_SHA` quando é um commit do checkout, senão o `base.sha` que
   a API informa. Checkout não verificado ou base ausente (clone raso): a
   revisão falha (saída 1) sem enviar nada ao modelo nem publicar. O
-  workflow reutilizável já faz o checkout do head com histórico completo. Com
+  workflow reutilizável já busca a base e o histórico da PR até o ancestral
+  comum (`scripts/ci/fetch-pr-range.sh`), sem baixar o resto. Com
   a API respondendo o diff, nada muda: o diff local é só o caminho da recusa.
   O diff local não deixa arquivo de texto de fora por tamanho: um arquivo de
   qualquer tamanho entra na revisão. Quando a busca do diff mínimo passaria do

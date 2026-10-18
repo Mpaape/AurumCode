@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Corrigido: com `--fail-on`, o parecer acompanha a saída: achado que o limiar pega aparece como bloqueante, e a linha do gate da política continua dizendo o que a política decidiu.
+- Novo: a PR baixa só o próprio histórico (checkout raso + `fetch-pr-range.sh`, que aprofunda até o ancestral comum, sem teto); ancestral comum e gitleaks funcionam em clone raso.
 - Corrigido: a imagem do produto voltou a compilar depois da subida do Go para 1.27.2; o CI de PR passa a construir a imagem.
 - Corrigido: a Action direta grava o parecer de `publication: status` no resumo do job, inclusive com o gate fechado; o guia e a demo mostram a varredura inicial na CI e que o histórico só é varrido com gitleaks (#177, #178, #201).
 - Corrigido: janela declarada pequena demais é ignorada com aviso, não derruba a revisão; margem a 3,5 caracteres por token; repositório lido uma vez por execução; --limite estima o prompt montado (#198).

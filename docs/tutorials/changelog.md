@@ -253,7 +253,8 @@ O que observar: exit 0. Use este modo para criar o hábito sem travar ninguém.
 ## Problemas comuns
 
 - `indeterminado: não foi possível obter o diff`: a base não está no clone;
-  no CI use `fetch-depth: 0` (o workflow reutilizável já usa).
+  no CI rode `scripts/ci/fetch-pr-range.sh` depois do checkout, ou use
+  `fetch-depth: 0` (o workflow reutilizável já busca o histórico da PR).
 - `sem_informacao_nova` numa release: escreva um resumo curto na seção da
   versão.
 - `entrada_longa`: resuma; o limite é `max_entry_lines` e `max_line_length`.
