@@ -73,8 +73,7 @@ exercitam (`evidence`, `governance/dag`, `governance/taskspec`,
 `sandbox/profile`, `config/policy`, `llm/httpbase`), vivem em
 `tests/legacy/<pacote>` e não em `internal/`. `apply/applycheck` fica em
 `internal/apply` porque `cmd/aurumcode` o importa em teste. Detalhes em
-[specs/AUR-585.md](specs/AUR-585.md). Um job noturno (`acceptance-sample.yml`)
-faz a varredura completa dos aceites de cards `done` em 6 shards, na mesma imagem
-Go do CI: cada aceite precisa sair com o estado da tabela de
-[specs/AUR-589.md](specs/AUR-589.md) (0 verde, ou 69 aposentado com motivo de
-produto), então podridão nova aparece no dia seguinte.
+[specs/AUR-585.md](specs/AUR-585.md). Os aceites de cards `done` não rodam no
+CI: o board não reprova build. A tabela de [specs/AUR-589.md](specs/AUR-589.md)
+(0 verde, ou 69 aposentado com motivo de produto) segue valendo para quem roda
+`bash tests/acceptance/AUR-589.sh full` à mão.

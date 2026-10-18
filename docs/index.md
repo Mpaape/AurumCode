@@ -44,7 +44,9 @@ sem credencial, resumo do review e correções sugeridas (`aurumcode review` e
 [PR grande: diff local e revisão em lotes](configuration.md#pr-grande-diff-local-e-revisao-em-lotes),
 [Arquivos que saem da revisão como documentação](configuration.md#quais-arquivos-saem-da-revisao-como-documentacao),
 [Dependências do PR](configuration.md#dependencias-do-pr-dependencies) e
-[Varredura agendada de dependências](configuration.md#varredura-agendada-de-dependencias-aurumcode-dependencies). Veja também
+[Varredura agendada de dependências](configuration.md#varredura-agendada-de-dependencias-aurumcode-dependencies).
+[Plugins externos da validação agendada](configuration.md#plugins-externos-da-validacao-agendada-aurumcode-plugin)
+(tutorial: [Plugin agendado](tutorials/plugin-agendado.md)). Veja também
 [Qualidade e limitações](review-quality.md) e [Cache de review](review-cache.md).
 
 Contexto e rodadas: [Fontes MCP de contexto](configuration.md#fontes-mcp-de-contexto-reviewcontextmcp)
