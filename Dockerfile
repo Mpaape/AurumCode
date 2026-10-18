@@ -89,10 +89,12 @@ RUN osv-scanner --version | grep -q "2.0.0"
 # so the review runs the same Go the project builds with (go.mod's `go`
 # line). It never downloads a toolchain or a module (the engine fixes
 # GOTOOLCHAIN=local and GOPROXY=off): a repository's modules must already be
-# in GOMODCACHE, which the review workflow fills before the review.
+# in GOMODCACHE, which the review workflow fills before the review. The
+# version comes from the builder's digest-pinned FROM; this only proves the
+# copied toolchain runs, so a Go patch bump never needs a second edit here.
 COPY --from=builder /usr/local/go /usr/local/go
 ENV PATH=/usr/local/go/bin:$PATH GOPATH=/go GOMODCACHE=/go/pkg/mod
-RUN go version | grep -q "go1.27.1 "
+RUN go version
 
 WORKDIR /github/workspace
 COPY --from=builder /aurumcode /app/aurumcode
