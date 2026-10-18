@@ -59,11 +59,12 @@ type Batch struct {
 func (r *Reviewer) Batches() []Batch { return r.batches }
 
 // ErrNoBatchReviewed is a review in batches whose ceilings admit no batch at
-// all (a max_prompt_tokens below one prompt): the model never read anything.
-// It wraps llm.ErrAllProvidersFailed so every caller takes the path of a
-// model review that did not run: not reviewed, never approved, and with a
-// declared gate an inconclusive result.
-var ErrNoBatchReviewed = fmt.Errorf("no review batch fits the configured ceilings (batches.max_batches, batches.max_prompt_tokens): the model review did not run: %w", llm.ErrAllProvidersFailed)
+// all: the model never read anything. It wraps llm.ErrAllProvidersFailed so
+// every caller takes the path of a model review that did not run: not
+// reviewed, never approved, and with a declared gate an inconclusive result.
+// The error a review returns wraps it with the ceiling that left the first
+// batch out (noBatchReviewed).
+var ErrNoBatchReviewed = fmt.Errorf("no review batch fits the configured ceilings: the model review did not run: %w", llm.ErrAllProvidersFailed)
 
 // Metadata keys a review in batches adds to the result.
 const (
@@ -115,6 +116,8 @@ func splitByPatch(files []types.DiffFile) (withPatch, withoutPatch []types.DiffF
 type batchPlan struct {
 	batches []plannedBatch
 	outside []string
+	// firstTokens is the estimated size of the first batch's prompt.
+	firstTokens int
 }
 
 // plannedBatch is one batch's files and its assembled prompt.
@@ -131,7 +134,7 @@ func (r *Reviewer) reviewInBatches(ctx context.Context, diff *types.Diff, review
 		return nil, err
 	}
 	if len(plan.batches) == 0 {
-		return nil, fmt.Errorf("%w (%d file(s) left out)", ErrNoBatchReviewed, len(plan.outside))
+		return nil, r.noBatchReviewed(plan)
 	}
 	results := make([]*types.ReviewResult, 0, len(plan.batches))
 	var transcripts []*deliberation.Transcript
@@ -195,12 +198,15 @@ func (r *Reviewer) planBatches(diff *types.Diff, reviewContext ReviewContext) (b
 	}
 	var plan batchPlan
 	total, stopped := 0, false
-	for _, files := range packed {
+	for i, files := range packed {
 		p, err := prepare(files)
 		if err != nil {
 			return batchPlan{}, err
 		}
 		tokens := metaCount(p.parts.Meta, "estimated_tokens")
+		if i == 0 {
+			plan.firstTokens = tokens
+		}
 		stopped = stopped || r.cfg.Batches.reached(len(plan.batches), total+tokens)
 		if stopped {
 			plan.outside = append(plan.outside, filePaths(files)...)
@@ -210,6 +216,13 @@ func (r *Reviewer) planBatches(diff *types.Diff, reviewContext ReviewContext) (b
 		plan.batches = append(plan.batches, plannedBatch{files: files, prepared: p})
 	}
 	return plan, nil
+}
+
+// noBatchReviewed names the ceiling that left even the first batch out.
+// Only a summed size can: a count ceiling admits its first batch.
+func (r *Reviewer) noBatchReviewed(plan batchPlan) error {
+	return fmt.Errorf("the first review batch takes about %d tokens and batches.max_prompt_tokens allows %d in all; raise or remove batches.max_prompt_tokens (%d file(s) left out): %w",
+		plan.firstTokens, r.cfg.Batches.MaxPromptTokens, len(plan.outside), ErrNoBatchReviewed)
 }
 
 // reached reports whether another batch, taking the summed size to

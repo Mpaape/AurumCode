@@ -133,6 +133,9 @@ type reviewState struct {
 	filter *redaction.Filter
 	deps   reviewDeps
 	run    *gateRun // flushed when the session ends
+	// window is the declared model window, resolved once per run
+	// (model_window.go).
+	window *modelWindow
 
 	// invocation
 	policyDir                  string
