@@ -118,3 +118,19 @@ func (r *Repo) sides(oldBlob blobAt, hadOld bool, newBlob blobAt, hasNew bool) (
 	}
 	return oldContent, newContent, nil
 }
+
+// forkPoint is the commit a --base diff starts from: the merge base of
+// baseSHA and headRef when there is exactly one, otherwise baseSHA itself
+// (unrelated histories, a criss-cross history, or a head that does not
+// resolve, which the caller then reports).
+func (r *Repo) forkPoint(baseSHA, headRef string) string {
+	headSHA, err := r.ResolveRef(headRef)
+	if err != nil {
+		return baseSHA
+	}
+	mergeBase, err := r.mergeBaseFromObjects(strings.ToLower(baseSHA), strings.ToLower(headSHA))
+	if err != nil {
+		return baseSHA
+	}
+	return mergeBase
+}

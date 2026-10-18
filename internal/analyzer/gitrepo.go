@@ -595,11 +595,17 @@ func (r *Repo) blobBytes(sha string) ([]byte, error) {
 // model call is ever made for it -- and reported through the returned
 // notices instead, in the same sorted path order. That is not an error
 // condition; callers print the notices and carry on.
+//
+// The base side is the merge base of baseRef and headRef when they have
+// exactly one, as `git diff base...head`: a branch behind its base is never
+// shown undoing what the base gained since the fork. Unrelated histories
+// (or several best common ancestors) compare baseRef's own tree, as before.
 func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) {
 	baseSHA, err := r.ResolveRef(baseRef)
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolving base ref %q: %w", baseRef, err)
 	}
+	baseSHA = r.forkPoint(baseSHA, headRef)
 	baseTree, _, err := r.readCommit(baseSHA)
 	if err != nil {
 		return nil, nil, err
