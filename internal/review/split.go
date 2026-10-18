@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
@@ -170,6 +171,14 @@ const promptMargin = 0.9
 // token, and a real tokenizer counted about 3.6 on source code (#198), so a
 // prompt estimated at the ceiling is sized for 3.5 characters per token.
 const estimateRatio = 3.5 / 4.0
+
+// ProviderTokens is estimated, a count in the product's four-characters
+// estimate, as the provider is assumed to count it: the same ratio the
+// declared window is shared by (estimateRatio), so the --limite pre-flight
+// prices what a split sizes for.
+func ProviderTokens(estimated int) int {
+	return int(math.Ceil(float64(estimated) / estimateRatio))
+}
 
 // learnedCeiling is the prompt ceiling, in the product's estimated tokens, to
 // try after a refusal. When the provider said its window and the size it

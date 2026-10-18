@@ -15,9 +15,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	codebasectx "github.com/Mpaape/AurumCode/internal/context"
+	"github.com/Mpaape/AurumCode/internal/grammar"
 	"github.com/Mpaape/AurumCode/internal/security/redaction"
 )
 
@@ -158,9 +160,9 @@ func TestIssue198IgnoredFileNeverReachesThePRContext(t *testing.T) {
 }
 
 // A review the declared window splits in batches resolves each batch's
-// context from the run's one resolver, whose reading of the checkout is
-// shared: every call receives the same resolver, and no repository file is
-// parsed twice.
+// context from one reading of the checkout: over every batch's resolution
+// no repository file is parsed twice, counted by the grammar each resolver
+// the command hands out parses with.
 func TestIssue198BatchesShareOneReadingOfTheCheckout(t *testing.T) {
 	files := map[string]string{"use/use.go": "package use\n\nvar _ = 1\n"}
 	var diff strings.Builder
@@ -173,11 +175,15 @@ func TestIssue198BatchesShareOneReadingOfTheCheckout(t *testing.T) {
 		}
 	}
 	_, head := issue198Repo(t, files)
-	resolvers := map[*codebasectx.Resolver]int{}
+	counter := &issue198CountingGrammar{Provider: grammar.Default(), parsed: map[string]int{}}
+	counted := map[*codebasectx.Resolver]bool{}
 	calls := 0
 	deps := reviewDeps{resolveFiles: func(resolver *codebasectx.Resolver, dir string, changed, scan []string) (*codebasectx.Pack, error) {
 		calls++
-		resolvers[resolver]++
+		if !counted[resolver] {
+			counted[resolver] = true
+			resolver.WithGrammar(counter)
+		}
 		return resolver.ResolveWithFiles(dir, changed, scan)
 	}}
 	t.Setenv("AURUMCODE_MODEL_WINDOW_TOKENS", issue198Window)
@@ -188,9 +194,29 @@ func TestIssue198BatchesShareOneReadingOfTheCheckout(t *testing.T) {
 	if calls < 2 {
 		t.Fatalf("the context was resolved %d time(s): the review did not go in batches, the test proves nothing:\n%s", calls, out)
 	}
-	if len(resolvers) != 1 {
-		t.Fatalf("%d calls went to %d resolvers: each batch read the checkout again", calls, len(resolvers))
+	if counter.parsed["use/use.go"] == 0 {
+		t.Fatalf("parsed %v: the repository was not read, the test proves nothing", counter.parsed)
 	}
+	for name, n := range counter.parsed {
+		if n != 1 {
+			t.Fatalf("%s parsed %d times over %d resolutions (%d resolvers): each batch read the checkout again", name, n, calls, len(counted))
+		}
+	}
+}
+
+// issue198CountingGrammar is the runtime's grammar, counting each file it
+// parses.
+type issue198CountingGrammar struct {
+	grammar.Provider
+	mu     sync.Mutex
+	parsed map[string]int
+}
+
+func (g *issue198CountingGrammar) Analyze(name string, content []byte) grammar.Structure {
+	g.mu.Lock()
+	g.parsed[name]++
+	g.mu.Unlock()
+	return g.Provider.Analyze(name, content)
 }
 
 // The diff's size and the declared window that splits it: each file fits a

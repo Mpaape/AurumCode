@@ -221,8 +221,8 @@ func (r *Reviewer) planBatches(diff *types.Diff, reviewContext ReviewContext) (b
 // noBatchReviewed names the ceiling that left even the first batch out.
 // Only a summed size can: a count ceiling admits its first batch.
 func (r *Reviewer) noBatchReviewed(plan batchPlan) error {
-	return fmt.Errorf("the first review batch takes about %d tokens and batches.max_prompt_tokens allows %d in all; raise or remove batches.max_prompt_tokens (%d file(s) left out): %w",
-		plan.firstTokens, r.cfg.Batches.MaxPromptTokens, len(plan.outside), ErrNoBatchReviewed)
+	return fmt.Errorf("the first review batch takes about %d tokens and batches.max_prompt_tokens allows %d in all; raise or remove batches.max_prompt_tokens (%s left out): %w",
+		plan.firstTokens, r.cfg.Batches.MaxPromptTokens, countOf(len(plan.outside), "file", "files"), ErrNoBatchReviewed)
 }
 
 // reached reports whether another batch, taking the summed size to
@@ -373,4 +373,12 @@ func metaCount(meta map[string]string, key string) int {
 		return 0
 	}
 	return n
+}
+
+// countOf is n with the noun that agrees with it: "1 file", "2 files".
+func countOf(n int, one, many string) string {
+	if n == 1 {
+		return fmt.Sprintf("%d %s", n, one)
+	}
+	return fmt.Sprintf("%d %s", n, many)
 }

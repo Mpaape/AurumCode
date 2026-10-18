@@ -10,6 +10,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/llm"
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
+	"github.com/Mpaape/AurumCode/internal/reviewprofile"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -30,7 +31,11 @@ func (p *prReview) generateReview() (int, bool) {
 		CodebaseContext: p.codebaseText,
 		MemoryNotes:     p.memoryNotesText,
 	})
-	p.preflight(p.reviewer, p.diff, reviewCtx)
+	var analysts []reviewprofile.Profile
+	if p.profilesApplied() {
+		analysts = analystsOf(p.profileRes)
+	}
+	p.preflight(p.reviewer, analysts, p.diff, reviewCtx)
 	var result *types.ReviewResult
 	var err error
 	if p.profilesApplied() {

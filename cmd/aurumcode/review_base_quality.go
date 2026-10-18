@@ -9,6 +9,7 @@ import (
 	"github.com/Mpaape/AurumCode/internal/prompt"
 	"github.com/Mpaape/AurumCode/internal/review"
 	"github.com/Mpaape/AurumCode/internal/review/cache"
+	"github.com/Mpaape/AurumCode/internal/reviewprofile"
 	"github.com/Mpaape/AurumCode/pkg/types"
 )
 
@@ -88,7 +89,11 @@ func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int
 		CodebaseContext: b.codebaseText,
 		MemoryNotes:     b.memoryNotesText,
 	})
-	b.preflight(reviewer, qc.toSend, reviewCtx)
+	var analysts []reviewprofile.Profile
+	if b.profilesApplied {
+		analysts = analystsOf(b.profileRes)
+	}
+	b.preflight(reviewer, analysts, qc.toSend, reviewCtx)
 	var err error
 	if b.profilesApplied {
 		// Every analyst's reviewer accepts the same dynamic rules and
