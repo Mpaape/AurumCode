@@ -46,7 +46,9 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 		return Outcome{}, err
 	}
 	tools, specs := s.index()
-	out := Outcome{Transcript: Transcript{Offered: specNames(specs), Calls: []Call{}}}
+	// Offered lists only what some round actually offered: a session of a
+	// review's Budget may start after the tool rounds are spent.
+	out := Outcome{Transcript: Transcript{Offered: []string{}, Calls: []Call{}}}
 	conversation := append([]llm.Message(nil), messages...)
 	ledger := s.ledger()
 	// last is the latest round's reply. Text that came beside tool calls is
@@ -68,6 +70,7 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 			roundSpecs = nil
 			conversation = append(conversation, llm.Message{Role: llm.RoleUser, Content: finalRoundInstruction})
 		}
+		out.Transcript.recordOffer(roundSpecs, specs, ledger)
 		resp, err := s.Caller.CompleteWithTools(ctx, conversation, roundSpecs, s.Options)
 		if err != nil {
 			return s.stop(out, err)
@@ -104,6 +107,18 @@ func (s Session) Run(ctx context.Context, messages []llm.Message) (Outcome, erro
 // finalRoundInstruction is what the last allowed round tells the model:
 // no further tool is available, answer now in the requested format.
 const finalRoundInstruction = "No more tools are available in this review: this is the last round. Answer now with the final review in the requested format, using only the evidence already gathered; state any limitation it leaves."
+
+// recordOffer records what this round offered: the session's tools the
+// first time a round offers them, or, while no round has, why none did.
+func (t *Transcript) recordOffer(roundSpecs, specs []llm.ToolSpec, l ledger) {
+	switch {
+	case len(t.Offered) > 0 || len(specs) == 0:
+	case roundSpecs != nil:
+		t.Offered, t.NotOffered = specNames(specs), ""
+	case t.NotOffered == "":
+		t.NotOffered = l.noToolsReason()
+	}
+}
 
 // stop ends a deliberation with err: the transcript keeps what happened,
 // the answer stays empty.

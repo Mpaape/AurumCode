@@ -2,10 +2,11 @@ package deliberation
 
 // Merge joins the transcripts of the passes of one review (the batches of
 // a diff that did not fit one prompt, the analysts of a selection) into one
-// record: every tool offered once, the tools some pass requested once each
+// record: every tool some pass was offered, once, the tools some pass requested once each
 // and the rest not requested, rounds and tokens summed, the calls in pass
 // order, the last pass's outcome, the first limit and the first undecided
-// reason kept, and one Analysts entry per attributed pass. nil when no pass
+// reason kept, the reason no tool was offered only when no pass was
+// offered one, and one Analysts entry per attributed pass. nil when no pass
 // deliberated.
 func Merge(transcripts ...*Transcript) *Transcript {
 	var merged *Transcript
@@ -14,7 +15,7 @@ func Merge(transcripts ...*Transcript) *Transcript {
 			continue
 		}
 		if merged == nil {
-			merged = &Transcript{}
+			merged = &Transcript{Offered: []string{}}
 		}
 		merged.Offered = appendUnique(merged.Offered, t.Offered...)
 		merged.Requested = appendUnique(merged.Requested, t.Requested...)
@@ -31,11 +32,18 @@ func Merge(transcripts ...*Transcript) *Transcript {
 		if merged.Undecided == "" {
 			merged.Undecided = t.Undecided
 		}
+		if merged.NotOffered == "" {
+			merged.NotOffered = t.NotOffered
+		}
 		if t.Analyst != "" {
 			merged.Analysts = append(merged.Analysts, t.analystEntry())
 		}
 	}
 	if merged != nil {
+		if len(merged.Offered) > 0 {
+			// Some pass was offered tools: the review was.
+			merged.NotOffered = ""
+		}
 		merged.NotRequested = except(merged.Offered, merged.Requested)
 	}
 	return merged

@@ -56,6 +56,9 @@ func aur616Run(t *testing.T, args ...string) (int, string, string, aur616Audit) 
 // large diff, once per conversation.
 const aur616ScannerCall = `[{"lines_above":1,"tool":"scanner_fakescan"}]`
 
+// aur616AllTools is every tool a pass of this setup is offered, in order.
+const aur616AllTools = "scanner_fakescan, codebase_context, read_file, search_text, find_symbol, changed_file_diff"
+
 // AC-001: each analyst's pass is offered the tools and asks for the
 // scanner; the scan runs once for the review and answers both; the
 // terminal and the audit say which analyst asked for what; the message
@@ -68,8 +71,8 @@ func TestAUR616AnalystsDeliberateWithTools(t *testing.T) {
 		t.Fatalf("exit=%d invoked=%d, want the scan both analysts asked for to run once and fail the gate; stderr=%s", code, *invoked, errOut)
 	}
 	for _, want := range []string{
-		"deliberation: analyst seguranca: rounds 2; requested [scanner_fakescan]; outcome answered",
-		"deliberation: analyst solid: rounds 2; requested [scanner_fakescan]; outcome answered",
+		"deliberation: analyst seguranca: offered [" + aur616AllTools + "]; rounds 2; requested [scanner_fakescan]; outcome answered",
+		"deliberation: analyst solid: offered [" + aur616AllTools + "]; rounds 2; requested [scanner_fakescan]; outcome answered",
 		"deliberation: round 1, analyst seguranca: scanner_fakescan(",
 		"deliberation: round 1, analyst solid: scanner_fakescan(",
 	} {

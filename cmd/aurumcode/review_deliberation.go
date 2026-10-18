@@ -210,11 +210,18 @@ func (s *reviewState) reportDeliberation() {
 	}
 	fmt.Fprintf(s.stderr, "aurumcode review: deliberation: oferecidas [%s]; pedidas [%s]; não pedidas [%s]; rodadas %d; desfecho %s\n",
 		strings.Join(t.Offered, ", "), strings.Join(t.Requested, ", "), strings.Join(t.NotRequested, ", "), t.Rounds, t.Outcome)
+	if t.NotOffered != "" {
+		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.deliberation_none_offered", s.notOfferedReason(t.NotOffered)))
+	}
 	if t.Undecided != "" {
 		fmt.Fprintf(s.stderr, "aurumcode review: deliberation: sem decisão do modelo: %s\n", t.Undecided)
 	}
 	for _, a := range t.Analysts {
-		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.deliberation_analyst", a.Analyst, a.Rounds, strings.Join(a.Requested, ", "), a.Outcome))
+		if a.NotOffered != "" {
+			fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.deliberation_analyst_no_tools", a.Analyst, s.notOfferedReason(a.NotOffered), a.Rounds, a.Outcome))
+			continue
+		}
+		fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.deliberation_analyst", a.Analyst, strings.Join(a.Offered, ", "), a.Rounds, strings.Join(a.Requested, ", "), a.Outcome))
 	}
 	for _, c := range t.Calls {
 		if c.Analyst != "" {
@@ -223,6 +230,15 @@ func (s *reviewState) reportDeliberation() {
 		}
 		fmt.Fprintf(s.stderr, "aurumcode review: deliberation: rodada %d %s(%s) %s: %s\n", c.Round, c.Tool, c.Arguments, c.Status, c.Result)
 	}
+}
+
+// notOfferedReason is the review language's account of a
+// deliberation.NotOffered* reason; an unknown one is shown as it came.
+func (s *reviewState) notOfferedReason(reason string) string {
+	if text, ok := i18n.Lookup(s.reviewLanguage, "terminal.deliberation_reason_"+reason); ok {
+		return text
+	}
+	return reason
 }
 
 // toolResultsDigest is the digest of the tool results the model consumed,

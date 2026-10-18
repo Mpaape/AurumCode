@@ -1795,9 +1795,16 @@ elas não são oferecidas.
 
 A decisão é do modelo e fica registrada (oferecidas, pedidas, não pedidas) no
 stderr e no campo `deliberation` da auditoria (`--auditoria`), com cada
-chamada, os argumentos redigidos, a duração e o resultado resumido. Os
-argumentos de toda chamada são conferidos contra o schema da ferramenta antes
-de executar; uma chamada inválida é recusada e o modelo é avisado.
+chamada, os argumentos redigidos, a duração e o resultado resumido.
+"Oferecidas" lista só o que alguma rodada de fato ofereceu: uma passada que
+não recebeu ferramenta nenhuma registra `offered: []`, nenhuma ferramenta
+como não pedida e o motivo em `deliberation.not_offered`
+(`tool_rounds_spent`: as rodadas com ferramenta da revisão já tinham sido
+gastas; `no_tool_round`: `max_rounds: 1` não deixa rodada com ferramenta), e
+o terminal diz `deliberation: nenhuma ferramenta oferecida na revisão
+(<motivo>)`. Os argumentos de toda chamada são conferidos contra o schema da
+ferramenta antes de executar; uma chamada inválida é recusada e o modelo é
+avisado.
 
 `max_cost_tokens` é opcional: ausente (ou `0`), a deliberação não tem teto de
 tokens e só `max_rounds` e `per_tool_timeout_seconds` a limitam. Um valor
@@ -1870,7 +1877,11 @@ deliberação de todas as passadas somam esse teto. Selecionar analistas nunca
 multiplica o custo além do teto declarado. Um analista que começa depois de as rodadas com ferramenta acabarem é
 avisado no terminal (`deliberation: analista <nome> sem ferramentas: as
 rodadas com ferramenta da revisão (max_rounds) já foram gastas ...`) e
-responde com a evidência já reunida pelos anteriores; um analista cuja
+responde com a evidência já reunida pelos anteriores. Com `max_rounds: 1`
+a revisão não tem rodada com ferramenta: todo analista é avisado
+(`deliberation: analista <nome> sem ferramentas: max_rounds 1 deixa à
+revisão só a rodada da resposta final, nenhuma rodada com ferramenta`) e
+nenhum recebe ferramenta. Um analista cuja
 passada estoura o teto somado de tokens (quando há um) torna a revisão
 inconclusiva com `deliberation_limit:max_cost_tokens`, exatamente como na
 passada única.
@@ -1879,10 +1890,14 @@ para todos. Um scanner pedido por mais de um analista, ou mais de uma vez na
 mesma conversa, roda uma só vez na revisão e responde a todos com o mesmo
 resultado.
 
-O stderr mostra, além da linha da revisão, uma linha por analista
-(`deliberation: analista <nome>: rodadas N; pedidas [...]; desfecho ...`) e
-cada chamada com o analista que a fez. A auditoria registra em
-`deliberation.analysts` o nome, as rodadas, os tokens de deliberação, as
+O stderr mostra, além da linha da revisão, uma linha por analista com o que
+aquela passada de fato recebeu
+(`deliberation: analista <nome>: oferecidas [...]; rodadas N; pedidas [...]; desfecho ...`,
+ou, para a passada sem ferramenta,
+`deliberation: analista <nome>: nenhuma ferramenta oferecida (<motivo>); rodadas N; desfecho ...`)
+e cada chamada com o analista que a fez. A auditoria registra em
+`deliberation.analysts` o nome, as ferramentas oferecidas (`offered`) ou o
+motivo de nenhuma (`not_offered`), as rodadas, os tokens de deliberação, as
 ferramentas pedidas, o desfecho e o limite de cada analista, e cada entrada
 de `deliberation.calls` leva o campo `analyst`. Sem analistas nada muda.
 
