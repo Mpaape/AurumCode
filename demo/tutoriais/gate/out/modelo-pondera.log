@@ -47,7 +47,7 @@ aurumcode review: gate.triage (analysis: model): app.go:6 analysis/hardcoded-sec
 ## AurumCode revisão de código
 
 > [!NOTE]
-> **Aprovado com 1 observação que não bloqueia o merge.**
+> **Gate passou com 1 observação que não bloqueia o merge.**
 
 gate da política: passou · 1 arquivo revisado
 app.go:6: [error] Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret)

@@ -292,7 +292,7 @@ git apply --check fix.patch</code></pre></li>
         <li class="tut-step"><span class="tut-k">Como funciona</span><p>O comando estima o custo antes de chamar o modelo; se a estimativa passar do teto, recusa — sem gastar nada.</p></li>
         <li class="tut-step"><span class="tut-k">Exemplo</span><pre><code>docker run aurumcode:local review --base HEAD~1 --limite 0.01</code></pre></li>
       </ol>
-      <pre class="observed" aria-label="Saída real observada">aurumcode review: estimated cost $0.0309, diff-only pre-flight (--limite $0.0100)
+      <pre class="observed" aria-label="Saída real observada">aurumcode review: estimated cost $0.0789, pre-flight of the assembled prompt (about 4887 tokens: instructions, policy, context and diff) (--limite $0.0100)
 aurumcode review: refusing to call the model: the request's cost would exceed --limite $0.0100; nothing was spent (LLM request failed: budget exceeded: insufficient budget for fixture (model "default"))</pre>
       <p class="obs-label">Determinístico (sem provedor) — recusa antes de chamar o modelo.</p>
       <p class="obs-proof">Prova: <code>internal/llm/cost/costtracker_test.go::TestCostTrackerAllow</code></p>

@@ -3,6 +3,7 @@
 $ aurumcode review --base main --padroes /standards
 aurumcode review: profiles: padroes
 aurumcode review: deliberation: desligada na configuração (deliberation.enabled: false); os analistas revisam sem pedir ferramentas
+aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 ## AurumCode revisão de código
 
 > [!TIP]
@@ -14,7 +15,6 @@ Cobertura da revisão
 - 1 arquivo ignorado (regra `ignore` do repositório ou binário): não foi revisado e não entra na cobertura. Ignorado não significa aprovado.
   - app.py
 Nenhum problema encontrado.
-aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_CACHE_DIR não definido): o veredito desta execução não pode ser compartilhado com outra execução, nem reaproveitar um anterior
 exit_code=0
 RESULTADO: sozinho, o servico aprova a propria mudanca
 --- com a politica: o gate e o ignore do servico sao descartados, com aviso

@@ -88,7 +88,7 @@ aurumcode changelog --base main
 <!-- saida: entrada-valida -->
 ```text
 $ aurumcode changelog --base main
-changelog: aprovado (entrada_valida): 1 linha(s) nova(s) em Unreleased, 0 em notas de versão
+changelog: aprovado (entrada_valida): 1 linha nova em Unreleased, 0 em notas de versão
 exit_code=0
 RESULTADO: a PR acrescentou uma entrada util em Unreleased e o check aprovou
 ```
@@ -119,7 +119,7 @@ Destaques: o relatório de pedidos agora soma por cliente.
 <!-- saida: consolidar-release -->
 ```text
 $ aurumcode changelog --base main
-changelog: aprovado (entrada_valida): 0 linha(s) nova(s) em Unreleased, 1 em notas de versão
+changelog: aprovado (entrada_valida): 0 linhas novas em Unreleased, 1 em notas de versão
 exit_code=0
 RESULTADO: a consolidacao da release com resumo novo foi aprovada
 ```

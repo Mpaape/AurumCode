@@ -6,7 +6,7 @@ aurumcode review: reaproveitamento do veredito do gate indisponível (AURUMCODE_
 ## AurumCode revisão de código
 
 > [!NOTE]
-> **Aprovado com 1 observação que não bloqueia o merge.**
+> **Gate passou com 1 observação que não bloqueia o merge.**
 
 gate da política: passou · 1 arquivo revisado
 app.go:6: [warning] Credencial literal contraria a convencao do time. (rule convencoes#sem-segredos-no-codigo: Sem segredos no codigo)

@@ -11,7 +11,7 @@ parecer publicado em 7/reviews:
 ## AurumCode revisão de código
 
 > [!NOTE]
-> **Aprovado com 1 observação que não bloqueia o merge.**
+> **Gate passou com 1 observação que não bloqueia o merge.**
 
 gate da política: passou · 1 arquivo revisado
 
@@ -39,6 +39,8 @@ Senha escrita no codigo.
 - Contexto do repositório omitido: não foi possível confirmar a identidade do checkout local; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto.
 
 </details>
+
+<!-- aurumcode:round 2222222222222222222222222222222222222222  locs= -->
 status publicado: context=aurumcode/review state=success
   description: nenhum achado grave
 status publicado: context=aurumcode/policy-gate state=success
@@ -88,6 +90,8 @@ Senha escrita no codigo.
 - Contexto do repositório omitido: não foi possível confirmar a identidade do checkout local; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto.
 
 </details>
+
+<!-- aurumcode:round 2222222222222222222222222222222222222222 d1ac4a193f52765135327d6bf997d6a66c90d7debd4de3b5d9fba32031425cf0 locs=app.go:6 -->
 status publicado: context=aurumcode/review state=failure
   description: 1 achado grave
 status publicado: context=aurumcode/policy-gate state=failure

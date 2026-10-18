@@ -355,19 +355,17 @@ AurumCode do zero, em camadas  modo mock
     │ aurumcode review: deliberation: desligada na configuração (deliberation.enabled: false); os analistas revisam sem pedir ferramentas
     │ aurumcode review: policy gate: ia#ia-001-resposta-do-modelo-nunca-e-executada - IA-001 Resposta do modelo nunca e executada (severidade error, limiar error, origem skills)
     │ aurumcode review: policy gate: analysis/hardcoded-secret - Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
-    │ assistente.py:10: [error] Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret) -- publicado na linha
-    │ assistente.py:32: [warning] A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. (rule time#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia] -- no parecer
-    │ assistente.py:34: [warning] A opção --executar é um comportamento novo sem teste (QA-001). (rule time#qa-001-comportamento-novo-tem-teste: QA-001 Comportamento novo tem teste) [perfil qa] [padrões de engenharia] -- no parecer
-    │ assistente.py:36: [error] Com --executar, a resposta do modelo é executada como código Python, contra a regra IA-001 da segurança. (rule ia#ia-001-resposta-do-modelo-nunca-e-executada: IA-001 Resposta do modelo nunca e executada) [perfil seguranca] -- publicado na linha
-    │ assistente.py:36: sugestão aplicável publicada na linha
-    │ parecer publicado na PR #1 (3 comentários na linha).
+    │ assistente.py:10: [error] Possível segredo no código — apontado por análise estática -- publicado na linha
+    │ assistente.py:32: [warning] A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. [padrões de engenharia] -- no parecer
+    │ assistente.py:34: [warning] A opção --executar é um comportamento novo sem teste (QA-001). [padrões de engenharia] -- no parecer
+    │ assistente.py:36: [error] Com --executar, a resposta do modelo é executada como código Python, contra a regra IA-001 da segurança. -- publicado na linha
+    │ parecer publicado na PR #1 (2 comentários na linha).
     │ check "aurumcode/review" publicado no commit <sha>: failure (2 achados graves)
-    │ check "aurumcode/policy-gate" publicado no commit <sha>: failure (falha: 2 achados reprovam o gate — IA-001 Resposta do modelo nunca e executada (error) em assistente.py:36; detalhes no parecer)
+    │ check "aurumcode/policy-gate" publicado no commit <sha>: failure (Bloqueado: 2 problemas (IA-001 Resposta do modelo nunca e executada em assistente.py:36, …))
     exit_code=3
   O que foi publicado na PR #1:
-    │ comentário na linha 10: **[error] Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret)**
-    │ comentário na linha 36: **[error] Com --executar, a resposta do modelo é executada como código Python, contra a regra IA-001 da segurança. (rule ia#ia-001-resposta-do-modelo-nunca-e-executada: IA-001 Resposta do modelo nunca e executada) [perfil seguranca]**
-    │ comentário na linha 36: **Mostrar em vez de executar**
+    │ comentário na linha 10: **[error] Possível segredo no código — apontado por análise estática**
+    │ comentário na linha 36: **[error] Com --executar, a resposta do modelo é executada como código Python, contra a regra IA-001 da segurança.**
     │ comentário publicado (POST):
     │ <!-- aurumcode-review -->
     │ ## AurumCode revisão de código
@@ -379,8 +377,8 @@ AurumCode do zero, em camadas  modo mock
     │ 
     │ ### Corrigir antes do merge
     │ 
-    │ - **`assistente.py:10`** — Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret)
-    │ - **`assistente.py:36`** — Com --executar, a resposta do modelo é executada como código Python, contra a regra IA-001 da segurança. (rule ia#ia-001-resposta-do-modelo-nunca-e-executada: IA-001 Resposta do modelo nunca e executada) [perfil seguranca]
+    │ - **`assistente.py:10`** — Possível segredo no código — apontado por análise estática
+    │ - **`assistente.py:36`** — Com --executar, a resposta do modelo é executada como código Python, contra a regra IA-001 da segurança.
     │   - Impacto: Quem controla a pergunta, ou o serviço de IA, executa qualquer código na máquina de quem roda o assistente.
     │   - Evidência: A linha 36 adicionada chama exec(codigo), e codigo é o texto devolvido por perguntar() na linha 35.
     │   - Correção sugerida: Mostre o código devolvido e deixe a pessoa decidir se o executa.
@@ -388,8 +386,8 @@ AurumCode do zero, em camadas  modo mock
     │ 
     │ ### Observações (não bloqueiam)
     │ 
-    │ - `assistente.py:32` — A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. (rule time#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia]
-    │ - `assistente.py:34` — A opção --executar é um comportamento novo sem teste (QA-001). (rule time#qa-001-comportamento-novo-tem-teste: QA-001 Comportamento novo tem teste) [perfil qa] [padrões de engenharia]
+    │ - `assistente.py:32` — A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. [padrões de engenharia]
+    │ - `assistente.py:34` — A opção --executar é um comportamento novo sem teste (QA-001). [padrões de engenharia]
     │ 
     │ ### Resumo
     │ 
@@ -409,22 +407,29 @@ AurumCode do zero, em camadas  modo mock
     │   - **Motivação:** O recurso continua útil e a decisão de executar volta para quem lê o código.
     │   - **Verificação:** Rode python3 assistente.py --executar "listar arquivos" e confira que só imprime.
     │ 
+    │ #### Regras citadas
+    │ 
+    │ - `analysis/hardcoded-secret` (origem analysis): `assistente.py:10`
+    │ - `time#pad-001-argumentos-de-linha-de-comando-com-argparse`: `assistente.py:32`
+    │ - `time#qa-001-comportamento-novo-tem-teste`: `assistente.py:34`
+    │ - `ia#ia-001-resposta-do-modelo-nunca-e-executada`: `assistente.py:36`
+    │ 
     │ #### Limitações da revisão
     │ 
     │ - Contexto do repositório omitido: o checkout local não é o repositório revisado; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto.
-    │ - policy gate: ia#ia-001-resposta-do-modelo-nunca-e-executada - IA-001 Resposta do modelo nunca e executada (severidade error, limiar error, origem skills)
-    │ - policy gate: analysis/hardcoded-secret - Segredo ou credencial atribuído direto no código (rule analysis/hardcoded-secret) (severidade error, limiar error, origem analysis)
     │ 
     │ </details>
     │ 
+    │ <!-- aurumcode:round <sha> 01fbcd29384888aa26cf849c1d03a970824d1f72f814c355cc1975e70425be25,dc0d2250f62171b3419f1c6fdcc406c2ca375779911acbc9b02c283dbd1997b9 locs=assistente.py:10,assistente.py:36 -->
+    │ 
     │ status aurumcode/review: failure — 2 achados graves
-    │ status aurumcode/policy-gate: failure — falha: 2 achados reprovam o gate — IA-001 Resposta do modelo nunca e executada (error) em assistente.py:36; detalhes no parecer
+    │ status aurumcode/policy-gate: failure — Bloqueado: 2 problemas (IA-001 Resposta do modelo nunca e executada em assistente.py:36, …)
   De onde veio cada achado (conclusão do roteiro, lida dos repositórios 
   clonados):
     │ assistente.py:10:  analysis/hardcoded-secret → verificação determinística do AurumCode, cobrada pelo gate do security-policy
-    │ assistente.py:32:  time#pad-001-argumentos-de-linha-de-comando-com-argparse → devops-policy (padrões de engenharia), analista padroes
-    │ assistente.py:34:  time#qa-001-comportamento-novo-tem-teste → devops-policy (padrões de engenharia), analista qa
-    │ assistente.py:36:  ia#ia-001-resposta-do-modelo-nunca-e-executada → security-policy (política de segurança), analista seguranca
+    │ assistente.py:32:  time#pad-001-argumentos-de-linha-de-comando-com-argparse → devops-policy (padrões de engenharia)
+    │ assistente.py:34:  time#qa-001-comportamento-novo-tem-teste → devops-policy (padrões de engenharia)
+    │ assistente.py:36:  ia#ia-001-resposta-do-modelo-nunca-e-executada → security-policy (política de segurança)
   bloqueado pelas três camadas: a segurança reprova (IA-001), a engenharia observa (PAD-001, QA-001) e o serviço só escolheu os analistas. A chave, porém, já foi enviada ao GitHub na branch: num caso real, revogue-a.
 
 ════════════════════════════════════════════════════════════════════════
@@ -536,11 +541,11 @@ AurumCode do zero, em camadas  modo mock
   $ aurumcode review --pr 1 --repo voce/assistente --publicar --check --modo-publicacao comments --politica /github/policy --padroes /github/standards
     │ aurumcode review: profiles: seguranca, padroes, qa
     │ aurumcode review: deliberation: desligada na configuração (deliberation.enabled: false); os analistas revisam sem pedir ferramentas
-    │ assistente.py:32: [warning] A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. (rule time#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia] -- no parecer
-    │ assistente.py:34: [warning] A opção --executar é um comportamento novo sem teste (QA-001). (rule time#qa-001-comportamento-novo-tem-teste: QA-001 Comportamento novo tem teste) [perfil qa] [padrões de engenharia] -- no parecer
+    │ assistente.py:32: [warning] A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. [padrões de engenharia] -- no parecer
+    │ assistente.py:34: [warning] A opção --executar é um comportamento novo sem teste (QA-001). [padrões de engenharia] -- no parecer
     │ parecer publicado na PR #1 (sem comentários na linha).
     │ check "aurumcode/review" publicado no commit <sha>: success (nenhum achado grave)
-    │ check "aurumcode/policy-gate" publicado no commit <sha>: success (aprovado: gate de política aprovado)
+    │ check "aurumcode/policy-gate" publicado no commit <sha>: success (Aprovado)
     exit_code=0
   O que foi publicado agora (no GitHub real, o mesmo comentário é editado; o 
   servidor falso não guarda o anterior, então aqui aparece um novo):
@@ -549,14 +554,14 @@ AurumCode do zero, em camadas  modo mock
     │ ## AurumCode revisão de código
     │ 
     │ > [!NOTE]
-    │ > **Aprovado com 2 observações que não bloqueiam o merge.**
+    │ > **Gate passou com 2 observações que não bloqueiam o merge.**
     │ 
     │ gate da política: passou · 1 arquivo revisado
     │ 
     │ ### Observações (não bloqueiam)
     │ 
-    │ - `assistente.py:32` — A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. (rule time#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia]
-    │ - `assistente.py:34` — A opção --executar é um comportamento novo sem teste (QA-001). (rule time#qa-001-comportamento-novo-tem-teste: QA-001 Comportamento novo tem teste) [perfil qa] [padrões de engenharia]
+    │ - `assistente.py:32` — A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. [padrões de engenharia]
+    │ - `assistente.py:34` — A opção --executar é um comportamento novo sem teste (QA-001). [padrões de engenharia]
     │ 
     │ ### Resumo
     │ 
@@ -565,14 +570,21 @@ AurumCode do zero, em camadas  modo mock
     │ <details>
     │ <summary>Detalhes da revisão</summary>
     │ 
+    │ #### Regras citadas
+    │ 
+    │ - `time#pad-001-argumentos-de-linha-de-comando-com-argparse`: `assistente.py:32`
+    │ - `time#qa-001-comportamento-novo-tem-teste`: `assistente.py:34`
+    │ 
     │ #### Limitações da revisão
     │ 
     │ - Contexto do repositório omitido: o checkout local não é o repositório revisado; esta revisão não envia o conteúdo do checkout local ao provedor e considera apenas o diff remoto.
     │ 
     │ </details>
     │ 
+    │ <!-- aurumcode:round <sha>  locs= -->
+    │ 
     │ status aurumcode/review: success — nenhum achado grave
-    │ status aurumcode/policy-gate: success — aprovado: gate de política aprovado
+    │ status aurumcode/policy-gate: success — Aprovado
   aprovado: a correção passou pelas mesmas três camadas que reprovaram a versão anterior; as observações da engenharia seguem abertas, sem bloquear.
 
 ════════════════════════════════════════════════════════════════════════
@@ -596,13 +608,11 @@ AurumCode do zero, em camadas  modo mock
   fixas. O serviço só tem o que é dele; as credenciais ficaram fora do 
   código; uma PR foi reprovada e depois aprovada pelas mesmas regras, e a 
   tentativa de afrouxar no serviço não mudou nada.
-  Serviço em demo/do-zero/.estado/projeto; 
-  camadas em 
+  Serviço em demo/do-zero/.estado/projeto; camadas em 
   demo/do-zero/.estado/security-policy e 
-  demo/do-zero/.estado/devops-policy; 
-  remotos falsos em 
-  demo/do-zero/.estado/remotos/. Para fazer 
-  de verdade na sua conta: exporte LLM_API_KEY e LLM_BASE_URL e rode  run.sh 
-  --modo real --repo NOME  (antes, run.sh --modo real --repo NOME --mostrar 
-  lista o que será criado).
+  demo/do-zero/.estado/devops-policy; remotos falsos em 
+  demo/do-zero/.estado/remotos/. Para fazer de verdade na 
+  sua conta: exporte LLM_API_KEY e LLM_BASE_URL e rode  run.sh --modo real 
+  --repo NOME  (antes, run.sh --modo real --repo NOME --mostrar lista o que 
+  será criado).
   Para apagar tudo: run.sh limpar
