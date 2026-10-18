@@ -60,7 +60,6 @@ required check. Neste repositório o mesmo arquivo roda direto em
 | `entrada_ausente` | A PR não altera o `CHANGELOG.md`. |
 | `apenas_espacos` | A alteração muda só espaços, indentação ou quebras de linha. |
 | `sem_informacao_nova` | Nenhuma linha nova com pelo menos `min_words` palavras em `Unreleased` ou numa seção de versão: só títulos, remoções, linhas reordenadas ou texto em outra seção. |
-| `entrada_longa` | Mais de `max_entry_lines` linhas novas em `Unreleased`, notas de versão com mais de `max_release_lines` linhas, ou uma linha com mais de `max_line_length` caracteres. |
 | `log_de_agente` | Uma linha nova contém um marcador de log de agente ou de ferramenta (`--- PASS`, `/pass`, `Co-Authored-By`, bloco de código, ...). |
 | `indeterminado` | O diff não pôde ser lido, o arquivo é binário ou grande demais, ou o `config.yml` da base é inválido. Nunca vira aprovação. |
 

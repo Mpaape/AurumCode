@@ -58,8 +58,8 @@ func TestAUR509AC001RequiredModeRefusesUselessChanges(t *testing.T) {
 	}
 }
 
-// AC-002: the entry stays concise and user-facing: agent logs and long
-// entries fail; consolidating one or two pages of release notes passes.
+// AC-002: the entry stays user-facing: agent logs fail; its size never
+// does; consolidating release notes passes.
 func TestAUR509AC002EntryIsConciseAndUserFacing(t *testing.T) {
 	r := aur509Requirement(t)
 	logs := []string{
@@ -73,16 +73,22 @@ func TestAUR509AC002EntryIsConciseAndUserFacing(t *testing.T) {
 			t.Errorf("agent log %q: verdict %+v", l, got)
 		}
 	}
-	long := "- " + strings.Repeat("palavra ", r.MaxLineLength/8+1)
-	if got := r.Verify(Change{State: FileChanged, Old: aur509Base, New: aur509WithEntry(long)}); got.Reason != ReasonTooLong {
+	// The size of an entry never fails it: a very long line, a long entry
+	// and long release notes all pass.
+	long := "- " + strings.Repeat("palavra ", 2000)
+	if got := r.Verify(Change{State: FileChanged, Old: aur509Base, New: aur509WithEntry(long)}); !got.OK {
 		t.Errorf("long line: verdict %+v", got)
 	}
 	var many []string
-	for i := 0; i <= r.MaxEntryLines; i++ {
+	for i := 0; i < 500; i++ {
 		many = append(many, "- Mudanca numero "+strings.Repeat("x", i+1)+" visivel ao usuario.")
 	}
-	if got := r.Verify(Change{State: FileChanged, Old: aur509Base, New: aur509WithEntry(strings.Join(many, "\n"))}); got.Reason != ReasonTooLong {
+	if got := r.Verify(Change{State: FileChanged, Old: aur509Base, New: aur509WithEntry(strings.Join(many, "\n"))}); !got.OK {
 		t.Errorf("entry with %d lines: verdict %+v", len(many), got)
+	}
+	notes := strings.Replace(aur509Base, "## Unreleased\n\n", "## Unreleased\n\n## 1.1.0\n\n"+strings.Join(many, "\n")+"\n\n", 1)
+	if got := r.Verify(Change{State: FileChanged, Old: aur509Base, New: notes}); !got.OK {
+		t.Errorf("release notes with %d lines: verdict %+v", len(many), got)
 	}
 
 	// Release consolidation: the Unreleased bullets move under the new

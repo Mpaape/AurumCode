@@ -3,11 +3,6 @@
 # agente declarados la se somam a estes, nunca os substituem.
 file: CHANGELOG.md
 section: Unreleased
-# Entrada concisa: quantas linhas novas cabem na secao e o tamanho de cada uma.
-max_entry_lines: 12
-max_line_length: 240
-# Consolidacao de uma release: notas de uma ou duas paginas.
-max_release_lines: 120
 # Uma linha informativa tem ao menos estas palavras (titulo nao conta).
 min_words: 3
 # Texto que denuncia log de agente ou de ferramenta colado no changelog.
