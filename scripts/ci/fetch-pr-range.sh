@@ -81,4 +81,4 @@ while ! range_complete; do
   fi
   deepen=$((deepen * 2))
 done
-echo "histórico da PR completo: $(git -C "$dir" rev-list --count "$head" --not "$base") commit(s) da PR, $(git -C "$dir" rev-list --count --all) no clone"
+echo "histórico da PR completo: commits da PR $(git -C "$dir" rev-list --count "$head" --not "$base"), no clone $(git -C "$dir" rev-list --count --all)"
