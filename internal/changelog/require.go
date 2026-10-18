@@ -10,8 +10,7 @@ import (
 
 // The required-changelog check (AUR-509). Verify decides, from the two sides
 // of the changelog file in a pull request, whether the change adds a useful
-// entry. The size of an entry never fails it: no line, entry or release
-// length limit. It is pure: no git, no model, no network. The entry text
+// and concise entry. It is pure: no git, no model, no network. The entry text
 // is untrusted data; it is only compared, counted and quoted, never executed
 // or interpreted as an instruction.
 
@@ -22,6 +21,9 @@ var requireDefaultsYAML []byte
 type Requirement struct {
 	File            string   `yaml:"file"`
 	Section         string   `yaml:"section"`
+	MaxEntryLines   int      `yaml:"max_entry_lines"`
+	MaxLineLength   int      `yaml:"max_line_length"`
+	MaxReleaseLines int      `yaml:"max_release_lines"`
 	MinWords        int      `yaml:"min_words"`
 	AgentLogMarkers []string `yaml:"agent_log_markers"`
 }
@@ -45,8 +47,8 @@ func (r Requirement) Validate() error {
 		return fmt.Errorf("file must not be empty")
 	case strings.TrimSpace(r.Section) == "":
 		return fmt.Errorf("section must not be empty")
-	case r.MinWords <= 0:
-		return fmt.Errorf("min_words must be positive")
+	case r.MaxEntryLines <= 0, r.MaxLineLength <= 0, r.MaxReleaseLines <= 0, r.MinWords <= 0:
+		return fmt.Errorf("limits must be positive")
 	}
 	return nil
 }
@@ -78,6 +80,7 @@ const (
 	ReasonMissing       = "entrada_ausente"
 	ReasonWhitespace    = "apenas_espacos"
 	ReasonNoInformation = "sem_informacao_nova"
+	ReasonTooLong       = "entrada_longa"
 	ReasonAgentLog      = "log_de_agente"
 	ReasonIndeterminate = "indeterminado"
 )
@@ -117,6 +120,9 @@ func (r Requirement) judge(added []addedLine) Verdict {
 		if marker := r.agentLogMarker(l.text); marker != "" {
 			return fail(ReasonAgentLog, fmt.Sprintf("linha %d parece log de agente ou de ferramenta (%q)", l.number, marker))
 		}
+		if len([]rune(strings.TrimSpace(l.text))) > r.MaxLineLength {
+			return fail(ReasonTooLong, fmt.Sprintf("linha %d passa de %d caracteres", l.number, r.MaxLineLength))
+		}
 		if !r.informative(l.text) {
 			continue
 		}
@@ -126,6 +132,12 @@ func (r Requirement) judge(added []addedLine) Verdict {
 		case isReleaseHeading(l.section):
 			release++
 		}
+	}
+	if entry > r.MaxEntryLines {
+		return fail(ReasonTooLong, fmt.Sprintf("a entrada em %s tem %d linhas; o limite é %d", r.Section, entry, r.MaxEntryLines))
+	}
+	if release > r.MaxReleaseLines {
+		return fail(ReasonTooLong, fmt.Sprintf("as notas da release têm %d linhas; o limite é %d", release, r.MaxReleaseLines))
 	}
 	if entry+release == 0 {
 		return fail(ReasonNoInformation, "nenhuma linha nova com informação de mudança em "+r.Section+" nem numa seção de versão")
