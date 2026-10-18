@@ -31,6 +31,11 @@ func (b *Budget) ToolRoundsLeft() int {
 	return b.maxToolRounds - b.toolRounds
 }
 
+// ToolRounds is how many rounds the whole review may ask for a tool.
+func (b *Budget) ToolRounds() int {
+	return b.maxToolRounds
+}
+
 // Spent is what the sessions booked so far: rounds that asked for a tool
 // and cost tokens.
 func (b *Budget) Spent() (toolRounds, costTokens int) {

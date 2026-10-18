@@ -1484,7 +1484,7 @@ consumidor.
 | `review.memory` | `off`, `ephemeral` ou `local` | `off` |
 | `review.changelog` | Publica versão sugerida e entrada de changelog (só sugestão; o check obrigatório é `changelog_check`) | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
-| `changelog_check.mode` | `required` faz a PR sem entrada útil no `CHANGELOG.md` reprovar no check `aurumcode changelog` | `off` |
+| `changelog_check.mode` | `required` faz a PR sem entrada útil no `CHANGELOG.md` reprovar no check `aurumcode changelog` e no gate local (`review --base`) | `off` |
 | `changelog_check.bots` | Modo para PR aberta por bot (Dependabot, Renovate): `off`, `suggest` ou `required`; só rebaixa `mode`, nunca eleva | `suggest` |
 | `review.profiles` | Analistas (perfis de revisor) executados na mesma revisão, local, MCP e PR: cada um faz a sua passada do modelo, pede as ferramentas da deliberação dentro do teto somado da revisão, e o achado diz quem o encontrou; os do time ficam no arquivo `profiles.yml` da pasta `.aurumcode`, lido da branch base na PR | vazio |
 | `review.presentation.collapse` | Severidades (`info`, `warning`, `error`) cujos achados não bloqueantes saem agrupados numa linha explicada do parecer, sem comentário próprio; achado bloqueante nunca é agrupado, e numa execução inconclusiva nada é agrupado | vazio (todo achado publicado um a um) |
@@ -1795,9 +1795,16 @@ elas não são oferecidas.
 
 A decisão é do modelo e fica registrada (oferecidas, pedidas, não pedidas) no
 stderr e no campo `deliberation` da auditoria (`--auditoria`), com cada
-chamada, os argumentos redigidos, a duração e o resultado resumido. Os
-argumentos de toda chamada são conferidos contra o schema da ferramenta antes
-de executar; uma chamada inválida é recusada e o modelo é avisado.
+chamada, os argumentos redigidos, a duração e o resultado resumido.
+"Oferecidas" lista só o que alguma rodada de fato ofereceu: uma passada que
+não recebeu ferramenta nenhuma registra `offered: []`, nenhuma ferramenta
+como não pedida e o motivo em `deliberation.not_offered`
+(`tool_rounds_spent`: as rodadas com ferramenta da revisão já tinham sido
+gastas; `no_tool_round`: `max_rounds: 1` não deixa rodada com ferramenta), e
+o terminal diz `deliberation: nenhuma ferramenta oferecida na revisão
+(<motivo>)`. Os argumentos de toda chamada são conferidos contra o schema da
+ferramenta antes de executar; uma chamada inválida é recusada e o modelo é
+avisado.
 
 `max_cost_tokens` é opcional: ausente (ou `0`), a deliberação não tem teto de
 tokens e só `max_rounds` e `per_tool_timeout_seconds` a limitam. Um valor
@@ -1870,7 +1877,11 @@ deliberação de todas as passadas somam esse teto. Selecionar analistas nunca
 multiplica o custo além do teto declarado. Um analista que começa depois de as rodadas com ferramenta acabarem é
 avisado no terminal (`deliberation: analista <nome> sem ferramentas: as
 rodadas com ferramenta da revisão (max_rounds) já foram gastas ...`) e
-responde com a evidência já reunida pelos anteriores; um analista cuja
+responde com a evidência já reunida pelos anteriores. Com `max_rounds: 1`
+a revisão não tem rodada com ferramenta: todo analista é avisado
+(`deliberation: analista <nome> sem ferramentas: max_rounds 1 deixa à
+revisão só a rodada da resposta final, nenhuma rodada com ferramenta`) e
+nenhum recebe ferramenta. Um analista cuja
 passada estoura o teto somado de tokens (quando há um) torna a revisão
 inconclusiva com `deliberation_limit:max_cost_tokens`, exatamente como na
 passada única.
@@ -1879,10 +1890,14 @@ para todos. Um scanner pedido por mais de um analista, ou mais de uma vez na
 mesma conversa, roda uma só vez na revisão e responde a todos com o mesmo
 resultado.
 
-O stderr mostra, além da linha da revisão, uma linha por analista
-(`deliberation: analista <nome>: rodadas N; pedidas [...]; desfecho ...`) e
-cada chamada com o analista que a fez. A auditoria registra em
-`deliberation.analysts` o nome, as rodadas, os tokens de deliberação, as
+O stderr mostra, além da linha da revisão, uma linha por analista com o que
+aquela passada de fato recebeu
+(`deliberation: analista <nome>: oferecidas [...]; rodadas N; pedidas [...]; desfecho ...`,
+ou, para a passada sem ferramenta,
+`deliberation: analista <nome>: nenhuma ferramenta oferecida (<motivo>); rodadas N; desfecho ...`)
+e cada chamada com o analista que a fez. A auditoria registra em
+`deliberation.analysts` o nome, as ferramentas oferecidas (`offered`) ou o
+motivo de nenhuma (`not_offered`), as rodadas, os tokens de deliberação, as
 ferramentas pedidas, o desfecho e o limite de cada analista, e cada entrada
 de `deliberation.calls` leva o campo `analyst`. Sem analistas nada muda.
 
@@ -2679,8 +2694,8 @@ O AurumCode confere se a pull request acrescenta uma linha útil ao
 | Modo | O que acontece numa PR sem entrada útil | Quando usar |
 | --- | --- | --- |
 | `off` (padrão) | Nada. | O time não mantém changelog. |
-| `suggest` | O parecer traz a entrada sugerida, pronta para colar. A PR não reprova. | Quer criar o hábito sem travar ninguém. |
-| `required` | O check reprova e traz a mesma sugestão. | O changelog é parte da entrega. |
+| `suggest` | O parecer traz a entrada sugerida, pronta para colar. A PR não reprova. No gate local (`review --base`, `aurumcode mcp`), o veredito e a sugestão aparecem como observação. | Quer criar o hábito sem travar ninguém. |
+| `required` | O check reprova e traz a mesma sugestão. O gate local reprova antes do push, com a entrada reprovada como achado bloqueante. | O changelog é parte da entrega. |
 
 ```mermaid
 flowchart LR
@@ -2709,6 +2724,24 @@ Os limites também são configuráveis (padrões entre parênteses):
 `max_entry_lines` (12), `max_line_length` (240), `max_release_lines` (120),
 `min_words` (3) e `agent_log_markers` (somam-se aos padrões). Um modo
 desconhecido é recusado ao ler a configuração, com a lista dos três.
+
+### No gate local
+
+`review --base`, e o servidor `aurumcode mcp` que usa a mesma sessão, roda a
+mesma verificação do `aurumcode changelog --base`: a configuração da base (com
+a política central, se houver), o diff a partir do ancestral comum e autor
+pessoa, como o comando sem `--autor`. O parecer ganha a seção
+*Changelog obrigatório* com o veredito:
+
+| Modo na base | No gate local |
+| --- | --- |
+| `required` | Entrada reprovada vira achado bloqueante em `CHANGELOG.md` (regra `changelog/<motivo>`, por exemplo `changelog/entrada_longa`), com o motivo, a entrada sugerida pelos commits e `aurumcode changelog --base <base>` para conferir. Exit 3, mesmo sem `--fail-on`; `indeterminado` dá exit 1. |
+| `suggest` | Veredito e entrada sugerida só como observação: nenhum achado e nenhum efeito no exit, nem com `--fail-on info`. |
+| `off` ou sem a seção | Nada muda. |
+
+A entrada sugerida vem dos assuntos dos commits; o gate não chama o modelo
+para ela. O `review --pr` da CI não repete a verificação, que lá é o workflow
+**Changelog obrigatório**.
 
 ### PR de bot (`changelog_check.bots`)
 

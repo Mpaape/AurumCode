@@ -70,3 +70,14 @@ func isReleaseHeading(heading string) bool {
 	_, err := ParseVersion(headingName(heading))
 	return err == nil
 }
+
+// SectionLine is the 1-based line of the configured section's heading in
+// text, 0 when text has no such heading.
+func (r Requirement) SectionLine(text string) int {
+	for i, l := range strings.Split(text, "\n") {
+		if n := normalizeLine(l); strings.HasPrefix(n, "## ") && sectionMatches(strings.TrimPrefix(n, "## "), r.Section) {
+			return i + 1
+		}
+	}
+	return 0
+}

@@ -70,8 +70,8 @@ func TestAUR616SessionsShareTheBudgetRounds(t *testing.T) {
 	if msgs := second.seen[0]; msgs[len(msgs)-1].Content != finalRoundInstruction {
 		t.Fatalf("the second session was not asked for its answer at once: %+v", msgs[len(msgs)-1])
 	}
-	if len(out.Transcript.NotRequested) != 1 || out.Transcript.NotRequested[0] != "scan" {
-		t.Fatalf("the tool not offered must count as not requested: %+v", out.Transcript)
+	if len(out.Transcript.Offered) != 0 || len(out.Transcript.NotRequested) != 0 || out.Transcript.NotOffered != NotOfferedRoundsSpent {
+		t.Fatalf("a tool never offered must be neither offered nor declined, and the reason named: %+v", out.Transcript)
 	}
 }
 
@@ -146,5 +146,53 @@ func TestAUR616MergeAttributesCallsToAnalysts(t *testing.T) {
 	}
 	if len(m.Analysts) != 2 || m.Analysts[0].Analyst != "seguranca" || m.Analysts[0].Rounds != 2 || m.Analysts[0].CostTokens != 30 || m.Analysts[1].Analyst != "solid" || m.Analysts[1].Rounds != 1 || len(m.Analysts[1].Requested) != 0 {
 		t.Fatalf("analysts = %+v", m.Analysts)
+	}
+}
+
+// Two sessions of one review: the transcript of each lists only the tools
+// some of its rounds offered; a session offered none names why, declines
+// nothing, and the merged record keeps what the review did offer.
+func TestSessionsRecordWhatTheyWereOffered(t *testing.T) {
+	cases := []struct {
+		name       string
+		maxRounds  int
+		first      []llm.ToolResponse
+		offered    string
+		notOffered string
+	}{
+		{name: "rounds spent", maxRounds: 2, first: askThenAnswer(`{"summary":"a"}`), offered: "scan", notOffered: ""},
+		{name: "no tool round", maxRounds: 1, first: []llm.ToolResponse{answer(`{"summary":"a"}`, 20, 5)}, offered: "", notOffered: NotOfferedNoToolRound},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			limits := Limits{MaxRounds: tc.maxRounds, PerToolTimeout: time.Second}
+			budget := NewBudget(limits)
+			tool := &countingTool{name: "scan"}
+			run := func(rounds []llm.ToolResponse) Transcript {
+				out, err := Session{Caller: &budgetCaller{rounds: rounds}, Tools: []Tool{tool}, Limits: limits, Shared: budget}.Run(context.Background(), nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return out.Transcript
+			}
+			first := run(tc.first)
+			second := run([]llm.ToolResponse{answer(`{"summary":"b"}`, 20, 5)})
+			if strings.Join(first.Offered, ",") != tc.offered || first.NotOffered != tc.notOffered {
+				t.Fatalf("first = offered %v, not offered %q", first.Offered, first.NotOffered)
+			}
+			wantSecond := NotOfferedRoundsSpent
+			if tc.maxRounds == 1 {
+				wantSecond = NotOfferedNoToolRound
+			}
+			if len(second.Offered) != 0 || len(second.NotRequested) != 0 || second.NotOffered != wantSecond {
+				t.Fatalf("second = offered %v, not requested %v, not offered %q; want none for %s", second.Offered, second.NotRequested, second.NotOffered, wantSecond)
+			}
+			first.AttributeTo("a")
+			second.AttributeTo("b")
+			m := Merge(&first, &second)
+			if strings.Join(m.Offered, ",") != tc.offered || m.NotOffered != tc.notOffered || m.Analysts[1].NotOffered != wantSecond || len(m.Analysts[1].Offered) != 0 {
+				t.Fatalf("merged = offered %v, not offered %q, analysts %+v", m.Offered, m.NotOffered, m.Analysts)
+			}
+		})
 	}
 }

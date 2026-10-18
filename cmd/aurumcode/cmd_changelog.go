@@ -132,7 +132,7 @@ func runChangelogWith(args []string, stdout, stderr io.Writer, deps changelogDep
 	}
 	verdict, req := ev.verdict, ev.req
 	if verdict.OK {
-		fmt.Fprintf(stdout, "changelog: aprovado (%s): %s\n", verdict.Reason, verdict.Detail)
+		fmt.Fprintln(stdout, changelogVerdictLine(ev.mode, verdict))
 		return 0
 	}
 	if ev.mode == config.ChangelogSuggest {
@@ -141,7 +141,7 @@ func runChangelogWith(args []string, stdout, stderr io.Writer, deps changelogDep
 		}
 		return deps.suggestOnly(*req, verdict, f, diff, stdout, stderr)
 	}
-	fmt.Fprintf(stdout, "changelog: reprovado (%s): %s\n", verdict.Reason, verdict.Detail)
+	fmt.Fprintln(stdout, changelogVerdictLine(ev.mode, verdict))
 	if verdict.Reason != changelog.ReasonIndeterminate {
 		deps.offerSuggestion(*req, ev.mode, f, diff, stdout, stderr)
 	}
@@ -152,9 +152,21 @@ func runChangelogWith(args []string, stdout, stderr io.Writer, deps changelogDep
 // refuse: it names what is missing, prints the suggestion and passes. An
 // unreadable changelog file gets a note and no suggestion.
 func (d changelogDeps) suggestOnly(req changelog.Requirement, verdict changelog.Verdict, f *changelogFlags, diff *types.Diff, stdout, stderr io.Writer) int {
-	fmt.Fprintf(stdout, "changelog: sem entrada útil (%s): %s; modo suggest, não reprova\n", verdict.Reason, verdict.Detail)
+	fmt.Fprintln(stdout, changelogVerdictLine(config.ChangelogSuggest, verdict))
 	if verdict.Reason != changelog.ReasonIndeterminate {
 		d.offerSuggestion(req, config.ChangelogSuggest, f, diff, stdout, stderr)
 	}
 	return exitChangelogSuggested
+}
+
+// changelogVerdictLine is the one line that states a verdict under mode:
+// the changelog command prints it and the local review shows it.
+func changelogVerdictLine(mode config.ChangelogMode, verdict changelog.Verdict) string {
+	switch {
+	case verdict.OK:
+		return fmt.Sprintf("changelog: aprovado (%s): %s", verdict.Reason, verdict.Detail)
+	case mode == config.ChangelogSuggest:
+		return fmt.Sprintf("changelog: sem entrada útil (%s): %s; modo suggest, não reprova", verdict.Reason, verdict.Detail)
+	}
+	return fmt.Sprintf("changelog: reprovado (%s): %s", verdict.Reason, verdict.Detail)
 }

@@ -32,12 +32,13 @@ caso_consolidar_release() {
   expect_rc 0 "a consolidacao da release com resumo novo foi aprovada"
 }
 
-# 3. A sugestao do review continua separada: ela propoe uma versao e um texto,
-#    mas nao aprova nem reprova o merge.
+# 3. A sugestao do review continua separada da entrada: ela propoe uma versao
+#    e um texto, mas nao substitui a entrada. Com mode: required na base, o
+#    proprio review reprova, como o check.
 caso_sugestao_separada() {
   tut_repo sugestao-separada repo-exemplo/base repo-exemplo/mudanca
   aurum review --base main --changelog
-  expect_rc 0 "o review publicou a sugestao de changelog sem decidir o merge"
+  expect_rc 3 "o review publicou a sugestao de versao e, com changelog_check required na base, reprovou a PR sem entrada"
   aurum changelog --base main
   expect_rc 1 "a sugestao nao substitui a entrada: o check obrigatorio reprovou"
 }

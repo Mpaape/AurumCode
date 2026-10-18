@@ -29,10 +29,10 @@ type analystPasses struct {
 	// declareWindow gives every pass the declared context window it starts
 	// under, and its notices.
 	declareWindow func(*review.Reviewer)
-	// spent is told, before a pass starts, that the review's tool rounds
-	// are already gone: the analyst then answers from the evidence the
-	// earlier passes gathered.
-	spent func(analyst string)
+	// spent is told, before a pass starts, that the review has no tool round
+	// for it (the deliberation.NotOffered* reason): the analyst then answers
+	// from the evidence the earlier passes gathered, if any.
+	spent func(analyst, reason string)
 	// refused is told, after a pass, which prompts the model refused as too
 	// long during it (review.Reviewer.PromptRefusals).
 	refused func(refusals []review.PromptRefusal)
@@ -62,8 +62,12 @@ func (s *reviewState) analystPasses(profiles []reviewprofile.Profile) analystPas
 		provider: s.provider, tracker: s.tracker, profiles: profiles,
 		dynamicRules: s.dynamicRules, ruleCatalogIDs: s.ruleCatalogIDs, plan: plan,
 		declareWindow: s.declareModelWindow,
-		spent: func(analyst string) {
-			fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, "terminal.deliberation_rounds_spent", analyst))
+		spent: func(analyst, reason string) {
+			key := "terminal.deliberation_rounds_spent"
+			if reason == deliberation.NotOfferedNoToolRound {
+				key = "terminal.deliberation_no_tool_round"
+			}
+			fmt.Fprintf(s.stderr, "aurumcode review: %s\n", i18n.Format(s.reviewLanguage, key, analyst))
 		},
 		refused: s.noteRefusals,
 		reduced: s.noteContextReduction,
@@ -83,12 +87,21 @@ func (a analystPasses) reviewer(p reviewprofile.Profile) (*review.Reviewer, erro
 		return nil, err
 	}
 	if a.plan != nil {
-		if a.plan.budget.ToolRoundsLeft() == 0 && a.spent != nil {
-			a.spent(p.Name)
+		if a.plan.budget.ToolRoundsLeft() <= 0 && a.spent != nil {
+			a.spent(p.Name, noToolRoundReason(a.plan.budget))
 		}
 		reviewer.SetDeliberation(a.plan.forCaller(orchestrator, a.plan.budget))
 	}
 	return reviewer, nil
+}
+
+// noToolRoundReason is why a pass of budget starts with no tool round: the
+// configuration left the review none, or the earlier passes spent them.
+func noToolRoundReason(budget *deliberation.Budget) string {
+	if budget.ToolRounds() <= 0 {
+		return deliberation.NotOfferedNoToolRound
+	}
+	return deliberation.NotOfferedRoundsSpent
 }
 
 // promptReviewer is a pass's reviewer as far as its prompt goes: the

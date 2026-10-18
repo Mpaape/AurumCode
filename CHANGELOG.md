@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- O gate local (`review --base` e o servidor MCP) roda o changelog obrigatório: em `required`, a entrada que a CI reprovaria bloqueia antes do push; em `suggest`, aparece como observação.
+- Com analistas, a passada que fica sem rodada com ferramenta não lista mais ferramentas que não recebeu: o terminal e a auditoria (`not_offered`) dizem que nada foi oferecido e por quê.
+
 ## 2.3.0 - 2026-10-18
 
 A varredura inicial e a agendada passam a revisar o repositório inteiro com o modelo e mandar o resultado para a aba Security. A revisão de PR deixa

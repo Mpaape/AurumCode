@@ -254,6 +254,22 @@ docker run --rm -v "$PWD:/workspace:ro" -w /workspace \
 O cache de memória é separado por repositório. Falhas ao ler ou gravar observações
 aparecem no diagnóstico; memória não autoriza mudanças de regras ou aprovação.
 
+### Changelog obrigatório no gate local
+
+Quando a base declara `changelog_check` em `required` ou `suggest`, o
+`review --base` roda a mesma verificação do `aurumcode changelog --base` e do
+check **Changelog obrigatório** da CI: a mesma configuração da base (com a
+política central, se houver), o mesmo diff a partir do ancestral comum e autor
+pessoa. O parecer ganha a seção *Changelog obrigatório* com o veredito, por
+exemplo `changelog: aprovado (entrada_valida): ...`. Em `required`, uma entrada
+reprovada (uma linha com mais de 240 caracteres dá `entrada_longa`) é achado
+bloqueante em `CHANGELOG.md`, com o motivo, a entrada sugerida pelos commits e
+o comando para conferir de novo; o gate local reprova com exit 3 (1 quando o
+check fica `indeterminado`), mesmo sem `--fail-on`. Em `suggest` o veredito e a
+sugestão aparecem só como observação, sem achado e sem mudar o exit. Em `off`,
+ou sem a seção, nada muda. O `review --pr` da CI não repete a verificação: lá
+ela é o workflow próprio.
+
 ## Corrigir sugestões com o fix
 
 `aurumcode fix` lê a resposta da revisão — o objeto completo com `suggestions`

@@ -16,6 +16,9 @@ type ledger interface {
 	// explicit cost ceiling it crossed (none is crossed without a ceiling);
 	// toolRound is a round that asked for a tool.
 	charge(t *Transcript, toolRound bool) *LimitError
+	// noToolsReason is why a round offers no tool before any round of the
+	// session offered one (Transcript.NotOffered).
+	noToolsReason() string
 }
 
 // ownLedger is the single session's own limits: MaxRounds calls, the
@@ -40,6 +43,10 @@ func (l ownLedger) charge(t *Transcript, _ bool) *LimitError {
 	}
 	return nil
 }
+
+// noToolsReason is empty: a session alone always offers its tools on its
+// first round.
+func (l ownLedger) noToolsReason() string { return "" }
 
 // sharedLedger draws the session's tool rounds and cost from the review's
 // Budget: a round may offer tools while the budget has a tool round left,
@@ -74,6 +81,13 @@ func (l *sharedLedger) charge(t *Transcript, toolRound bool) *LimitError {
 		return nil
 	}
 	return &LimitError{Limit: LimitMaxCostTokens, Detail: fmt.Sprintf("%d tokens de deliberacao somados na revisao, teto %d", total, l.budget.maxCostTokens)}
+}
+
+func (l *sharedLedger) noToolsReason() string {
+	if l.budget.ToolRounds() <= 0 {
+		return NotOfferedNoToolRound
+	}
+	return NotOfferedRoundsSpent
 }
 
 // ledger is the session's own limits, or the review's budget when set.

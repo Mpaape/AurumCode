@@ -14,6 +14,16 @@ const (
 	OutcomeAnswered = "answered"
 )
 
+// Reasons a deliberation offered no tool in any round (Transcript.NotOffered).
+const (
+	// NotOfferedRoundsSpent: the review's tool rounds (Budget, max_rounds)
+	// were already spent by its earlier passes.
+	NotOfferedRoundsSpent = "tool_rounds_spent"
+	// NotOfferedNoToolRound: max_rounds leaves the review no round that may
+	// ask for a tool (max_rounds 1 under a Budget: the only round answers).
+	NotOfferedNoToolRound = "no_tool_round"
+)
+
 // Transcript is the audit record of one deliberation: what was offered,
 // what the model asked for and did not, each call with its redacted
 // arguments, duration and summarized result, and how it ended.
@@ -40,6 +50,10 @@ type Transcript struct {
 	// offered (it never answered); NotRequested is then empty, because
 	// nothing was declined.
 	Undecided string `json:"undecided,omitempty"`
+	// NotOffered says why no round of the deliberation offered a tool
+	// (NotOfferedRoundsSpent, NotOfferedNoToolRound); Offered is then empty.
+	// Empty when some round offered the tools Offered lists.
+	NotOffered string `json:"not_offered,omitempty"`
 	// Analyst names the analyst whose pass this transcript records
 	// (AttributeTo); a review's merged transcript lists its analysts in
 	// Analysts instead, one entry per pass, in pass order.
@@ -50,6 +64,8 @@ type Transcript struct {
 // AnalystTranscript is one analyst's share of a review's deliberation.
 type AnalystTranscript struct {
 	Analyst    string   `json:"analyst"`
+	Offered    []string `json:"offered"`
+	NotOffered string   `json:"not_offered,omitempty"`
 	Rounds     int      `json:"rounds"`
 	CostTokens int      `json:"cost_tokens"`
 	Requested  []string `json:"requested"`
@@ -77,7 +93,8 @@ func (t *Transcript) AttributeTo(analyst string) {
 // analystEntry is the transcript's summary as a merged record lists it.
 func (t *Transcript) analystEntry() AnalystTranscript {
 	requested := append([]string{}, t.Requested...)
-	return AnalystTranscript{Analyst: t.Analyst, Rounds: t.Rounds, CostTokens: t.CostTokens, Requested: requested, Outcome: t.Outcome, Limit: t.Limit}
+	offered := append([]string{}, t.Offered...)
+	return AnalystTranscript{Analyst: t.Analyst, Offered: offered, NotOffered: t.NotOffered, Rounds: t.Rounds, CostTokens: t.CostTokens, Requested: requested, Outcome: t.Outcome, Limit: t.Limit}
 }
 
 // Call is one tool call the model made.
