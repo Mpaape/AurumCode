@@ -1523,7 +1523,7 @@ consumidor.
 | `--modo-publicacao` | `review` ou `comments` na publicação do PR |
 | `--na-linha` | Inclui achados elegíveis comentados na linha exata |
 | `--check` | Publica status de commit que bloqueia merge em achado grave |
-| `--limite` | Teto em USD estimado antes de chamar o modelo |
+| `--limite` | Teto em USD; antes de chamar o modelo, imprime a estimativa do prompt montado, somada sobre os passes dos analistas |
 | `--exigir-qualidade` | Falha se a revisão por modelo não aconteceu |
 | `--changelog` | Força a seção de changelog |
 | `--perfis`, `--profile` | Perfis de revisor selecionados para a revisão |
@@ -2039,6 +2039,17 @@ quando declarado, vale por lote. Um teto que não admite nenhum lote (um
 `max_prompt_tokens` menor que um prompt) é uma revisão de modelo que não
 rodou: não revisada (saída 1) sem gate e inconclusiva com gate, nunca
 aprovada. Tutorial: [Revisão, caso 5](tutorials/revisao.md).
+
+Com `--limite`, a estimativa impressa antes da chamada conta o prompt
+montado (instruções, política, contexto e diff) em tokens do provedor, a
+3,5 caracteres por token, como a janela declarada; com analistas, um passe
+por analista, e a linha diz quantos passes. Quando não há o que contar, como
+um `max_prompt_tokens` que não admite nenhum lote, a linha diz que o custo
+não foi estimado e o motivo, sem número; o `--limite` continua valendo em
+cada chamada. Os tokens dessa linha estão na contagem do provedor;
+`batches.max_prompt_tokens` e as linhas de lote e de recusa seguem na
+estimativa do produto (4 caracteres por token), então os dois números não se
+comparam diretamente.
 
 **Janela conhecida e contexto grande (#198).** Num monorepo o contexto de
 código (o pacote de dependências dos arquivos alterados) pode ser muitas vezes
