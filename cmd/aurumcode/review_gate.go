@@ -342,7 +342,8 @@ type publishOutcome struct {
 
 // blockingRule is what this run's review calls blocking: the declared
 // gate's decision, or the historical severity reading without a gate.
-// An explicit --fail-on catches on top of it, as the exit does.
+// An explicit --fail-on catches on top of it, as the exit does, over the
+// same findings: the security pass's published apart included.
 func (s *reviewState) blockingRule() blocking.Rule {
 	rule := blocking.Ungated()
 	if s.gateRes != nil && s.cfg != nil {
@@ -358,7 +359,7 @@ func (s *reviewState) blockingRule() blocking.Rule {
 	caught := func(issue types.ReviewIssue) bool {
 		return severityRank(issue.Severity) >= s.threshold && decided[thresholdKey(issue)]
 	}
-	return rule.WithThreshold(caught, s.findingsAtThreshold() > 0)
+	return rule.WithThreshold(caught, s.findingsAtThreshold() > 0, s.securityApart())
 }
 
 // thresholdKey names an issue for the --fail-on reading of blockingRule.

@@ -4,6 +4,7 @@
 
 - Corrigido: `review --base` nunca compara com a árvore da base em silêncio: clone raso que não alcança o ancestral falha com a causa; histórico criss-cross parte do ancestral mais novo, como o git.
 - Novo: skills de convenção `coerencia-da-mudanca` e `teste-prova-a-mudanca`, das lacunas que a revisão cega achou e o Aurum não; com elas o Aurum passou a pegar a incoerência do #218.
+- Corrigido: com `--fail-on`, título, evento formal, status `aurumcode/review` e saída concordam também sem gate; o título conta achados de segurança em seção separada e conta uma vez o problema que duas fontes reportaram.
 - Corrigido: com `--fail-on`, o parecer acompanha a saída: achado que o limiar pega aparece como bloqueante, e a linha do gate da política continua dizendo o que a política decidiu.
 - Corrigido: `review --base` e o check do changelog partem do ancestral comum, como `git diff base...HEAD`; branch atrás da base não aparece desfazendo o que a base ganhou.
 - Novo: a PR baixa só o próprio histórico (checkout raso + `fetch-pr-range.sh`, que aprofunda até o ancestral comum, sem teto); ancestral comum e gitleaks funcionam em clone raso.

@@ -142,8 +142,9 @@ const (
 	decisionBlocked
 )
 
-// decide reads the run's decision: blocking findings block; a declared
-// gate that failed without one, a model review that did not complete and
+// decide reads the run's decision: blocking findings block (a finding the
+// --fail-on threshold caught always is one); a declared policy gate that
+// failed without one, a model review that did not complete and
 // an approval the gate withheld are inconclusive (never approved); findings
 // below the threshold are observations; nothing is approval.
 func decide(result *types.ReviewResult, rule blocking.Rule) (reviewDecision, int) {
@@ -156,7 +157,7 @@ func decide(result *types.ReviewResult, rule blocking.Rule) (reviewDecision, int
 		}
 		return decisionBlocked, n
 	}
-	if rule.Fails() || result.Metadata["quality_degraded"] == metaTrue || result.Metadata[prompt.PolicyGateWithheldKey] == metaTrue {
+	if rule.GateFails() || result.Metadata["quality_degraded"] == metaTrue || result.Metadata[prompt.PolicyGateWithheldKey] == metaTrue {
 		return decisionInconclusive, 0
 	}
 	if n := len(result.Issues) + len(review.OutsideDiffFindings(result)); n > 0 {

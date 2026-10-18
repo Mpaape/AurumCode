@@ -21,17 +21,18 @@ func reviewVerdictForLanguage(result *types.ReviewResult, copy reviewCopy) strin
 
 // gatedVerdictText is the verdict word under rule, the one the terminal
 // report and the audit keep: a declared gate decides it the way the formal
-// review event follows the gate. A run whose quality review did not
-// complete keeps reading inconclusive.
+// review event follows the gate, and a --fail-on catch requests changes
+// with or without one. A run whose quality review did not complete keeps
+// reading inconclusive.
 func gatedVerdictText(result *types.ReviewResult, copy reviewCopy, rule blocking.Rule) string {
 	verdict := ungatedVerdictText(result, copy)
-	if !rule.Gated() {
-		return verdict
-	}
 	if rule.Fails() && verdict != copy.inconclusive {
 		return copy.changesRequested
 	}
-	if !rule.Fails() && verdict == copy.changesRequested {
+	if !rule.Gated() {
+		return verdict
+	}
+	if verdict == copy.changesRequested {
 		return copy.comment
 	}
 	return verdict
@@ -138,7 +139,7 @@ func gatedSummaryText(result *types.ReviewResult, copy reviewCopy, rule blocking
 	if count := rule.Count(result.Issues); count > 0 {
 		return countText(count, copy.blockingFindingsOne, copy.blockingFindings)
 	}
-	if rule.Fails() {
+	if rule.GateFails() {
 		if result.Metadata["quality_degraded"] == metaTrue {
 			return copy.qualityIncomplete
 		}
