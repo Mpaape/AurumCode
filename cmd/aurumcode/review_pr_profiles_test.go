@@ -80,7 +80,7 @@ func TestPRReviewRunsTheRepositoryAnalystProfiles(t *testing.T) {
 	if teamRequests == 0 {
 		t.Fatalf("the team profile file was never read from the base ref; stderr=%s", stderr.String())
 	}
-	for _, want := range []string{"Approved with 2 observations", "[profile seguranca]", "[profile qa]", "security/command-injection", "quality/missing-error-handling"} {
+	for _, want := range []string{"Gate passed with 2 observations", "[profile seguranca]", "[profile qa]", "security/command-injection", "quality/missing-error-handling"} {
 		if !strings.Contains(reviewBody, want) {
 			t.Errorf("published parecer lacks %q:\n%s", want, reviewBody)
 		}

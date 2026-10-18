@@ -40,6 +40,6 @@ nada mudou: o serviço não consegue afrouxar a segurança.
 # AC-001: a correcao e aprovada pelas mesmas camadas; as observacoes da engenharia ficam abertas
 $ cp etapas/correcao.py assistente.py && git commit -am 'assistente: chave pelo ambiente e --executar só mostra' && git push
 exit_code=0
-> **Aprovado com 2 observações que não bloqueiam o merge.**
+> **Gate passou com 2 observações que não bloqueiam o merge.**
 status aurumcode/policy-gate: success
 aprovado: a correção passou pelas mesmas três camadas que reprovaram a versão anterior; as observações da engenharia seguem abertas, sem bloquear.

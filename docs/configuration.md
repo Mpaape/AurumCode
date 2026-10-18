@@ -16,7 +16,7 @@ formal do GitHub e, numa execução limpa, **aprova** a PR (`APPROVE`; exige
 AurumCode só como gate de validação, prefira `comments` ou `status`. `status`
 não publica nada na PR: o veredito é só o status `aurumcode/policy-gate` (e o
 `aurumcode/review` do `--check`), e o parecer fica no terminal e no resumo do
-job. `inline_comments` habilita comentários nas linhas, só para
+job, tanto no workflow reutilizável quanto na Action (`action.yml`). `inline_comments` habilita comentários nas linhas, só para
 os achados que bloqueiam o merge (os demais ficam no parecer), e, nos dois
 modos, publica cada sugestão com código pronto como substituição aplicável
 pelo GitHub (um clique) na linha alterada. Um achado da passagem de segurança
@@ -1480,7 +1480,7 @@ consumidor.
 | `review.context.skills` | Lista de Markdown de orientação | vazio |
 | `review.context.docs` | Lista de documentos de contexto | vazio |
 | `review.context.max_tokens` | Teto do contexto de código (o pacote de dependências enviado com o diff), em tokens estimados; maior que isso, ele é reduzido e a redução é declarada | sem teto |
-| `review.model_window_tokens` | Janela de contexto do modelo, em tokens: o prompt é dimensionado a ela desde o primeiro pedido, sem aprender a janela por recusa; `AURUMCODE_MODEL_WINDOW_TOKENS` sobrepõe | desconhecida |
+| `review.model_window_tokens` | Janela de contexto do modelo, em tokens: o prompt é dimensionado a ela desde o primeiro pedido, sem aprender a janela por recusa; `AURUMCODE_MODEL_WINDOW_TOKENS` sobrepõe (e o stderr avisa). Janela menor que o mínimo da revisão é ignorada com aviso | desconhecida |
 | `review.memory` | `off`, `ephemeral` ou `local` | `off` |
 | `review.changelog` | Publica versão sugerida e entrada de changelog (só sugestão; o check obrigatório é `changelog_check`) | `off` |
 | `review.version` | Versão-base `major.minor.patch` do changelog | `0.0.0` |
@@ -2032,7 +2032,8 @@ da auditoria, a cobertura fica parcial e a aprovação é retida
 negativo é erro de configuração; zero, ou a ausência da chave, não limita.
 Sob política central, uma seção `batches` da política decide sozinha (a do
 repositório é ignorada com aviso). Os tetos de custo somam todos os lotes:
-`max_prompt_tokens` é a soma estimada dos prompts, e `--limite` usa um só
+`max_prompt_tokens` é a soma estimada dos prompts, o pré-voo do `--limite`
+soma os lotes que a janela declarada planeja, e o `--limite` usa um só
 rastreador de custo para a revisão inteira; só `deliberation.max_cost_tokens`,
 quando declarado, vale por lote. Um teto que não admite nenhum lote (um
 `max_prompt_tokens` menor que um prompt) é uma revisão de modelo que não
@@ -2051,16 +2052,25 @@ review:
 ```
 
 Com a janela declarada, a primeira tentativa já usa o teto que uma recusa
-ensinaria (90% da janela, o resto fica para a resposta): lotes e redução do
-contexto saem sem nenhuma recusa. O teto do contexto reduz o pacote (trechos,
-depois referências, dependentes e símbolos) e o stderr diz quanto ficou. Cada
-conjunto de arquivos tem o contexto calculado uma vez por revisão, também
-quando a revisão se divide. O `--limite` continua estimando só o diff e diz,
-numa linha a mais, quantos tokens de contexto não entraram na estimativa. O
-`ignore` tira caminhos do contexto; sob política central, só o `ignore` da
-política vale. A recusa do vLLM (direta ou pelo LiteLLM: `maximum context
-length is N tokens ... prompt contains at least M input tokens`) dá a janela
-e o tamanho, e o teto vai direto a ela.
+ensinaria: 90% da janela fica para o prompt e o resto para a resposta,
+contados a 3,5 caracteres por token (o produto estima 4, e tokenizadores
+reais contam cerca de 3,6 em código), ou seja, cerca de 79% da janela em
+tokens estimados. Lotes e redução do contexto saem, em geral, sem recusa; se
+o modelo ainda recusar, a revisão se ajusta numa tentativa. Uma janela
+declarada menor do que instruções, política e o menor lote precisam não
+derruba a revisão: o stderr avisa e a revisão segue como se nenhuma janela
+tivesse sido declarada, aprendendo a janela pela recusa do modelo. Se
+`AURUMCODE_MODEL_WINDOW_TOKENS` sobrepõe um `review.model_window_tokens`
+diferente, o stderr também avisa. O teto do contexto reduz o pacote (trechos,
+depois referências, dependentes e símbolos) e o stderr diz quanto ficou. O
+repositório é lido uma vez por execução: cada lote resolve o próprio contexto
+dessa mesma leitura. O `--limite` estima o prompt montado pelo mesmo
+construtor da revisão (instruções, política, contexto, evidências e diff;
+somado por lote quando a janela declarada divide a revisão) e diz quantos
+tokens contou. O `ignore` tira caminhos do contexto; sob política central, só
+o `ignore` da política vale. A recusa do vLLM (direta ou pelo LiteLLM:
+`maximum context length is N tokens ... prompt contains at least M input
+tokens`) dá a janela e o tamanho, e o teto vai direto a ela.
 
 <a id="varredura-completa"></a>
 
@@ -2540,6 +2550,7 @@ on:
   pull_request:
   schedule:
     - cron: "17 5 * * *"
+  workflow_dispatch:
 
 jobs:
   review:
@@ -2548,7 +2559,7 @@ jobs:
 
   upload-dependencies-sarif:
     needs: review
-    if: ${{ github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2565,7 +2576,8 @@ jobs:
 ```
 
   Com o job `review` falhando (varredura inconclusiva), `needs` impede o
-  upload. A action standalone (`action.yml`) é só de PR e não roda a
+  upload. Num `workflow_dispatch` de outra branch o job `dependencies` não
+  roda e o upload é pulado pela mesma condição. A action standalone (`action.yml`) é só de PR e não roda a
   varredura agendada.
 
 <a id="varredura-agendada-da-branch-padrao"></a>

@@ -36,6 +36,14 @@ func (b *baseReview) printReport() {
 		result.Metadata["quality_degraded"] = "true"
 		fmt.Fprintln(b.stdout, i18n.Text(b.reviewLanguage, "terminal.deterministic_only"))
 	}
+	if b.f.fullReview() {
+		// A full scan has no merge to block: the headline says what must
+		// be fixed without speaking of a merge.
+		if result.Metadata == nil {
+			result.Metadata = make(map[string]string)
+		}
+		result.Metadata[metaFullScan] = metaTrue
+	}
 	fmt.Fprint(b.stdout, appendReachSection(renderLocalReport(result, b.diff, b.reviewLanguage, b.blockingRule()), b.reachLines, b.reviewLanguage))
 	if b.coverageText != "" {
 		fmt.Fprint(b.stdout, "\n"+b.coverageText+"\n")

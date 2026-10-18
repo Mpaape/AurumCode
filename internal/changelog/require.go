@@ -142,7 +142,16 @@ func (r Requirement) judge(added []addedLine) Verdict {
 	if entry+release == 0 {
 		return fail(ReasonNoInformation, "nenhuma linha nova com informação de mudança em "+r.Section+" nem numa seção de versão")
 	}
-	return Verdict{OK: true, Reason: ReasonOK, Detail: fmt.Sprintf("%d linha(s) nova(s) em %s, %d em notas de versão", entry, r.Section, release)}
+	return Verdict{OK: true, Reason: ReasonOK, Detail: fmt.Sprintf("%s em %s, %d em notas de versão", newLines(entry), r.Section, release)}
+}
+
+// newLines is the count of new lines with the noun in singular or plural:
+// "1 linha nova", "0 linhas novas", "3 linhas novas".
+func newLines(n int) string {
+	if n == 1 {
+		return "1 linha nova"
+	}
+	return fmt.Sprintf("%d linhas novas", n)
 }
 
 // informative reports whether an added line carries change information: not

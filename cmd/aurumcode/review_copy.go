@@ -44,6 +44,7 @@ type reviewCopy struct {
 	// The *One texts are the singular forms of the counted headline and
 	// facts texts.
 	headlineBlockedOne, headlineObservationsOne, factsFilesOne string
+	headlineBlockedScan, headlineBlockedScanOne                string
 	// The counted notices' singular forms (AUR-607): with one item they read
 	// without "(s)" in Portuguese; in English they are the plural text with
 	// "1", the bytes of earlier releases.
@@ -121,6 +122,8 @@ func reviewCopyFor(language string) reviewCopy {
 		summaryWithheld:          i18n.Text(language, "review.summary_withheld"),
 		headlineBlocked:          i18n.Text(language, "review.headline_blocked"),
 		headlineBlockedOne:       i18n.Text(language, "review.headline_blocked_one"),
+		headlineBlockedScan:      i18n.Text(language, "review.headline_blocked_scan"),
+		headlineBlockedScanOne:   i18n.Text(language, "review.headline_blocked_scan_one"),
 		headlineInconclusive:     i18n.Text(language, "review.headline_inconclusive"),
 		headlineObservations:     i18n.Text(language, "review.headline_observations"),
 		headlineObservationsOne:  i18n.Text(language, "review.headline_observations_one"),

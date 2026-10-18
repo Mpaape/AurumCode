@@ -169,12 +169,19 @@ func decide(result *types.ReviewResult, rule blocking.Rule) (reviewDecision, int
 // metaTrue is the value of a set metadata flag.
 const metaTrue = "true"
 
+// metaFullScan flags the result of review --completo: the whole tree, no
+// pull request and no merge.
+const metaFullScan = "full_scan"
+
 // formatHeadline is the decision as a GitHub alert block: the host draws
 // the colored band, the text says what the reader must do.
 func formatHeadline(result *types.ReviewResult, copy reviewCopy, rule blocking.Rule) string {
 	decision, n := decide(result, rule)
 	switch decision {
 	case decisionBlocked:
+		if result.Metadata[metaFullScan] == metaTrue {
+			return alertBlock("CAUTION", countText(n, copy.headlineBlockedScanOne, copy.headlineBlockedScan), "")
+		}
 		return alertBlock("CAUTION", countText(n, copy.headlineBlockedOne, copy.headlineBlocked), "")
 	case decisionInconclusive:
 		reason := copy.gateFailed
