@@ -136,6 +136,9 @@ type reviewState struct {
 	// window is the declared model window, resolved once per run
 	// (model_window.go).
 	window *modelWindow
+	// costPrice is --limite's price, set when the cost cap is; the
+	// pre-flight prices the assembled prompt with it (cost.go).
+	costPrice *cost.PriceMap
 
 	// invocation
 	policyDir                  string

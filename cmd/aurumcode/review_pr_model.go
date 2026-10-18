@@ -125,8 +125,7 @@ func (p *prReview) buildReviewer() (int, bool) {
 		modelKey := costModelKey(p.opts.modelo)
 		p.provider = &fixedModelProvider{Provider: p.provider, model: modelKey}
 		p.tracker = buildCostTracker(p.limiteUSD, modelKey, price)
-		printCostEstimate(stderr, estimateCostUSD(p.diff, price), p.limiteUSD)
-		printContextNotCounted(stderr, p.codebaseText)
+		p.costPrice = &price
 	}
 	orchestrator := llm.NewOrchestrator(p.provider, nil, p.tracker)
 	p.verifyCaller = orchestrator

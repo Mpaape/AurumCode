@@ -30,6 +30,7 @@ func (p *prReview) generateReview() (int, bool) {
 		CodebaseContext: p.codebaseText,
 		MemoryNotes:     p.memoryNotesText,
 	})
+	p.preflight(p.reviewer, p.diff, reviewCtx)
 	var result *types.ReviewResult
 	var err error
 	if p.profilesApplied() {
