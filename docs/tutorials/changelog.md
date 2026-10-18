@@ -148,7 +148,7 @@ exit_code=1
 RESULTADO: a sugestao nao substitui a entrada: o check obrigatorio reprovou
 ```
 
-O que observar: o review sugere; quem decide em `required` é o check.
+O que observar: a versão sugerida não é a entrada; em `required`, o check e o gate local reprovam a PR sem entrada.
 
 ## Caso 4: a PR tenta desligar o modo
 
