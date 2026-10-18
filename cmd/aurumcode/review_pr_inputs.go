@@ -208,8 +208,9 @@ func (p *prReview) resolveCheckout() (int, bool) {
 	p.checkoutMismatch = mismatch
 	if mismatch == "" {
 		included := includedFiles(verifiedFiles, p.cfg)
+		resolver := codebaseResolverFor(nil)
 		p.codebaseFor = cappedCodebaseFor(p.cfg, p.stderr, func(files []types.DiffFile) string {
-			return resolveVerifiedCodebaseContext(p.deps.resolveFiles, &types.Diff{Files: files}, p.verifiedDir, included)
+			return resolveVerifiedCodebaseContext(p.deps.resolveFiles, resolver, &types.Diff{Files: files}, p.verifiedDir, included)
 		})
 		p.codebaseText = p.codebaseFor(p.diff.Files)
 	} else {

@@ -83,7 +83,7 @@ func (r *Resolver) attachSnippets(root string, pack *Pack) {
 		seen[key] = true
 		lines, ok := contents[ref.File]
 		if !ok {
-			data, _, err := r.readFile(root, ref.File)
+			data, err := r.text(root, ref.File)
 			if err != nil {
 				pack.Dropped = appendDropped(pack.Dropped, "unreadable "+ref.File+": "+err.Error())
 				contents[ref.File] = nil

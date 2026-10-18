@@ -19,12 +19,19 @@ import (
 // through ResolveWithFiles against its own already-verified file set
 // instead of codebaseContextPack's unrestricted walk, since on --pr the
 // checkout is not necessarily the change under review (see checkout_identity.go).
-// exclude (AUR-470) is the policy's ignore and secret-file paths, never
-// read; nil excludes nothing.
-func resolveCodebaseContext(diff *types.Diff, exclude func(string) bool) string {
+// resolver is the run's one (#198): a split review resolves each batch's
+// context from the same reading of the repository.
+func resolveCodebaseContext(resolver *codebasectx.Resolver, diff *types.Diff) string {
 	return codebaseContextJSON(func() (*codebasectx.Pack, error) {
-		return codebaseContextPack(diffPaths(diff), exclude)
+		return codebaseContextPack(resolver, diffPaths(diff))
 	})
+}
+
+// codebaseResolverFor is a run's resolver: one reading of the repository
+// for every resolution, never reading what exclude (AUR-470: the policy's
+// ignore and secret-file paths) reports; nil excludes nothing.
+func codebaseResolverFor(exclude func(string) bool) *codebasectx.Resolver {
+	return codebasectx.Reading().WithExclude(exclude)
 }
 
 // codebaseContextJSON is the shared tail of both codebase-context passes

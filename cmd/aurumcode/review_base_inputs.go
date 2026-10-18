@@ -189,8 +189,9 @@ func (b *baseReview) resolveProfiles() (int, bool) {
 // and bounded; missing metadata omits the section with a declared
 // limitation and never crashes the review.
 func (b *baseReview) gatherContext() (int, bool) {
+	resolver := codebaseResolverFor(codebaseExclude(b.cfg))
 	b.codebaseFor = cappedCodebaseFor(b.cfg, b.stderr, func(files []types.DiffFile) string {
-		return resolveCodebaseContext(&types.Diff{Files: files}, codebaseExclude(b.cfg))
+		return resolveCodebaseContext(resolver, &types.Diff{Files: files})
 	})
 	b.codebaseText = b.codebaseFor(b.diff.Files)
 	b.memoryStore, b.memoryNotes, b.memoryNotesText = openReviewMemory(b.cfg.Review.Memory, "", "", b.stderr, b.filter)
