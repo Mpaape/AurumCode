@@ -7,6 +7,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/Mpaape/AurumCode/internal/config"
@@ -341,11 +342,28 @@ type publishOutcome struct {
 
 // blockingRule is what this run's review calls blocking: the declared
 // gate's decision, or the historical severity reading without a gate.
+// An explicit --fail-on catches on top of it, as the exit does.
 func (s *reviewState) blockingRule() blocking.Rule {
-	if s.gateRes == nil || s.cfg == nil {
-		return blocking.Ungated()
+	rule := blocking.Ungated()
+	if s.gateRes != nil && s.cfg != nil {
+		rule = blocking.FromGate(s.cfg.Gate.Declared(), *s.gateRes)
 	}
-	return blocking.FromGate(s.cfg.Gate.Declared(), *s.gateRes)
+	if s.threshold <= 0 {
+		return rule
+	}
+	decided := map[string]bool{}
+	for _, issue := range s.issuesDecidedByModel(s.run.IssuesForGate()) {
+		decided[thresholdKey(issue)] = true
+	}
+	caught := func(issue types.ReviewIssue) bool {
+		return severityRank(issue.Severity) >= s.threshold && decided[thresholdKey(issue)]
+	}
+	return rule.WithThreshold(caught, s.findingsAtThreshold() > 0)
+}
+
+// thresholdKey names an issue for the --fail-on reading of blockingRule.
+func thresholdKey(issue types.ReviewIssue) string {
+	return issue.RuleID + "\x00" + issue.File + "\x00" + strconv.Itoa(issue.Line)
 }
 
 // modelFindingBlocks reports whether the model's issue, alone, would block

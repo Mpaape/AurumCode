@@ -2,7 +2,9 @@
 // declared policy gate, blocking means exactly what the gate fails on: the
 // review's verdict and its text follow the gate decision, and a finding
 // below the threshold is a non-blocking observation. Without a gate the
-// historical reading stays: every error or warning blocks.
+// historical reading stays: every error or warning blocks. An explicit
+// --fail-on adds its own catch on top of either reading (WithThreshold), so
+// the parecer never reads "passed" on a run whose exit is that failure.
 package blocking
 
 import (
@@ -23,6 +25,25 @@ type Rule struct {
 	declared bool
 	fails    bool
 	keys     map[string]bool
+	// caught is the --fail-on threshold's own reading (nil without one), and
+	// thresholdFails whether it caught a finding this run.
+	caught         func(types.ReviewIssue) bool
+	thresholdFails bool
+}
+
+// WithThreshold adds an explicit --fail-on threshold to r: an issue caught
+// blocks, and a run where the threshold caught one fails, whatever the
+// declared gate decided. caught nil leaves r unchanged.
+func (r Rule) WithThreshold(caught func(types.ReviewIssue) bool, failed bool) Rule {
+	if caught == nil {
+		return r
+	}
+	r.caught, r.thresholdFails = caught, failed
+	return r
+}
+
+func (r Rule) caughtByThreshold(issue types.ReviewIssue) bool {
+	return r.caught != nil && r.caught(issue)
 }
 
 // Ungated is the rule of a run without a declared gate.
@@ -44,11 +65,20 @@ func FromGate(declared bool, res gate.Result) Rule {
 // Gated reports whether a declared gate decides what blocks.
 func (r Rule) Gated() bool { return r.declared }
 
-// Fails reports whether the declared gate failed this run.
-func (r Rule) Fails() bool { return r.declared && r.fails }
+// GateFails reports whether the declared policy gate itself failed this run,
+// whatever the --fail-on threshold caught: the "policy gate" line of the
+// parecer and the aurumcode/policy-gate status say this.
+func (r Rule) GateFails() bool { return r.declared && r.fails }
+
+// Fails reports whether the declared gate, or the --fail-on threshold on
+// top of it, failed this run.
+func (r Rule) Fails() bool { return r.declared && (r.fails || r.thresholdFails) }
 
 // Blocks reports whether issue blocks the merge under this rule.
 func (r Rule) Blocks(issue types.ReviewIssue) bool {
+	if r.caughtByThreshold(issue) {
+		return true
+	}
 	if r.declared {
 		return r.keys[gate.FindingOriginKey(issue.RuleID, issue.File, issue.Line)]
 	}
@@ -60,11 +90,17 @@ func (r Rule) Blocks(issue types.ReviewIssue) bool {
 // a dependency breach, included); without one, the errors and warnings.
 func (r Rule) Count(issues []types.ReviewIssue) int {
 	if r.declared {
-		return len(r.keys)
+		n := len(r.keys)
+		for _, issue := range issues {
+			if r.caughtByThreshold(issue) && !r.keys[gate.FindingOriginKey(issue.RuleID, issue.File, issue.Line)] {
+				n++
+			}
+		}
+		return n
 	}
 	n := 0
 	for _, issue := range issues {
-		if severityBlocks(issue.Severity) {
+		if severityBlocks(issue.Severity) || r.caughtByThreshold(issue) {
 			n++
 		}
 	}
@@ -78,7 +114,7 @@ func (r Rule) Event(event string) string {
 	if !r.declared {
 		return event
 	}
-	if r.fails {
+	if r.Fails() {
 		return EventRequestChanges
 	}
 	if event == EventRequestChanges {
