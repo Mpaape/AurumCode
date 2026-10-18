@@ -598,14 +598,20 @@ func (r *Repo) blobBytes(sha string) ([]byte, error) {
 //
 // The base side is the merge base of baseRef and headRef when they have
 // exactly one, as `git diff base...head`: a branch behind its base is never
-// shown undoing what the base gained since the fork. Unrelated histories
-// (or several best common ancestors) compare baseRef's own tree, as before.
+// shown undoing what the base gained since the fork; with several best
+// common ancestors (criss-cross) it starts from the newest, as git does. In
+// a complete clone, unrelated histories compare baseRef's own tree, as
+// before. In a shallow clone a missing merge base is an error
+// (the clone may be cut before the fork point), and so is any failure to
+// read the history: never a silent tree comparison.
 func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) {
 	baseSHA, err := r.ResolveRef(baseRef)
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolving base ref %q: %w", baseRef, err)
 	}
-	baseSHA = r.forkPoint(baseSHA, headRef)
+	if baseSHA, err = r.forkPoint(baseSHA, headRef); err != nil {
+		return nil, nil, err
+	}
 	baseTree, _, err := r.readCommit(baseSHA)
 	if err != nil {
 		return nil, nil, err

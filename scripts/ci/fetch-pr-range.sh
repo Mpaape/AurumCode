@@ -34,6 +34,11 @@ remote_git() {
   fi
   server="${GITHUB_SERVER_URL:-https://github.com}"
   auth="$(printf '%s' "x-access-token:$GH_TOKEN" | base64 | tr -d '\n')"
+  # Actions masks the raw token, not this encoded form: mask it too, so a
+  # debug log (GIT_TRACE_CURL, runner debug) never shows it.
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    echo "::add-mask::$auth"
+  fi
   GIT_CONFIG_COUNT=1 \
     GIT_CONFIG_KEY_0="http.$server/.extraheader" \
     GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
@@ -71,14 +76,16 @@ while ! range_complete; do
   if ! is_shallow; then
     fail "o repositório já tem o histórico inteiro e $base e $head não têm ancestral comum: a PR não tem intervalo para revisar"
   fi
-  before="$(git -C "$dir" rev-list --count --all)"
+  # Counted from both ends: the base fetched by SHA has no ref, so --all
+  # would miss its side and take a growing base for "nothing new".
+  before="$(git -C "$dir" rev-list --count "$base" "$head")"
   remote_git fetch -q --no-tags --deepen="$deepen" origin "$base" "$head" ||
     fail "git fetch --deepen=$deepen falhou ao buscar o histórico da PR"
-  if [ "$(git -C "$dir" rev-list --count --all)" = "$before" ] && is_shallow; then
+  if [ "$(git -C "$dir" rev-list --count "$base" "$head")" = "$before" ] && is_shallow; then
     # Nada novo chegou: busca o resto do historico de uma vez.
     remote_git fetch -q --no-tags --unshallow origin "$base" "$head" ||
       fail "git fetch --unshallow falhou ao buscar o histórico da PR"
   fi
   deepen=$((deepen * 2))
 done
-echo "histórico da PR completo: commits da PR $(git -C "$dir" rev-list --count "$head" --not "$base"), no clone $(git -C "$dir" rev-list --count --all)"
+echo "histórico da PR completo: commits da PR $(git -C "$dir" rev-list --count "$head" --not "$base"), no clone $(git -C "$dir" rev-list --count "$base" "$head")"
