@@ -84,3 +84,16 @@ func TestDiffWithoutACommonAncestorComparesTheTrees(t *testing.T) {
 		t.Fatalf("Diff(unrelated, feature) = %v, want the tree comparison (z.txt removed, a.txt and b.txt added)", got)
 	}
 }
+
+// A shallow clone cut before the fork point is an error, never a silent
+// tree comparison that would show the base's newer files as removed.
+func TestDiffInAShallowCloneCutBeforeTheForkPointFails(t *testing.T) {
+	dst, base, head, _ := shallowPullRequest(t, 2)
+	repo, err := OpenRepo(dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff, _, err := repo.Diff(base, head); err == nil {
+		t.Fatalf("a cut shallow clone gave a diff of %d files instead of an error", len(diff.Files))
+	}
+}

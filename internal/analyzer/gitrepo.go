@@ -605,7 +605,9 @@ func (r *Repo) Diff(baseRef, headRef string) (*types.Diff, []DiffNotice, error) 
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolving base ref %q: %w", baseRef, err)
 	}
-	baseSHA = r.forkPoint(baseSHA, headRef)
+	if baseSHA, err = r.forkPoint(baseSHA, headRef); err != nil {
+		return nil, nil, err
+	}
 	baseTree, _, err := r.readCommit(baseSHA)
 	if err != nil {
 		return nil, nil, err

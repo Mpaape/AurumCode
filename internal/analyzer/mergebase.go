@@ -13,6 +13,10 @@ import (
 // ancestor (criss-cross merges): no single range is the pull request's.
 var errAmbiguousMergeBase = errors.New("more than one best common ancestor (criss-cross history)")
 
+// errNoCommonAncestor is two commits whose histories, as far as the
+// repository holds them, never meet.
+var errNoCommonAncestor = errors.New("no common ancestor")
+
 // mergeBaseFromObjects returns the best common ancestor of a and b, read
 // from the object database: the common ancestors that are not an ancestor
 // of another common ancestor. Exactly one must exist; none or several is an
@@ -120,17 +124,32 @@ func (r *Repo) sides(oldBlob blobAt, hadOld bool, newBlob blobAt, hasNew bool) (
 }
 
 // forkPoint is the commit a --base diff starts from: the merge base of
-// baseSHA and headRef when there is exactly one, otherwise baseSHA itself
-// (unrelated histories, a criss-cross history, or a head that does not
-// resolve, which the caller then reports).
-func (r *Repo) forkPoint(baseSHA, headRef string) string {
+// baseSHA and headRef when there is exactly one. Only histories that truly
+// never meet, or a criss-cross history, fall back to baseSHA itself (the
+// tree comparison); a head that does not resolve also returns baseSHA, and
+// the caller reports it. Any other failure is an error, never a silent
+// tree comparison: in a shallow clone, "no common ancestor" may only mean
+// the clone was cut before the fork point, so it is an error there too.
+func (r *Repo) forkPoint(baseSHA, headRef string) (string, error) {
 	headSHA, err := r.ResolveRef(headRef)
 	if err != nil {
-		return baseSHA
+		return baseSHA, nil
 	}
 	mergeBase, err := r.mergeBaseFromObjects(strings.ToLower(baseSHA), strings.ToLower(headSHA))
-	if err != nil {
-		return baseSHA
+	switch {
+	case err == nil:
+		return mergeBase, nil
+	case errors.Is(err, errAmbiguousMergeBase):
+		return baseSHA, nil
+	case errors.Is(err, errNoCommonAncestor):
+		shallow, serr := r.shallowCommits()
+		if serr != nil {
+			return "", serr
+		}
+		if len(shallow) > 0 {
+			return "", fmt.Errorf("%w: the shallow clone does not reach the merge base of the range; fetch more history", err)
+		}
+		return baseSHA, nil
 	}
-	return mergeBase
+	return "", fmt.Errorf("finding the merge base of the range: %w", err)
 }

@@ -70,7 +70,7 @@ func (w *paintWalk) mergeBase(a, b string) (string, error) {
 	}
 	switch len(candidates) {
 	case 0:
-		return "", fmt.Errorf("no common ancestor of %s and %s", a, b)
+		return "", fmt.Errorf("%s and %s: %w", a, b, errNoCommonAncestor)
 	case 1:
 		return candidates[0], nil
 	}
