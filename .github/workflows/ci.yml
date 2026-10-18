@@ -52,6 +52,12 @@ jobs:
           golang:1.27.1-alpine3.24@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
           sh scripts/ci/build-test.sh
 
+      # The product image every consumer builds from a pinned SHA: a base
+      # image bump (Dependabot) that breaks it fails here, not in the review
+      # of a consumer.
+      - name: Build the product image (Dockerfile)
+        run: docker build --tag aurumcode-ci .
+
       # The scheduled-plugin example's profile generator (Python, outside the
       # Go module): the happy path and every refusal.
       - name: Plugin example tests
