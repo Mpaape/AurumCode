@@ -88,6 +88,8 @@ func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 		// AUR-433 (--limite): the two cost lines and the refusal message,
 		// all newly written to this same redacted stderr writer.
 		"aurumcode review: estimated cost $0.0914, pre-flight of the assembled prompt (about 3000 tokens: instructions, policy, context and diff) (--limite $0.5000)",
+		"aurumcode review: estimated cost $0.2742, pre-flight of the assembled prompt sent once per analyst, 3 model passes (about 9000 tokens in all: instructions, policy, context and diff, each pass) (--limite $0.5000)",
+		"aurumcode review: cost not estimated before the call: the first review batch takes about 900 tokens and batches.max_prompt_tokens allows 10 in all; raise or remove batches.max_prompt_tokens (2 files left out): no review batch fits the configured ceilings: the model review did not run: all providers failed; --limite $0.5000 is still enforced on every request",
 		"aurumcode review: actual cost $0.0181 (--limite $0.5000)",
 		`aurumcode review: refusing to call the model: the request's cost would exceed --limite $0.1000; nothing was spent (LLM request failed: budget exceeded: insufficient budget for default (model "default"))`,
 		"aurumcode review: --limite: value must not be empty",

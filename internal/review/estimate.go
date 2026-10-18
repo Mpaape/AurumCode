@@ -13,8 +13,10 @@ import (
 // under the declared window's ceiling when one is declared, summed over the
 // batches when that ceiling splits the review. It is the --limite
 // pre-flight's count (#198); a refusal the model may still answer with is
-// not foreseen. Zero when no prompt can be assembled.
-func (r *Reviewer) EstimatePromptTokens(diff *types.Diff, reviewContext ReviewContext) int {
+// not foreseen. An error, and no count, when no prompt can be assembled or
+// batches.max_prompt_tokens admits no batch: the review would send nothing
+// it could be priced by.
+func (r *Reviewer) EstimatePromptTokens(diff *types.Diff, reviewContext ReviewContext) (int, error) {
 	defer func() { r.learnedBudget, r.contextFits, r.contextReduction, r.batches = 0, nil, nil, nil }()
 	r.learnedBudget, r.contextFits, r.contextReduction = declaredCeiling(r.cfg.ModelWindowTokens), nil, nil
 	tokens, err := r.estimateOnce(diff, reviewContext)
@@ -24,9 +26,9 @@ func (r *Reviewer) EstimatePromptTokens(diff *types.Diff, reviewContext ReviewCo
 		tokens, err = r.estimateOnce(diff, reviewContext)
 	}
 	if err != nil {
-		return 0
+		return 0, err
 	}
-	return tokens
+	return tokens, nil
 }
 
 // estimateOnce is reviewOnce's assembly without the model: one prompt, or
@@ -51,6 +53,9 @@ func (r *Reviewer) estimateOnce(diff *types.Diff, reviewContext ReviewContext) (
 	plan, err := r.planBatches(diff, reviewContext)
 	if err != nil {
 		return 0, err
+	}
+	if len(plan.batches) == 0 {
+		return 0, r.noBatchReviewed(plan)
 	}
 	total := 0
 	for _, batch := range plan.batches {

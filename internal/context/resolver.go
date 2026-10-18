@@ -399,21 +399,27 @@ func (r *Resolver) scan(root string, repoFiles []string, changedSet map[string]b
 		if file.truncated {
 			pack.Dropped = appendDropped(pack.Dropped, "truncated "+rel+" at "+itoa(r.limits.MaxBytes)+" bytes")
 		}
-		data, st := file.data, file.structure
+		st := file.structure
 		dir, _, _ := importKeys(rel)
 		// A file that declares no import gives the grammar nothing to tell
 		// its dependencies by: its text is scanned.
 		_, linked := imports.changedDirs[dir]
 		linked = linked || len(st.Imports) == 0
-		for _, imp := range st.Imports {
+		for i, imp := range st.Imports {
 			if matchesImport(imp, imports.dirKeys, imports.stemKeys, imports.dirBaseKeys) {
 				linked = true
-				offset := indexOf(data, []byte(imp))
-				refs = append(refs, Reference{File: rel, Symbol: imp, Line: lineOf(data, offset)})
+				refs = append(refs, Reference{File: rel, Symbol: imp, Line: file.importLines[i]})
 			}
 		}
 		symRegex := regexByLang[st.Language]
 		if !linked || !st.HasStructure || symRegex == nil {
+			continue
+		}
+		// Only now is the text needed: a Reading resolver kept the
+		// structure, not the content.
+		data, err := r.contentOf(root, rel, file)
+		if err != nil {
+			pack.Dropped = appendDropped(pack.Dropped, "unreadable "+rel+": "+err.Error())
 			continue
 		}
 		for _, sym := range st.Symbols {

@@ -77,6 +77,16 @@ func (p profileProvider) Name() string {
 	return p.base.Name() + "/profile:" + p.profile.Name
 }
 
+// ResolveModel implements llm.ModelResolver: the prefix changes the
+// prompt, never the model billed for it, so the pass is priced under the
+// key of the provider behind it. Without it the key --limite's tracker is
+// priced for (fixedModelProvider) is hidden behind the profile, the pass
+// resolves no model, and the tracker refuses every analyst pass under
+// --limite as unpriceable.
+func (p profileProvider) ResolveModel(opts llm.Options) string {
+	return llm.ResolveModelKey(p.base, opts)
+}
+
 // CallTimeout forwards the bound of a fallback chain behind the profile:
 // the prefix changes the prompt, never how many providers may answer it.
 func (p profileProvider) CallTimeout(each time.Duration) time.Duration {
