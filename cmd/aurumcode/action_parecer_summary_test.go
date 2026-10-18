@@ -105,6 +105,26 @@ func TestActionStatusParecerInJobSummary(t *testing.T) {
 	}
 }
 
+// TestActionParecerSummaryWithoutRunnerTemp: inside a `using: docker` action
+// RUNNER_TEMP names the host's directory, absent in the container; the
+// entrypoint still runs the review and fills the summary from TMPDIR.
+func TestActionParecerSummaryWithoutRunnerTemp(t *testing.T) {
+	dir := t.TempDir()
+	tmp := filepath.Join(dir, "tmp")
+	if err := os.MkdirAll(tmp, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	summary := filepath.Join(dir, "step_summary")
+	code, out := runActionEntrypoint(t, dir, parecerCLI,
+		"GITHUB_STEP_SUMMARY="+summary, "RUNNER_TEMP=/nao/existe/_temp", "TMPDIR="+tmp)
+	if code != 3 || !strings.Contains(out, "parecer-file="+tmp+"/aurumcode-parecer.") {
+		t.Fatalf("exit = %d, want 3 with the parecer file under TMPDIR:\n%s", code, out)
+	}
+	if got, _ := os.ReadFile(summary); !strings.Contains(string(got), "## AurumCode: Bloqueado") {
+		t.Fatalf("job summary lacks the parecer:\n%s", got)
+	}
+}
+
 // TestActionParecerFileOnlyWithSummary: without $GITHUB_STEP_SUMMARY the
 // entrypoint sets no parecer file (the CLI prints it to stdout), and a
 // caller's own AURUMCODE_PARECER_FILE is kept.
