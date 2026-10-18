@@ -2678,9 +2678,10 @@ changelog_check:
   section: Unreleased     # padrão
 ```
 
-Os limites também são configuráveis (padrões entre parênteses):
-`max_entry_lines` (12), `max_line_length` (240), `max_release_lines` (120),
-`min_words` (3) e `agent_log_markers` (somam-se aos padrões). Um modo
+Também são configuráveis `min_words` (3, padrão) e `agent_log_markers`
+(somam-se aos padrões). O tamanho da entrada nunca reprova: não há limite de
+linhas nem de caracteres. `max_entry_lines`, `max_line_length` e
+`max_release_lines` de configurações antigas são aceitos e ignorados. Um modo
 desconhecido é recusado ao ler a configuração, com a lista dos três.
 
 ### PR de bot (`changelog_check.bots`)
@@ -2745,7 +2746,7 @@ colar é do humano.
 
 - Exit 0: entrada válida, modo `off` ou modo `suggest`. Exit 1: entrada
   reprovada em `required` (`entrada_ausente`, `apenas_espacos`,
-  `sem_informacao_nova`, `entrada_longa`, `log_de_agente`) ou `indeterminado`
+  `sem_informacao_nova`, `log_de_agente`) ou `indeterminado`
   (diff ilegível, `config.yml` da base inválido). Exit 2: uso errado.
 - O modo vem da **base** da PR: uma PR que troca o modo só muda o check depois
   do merge.

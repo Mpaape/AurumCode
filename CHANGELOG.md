@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Corrigido: o changelog obrigatório não reprova mais pelo tamanho da entrada; `max_entry_lines`, `max_line_length` e `max_release_lines` são aceitos e ignorados.
 - Corrigido: os aceites do board saem do CI agendado; achados tardios dizem "1 finding"/"N findings", sem "(s)".
 - Novo: job `scan` (opt-in) do workflow reutilizável: `review --completo` agendado e em `workflow_dispatch`, achados só na aba Security; dependências também em `workflow_dispatch`; achado repetido entre analistas é um só no SARIF (#177).
 - Novo: `aurumcode review --completo` revisa a árvore inteira do HEAD, sem commit órfão; gitleaks no histórico inteiro; SARIF na categoria `aurumcode/initial-scan` (#178).

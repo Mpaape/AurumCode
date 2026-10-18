@@ -76,23 +76,17 @@ func (r Requirement) SuggestFromModel(text string) (Suggestion, error) {
 }
 
 // suggestionLines turns raw candidates into bullets the check accepts:
-// one line each, escaped, without agent-log markers, informative, within
-// the line length, deduplicated and capped at MaxEntryLines.
+// one line each, escaped, without agent-log markers, informative and
+// deduplicated.
 func (r Requirement) suggestionLines(candidates []string) []string {
 	seen := map[string]struct{}{}
 	var out []string
 	for _, raw := range candidates {
-		if len(out) >= r.MaxEntryLines {
-			break
-		}
 		text := strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(firstLine(raw)), "-*+> "))
 		if text == "" || r.agentLogMarker(text) != "" {
 			continue
 		}
 		line := "- " + escapeText(text)
-		if limit := r.MaxLineLength; limit > len("...") && len([]rune(line)) > limit {
-			line = string([]rune(line)[:limit-len("...")]) + "..."
-		}
 		if !r.informative(line) || r.agentLogMarker(line) != "" {
 			continue
 		}

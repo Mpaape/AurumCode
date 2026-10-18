@@ -88,13 +88,8 @@ func changelogRequirement(c *config.ChangelogCheckConfig) (changelog.Requirement
 	if s := strings.TrimSpace(c.Section); s != "" {
 		req.Section = s
 	}
-	for _, o := range []struct {
-		dst *int
-		v   int
-	}{{&req.MaxEntryLines, c.MaxEntryLines}, {&req.MaxLineLength, c.MaxLineLength}, {&req.MaxReleaseLines, c.MaxReleaseLines}, {&req.MinWords, c.MinWords}} {
-		if o.v > 0 {
-			*o.dst = o.v
-		}
+	if c.MinWords > 0 {
+		req.MinWords = c.MinWords
 	}
 	req.AgentLogMarkers = append(req.AgentLogMarkers, c.AgentLogMarkers...)
 	return req, req.Validate()
