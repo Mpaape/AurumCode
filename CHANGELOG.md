@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Corrigido: a imagem do produto voltou a compilar depois da subida do Go para 1.27.2; o CI de PR passa a construir a imagem.
+- Corrigido: a Action direta grava o parecer de `publication: status` no resumo do job, inclusive com o gate fechado; o guia e a demo mostram a varredura inicial na CI e que o histórico só é varrido com gitleaks (#177, #178, #201).
 - Mantido: o changelog obrigatório volta a reprovar entrada longa (240 caracteres por linha, 12 linhas por entrada).
 - Corrigido: os aceites do board saem do CI agendado; achados tardios dizem "1 finding"/"N findings", sem "(s)".
 - Novo: job `scan` (opt-in) do workflow reutilizável: `review --completo` agendado e em `workflow_dispatch`, achados só na aba Security; dependências também em `workflow_dispatch`; achado repetido entre analistas é um só no SARIF (#177).

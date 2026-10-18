@@ -99,18 +99,57 @@ if [[ "$model" != default ]]; then
     args+=(--modelo "$model")
 fi
 
+# temp_dir: where the entrypoint keeps its own files. Inside a `using: docker`
+# action RUNNER_TEMP names the host's directory, which is not mounted here, so
+# it is used only when it exists in this container.
+temp_dir() {
+    if [[ -n "${RUNNER_TEMP:-}" && -d "$RUNNER_TEMP" ]]; then
+        printf '%s' "${RUNNER_TEMP%/}"
+    else
+        local t="${TMPDIR:-/tmp}"
+        printf '%s' "${t%/}"
+    fi
+}
+
 output_file=""
 if [[ "$changelog" == true ]]; then
     args+=(--changelog)
-    output_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
-    output_file="$(mktemp "${output_dir%/}/aurumcode-output.XXXXXX")"
+    output_file="$(mktemp "$(temp_dir)/aurumcode-output.XXXXXX")"
     export AURUMCODE_OUTPUT_FILE="$output_file"
+fi
+
+# #201: publication: status keeps the parecer off the pull request; the CLI
+# writes it to AURUMCODE_PARECER_FILE, and the action appends it to the job
+# summary, as the reusable workflow does. Set for every publication input,
+# because config can resolve to status through .aurumcode/config.yml; the CLI
+# writes the file only in status mode. A caller's own AURUMCODE_PARECER_FILE
+# is left alone.
+# A summary that cannot be prepared never stops the review.
+parecer_file=""
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" && -z "${AURUMCODE_PARECER_FILE:-}" ]]; then
+    if parecer_file="$(mktemp "$(temp_dir)/aurumcode-parecer.XXXXXX" 2>/dev/null)"; then
+        export AURUMCODE_PARECER_FILE="$parecer_file"
+    else
+        parecer_file=""
+        echo "AurumCode action: no temporary file for the parecer; it will not reach the job summary" >&2
+    fi
 fi
 
 set +e
 "$cli" "${args[@]}"
 status=$?
 set -e
+
+# The parecer goes to the summary on any exit status, 3 (the gate closing on
+# findings) included: in status mode the summary is the only place that says
+# why the gate failed.
+if [[ -n "$parecer_file" && -s "$parecer_file" ]]; then
+    cat "$parecer_file" >> "$GITHUB_STEP_SUMMARY" ||
+        echo "AurumCode action: could not append the parecer to the job summary" >&2
+fi
+if [[ -n "$parecer_file" ]]; then
+    rm -f "$parecer_file" 2>/dev/null || true
+fi
 
 # AUR-499: expose the suggested version and changelog entry to the consumer
 # workflow through the modern $GITHUB_OUTPUT file (the deprecated output
