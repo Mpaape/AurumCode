@@ -225,9 +225,36 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           path: .aurumcode-target
           persist-credentials: false
-          # Full history: gitleaks scans base..head, and a shallow clone
-          # would cut the range (the engine refuses one as inconclusive).
-          fetch-depth: 0
+          # Only the pull request's history: the next step fetches the
+          # base and deepens until base..head is whole (gitleaks scans it,
+          # and refuses a shallow clone that cuts it as inconclusive).
+          fetch-depth: 1
+
+      - name: Fetch only the pull request history
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        # Deepens the depth-1 checkout in rounds until the merge base is in
+        # it and no shallow boundary falls inside base..head (the range
+        # gitleaks scans), never a capped number of rounds: the worst case
+        # is the whole history. The token authenticates only these git
+        # commands (a private repository), never written to .git/config. A
+        # pinned tool without the script (an older SHA, or the pull request
+        # that introduces it, whose tool comes from the base) fetches the
+        # whole history, as before.
+        run: |
+          fetcher=.aurumcode-tool/scripts/ci/fetch-pr-range.sh
+          if [ -f "$fetcher" ]; then
+            sh "$fetcher" .aurumcode-target "$BASE_SHA" "$HEAD_SHA"
+            exit 0
+          fi
+          echo "::notice title=Histórico da PR::a ferramenta pinada não tem scripts/ci/fetch-pr-range.sh; buscando o histórico inteiro (git fetch --unshallow), como antes."
+          auth="$(printf '%s' "x-access-token:$GH_TOKEN" | base64 | tr -d '\n')"
+          GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0="http.${GITHUB_SERVER_URL}/.extraheader" \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
+            git -C .aurumcode-target fetch -q --no-tags --unshallow origin "$BASE_SHA" "$HEAD_SHA"
 
       - name: Checkout central policy
         if: ${{ inputs.policy_repository != '' }}

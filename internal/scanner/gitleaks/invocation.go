@@ -39,7 +39,8 @@ var (
 	// instead would miss a secret added and removed inside the range.
 	ErrNoRange = errors.New("gitleaks: no reviewed commit range")
 	// ErrBadRange: a range end is not a full commit id, is absent from the
-	// repository, or the repository is shallow (the range would be cut).
+	// repository, or a shallow clone cuts the range (or the range is the
+	// full history and the repository is shallow).
 	ErrBadRange = errors.New("gitleaks: reviewed commit range is not scannable")
 	// ErrVersionMismatch: the binary is not the pinned version, so its
 	// bundled rule base is not the pinned one either.
@@ -70,10 +71,13 @@ func binaryVersion(ctx context.Context, run scanner.Command, root string) (strin
 	return version, nil
 }
 
-// verifyRange checks both ends are full commit ids present in a complete
-// (not shallow) repository. gitleaks itself reports zero leaks, exit 0, on
-// an unknown revision, so this check is what keeps a bad range from
-// reading as a clean scan.
+// verifyRange checks both ends are full commit ids present in the
+// repository, and that the repository holds the whole range: a complete
+// one always does, a shallow one only when no shallow boundary falls inside
+// the range (shallow.go), and a full history scan needs a complete one.
+// gitleaks itself reports zero leaks, exit 0, on an unknown revision or a
+// cut history, so this check is what keeps a bad range from reading as a
+// clean scan.
 func verifyRange(ctx context.Context, run scanner.Command, root string, r scanner.Range) error {
 	if r.Empty() {
 		return ErrNoRange
@@ -91,13 +95,17 @@ func verifyRange(ctx context.Context, run scanner.Command, root string, r scanne
 	if err != nil {
 		return fmt.Errorf("%w: git rev-parse --is-shallow-repository: %v%s", ErrBadRange, err, quotedStderr(stderr))
 	}
-	if strings.TrimSpace(stdout) != "false" {
+	shallow := strings.TrimSpace(stdout)
+	if shallow != "false" && (shallow != "true" || r.Full) {
 		return fmt.Errorf("%w: shallow repository (the checkout needs the full history of the range)", ErrBadRange)
 	}
 	for _, end := range ends {
 		if _, _, err := run(ctx, root, gitBinary, "cat-file", "-e", end[1]+"^{commit}"); err != nil {
 			return fmt.Errorf("%w: %s commit %s not found in the checkout", ErrBadRange, end[0], end[1])
 		}
+	}
+	if shallow == "true" {
+		return verifyShallowRange(ctx, run, root, r)
 	}
 	return nil
 }

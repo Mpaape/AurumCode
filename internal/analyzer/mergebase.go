@@ -16,64 +16,14 @@ var errAmbiguousMergeBase = errors.New("more than one best common ancestor (cris
 // mergeBaseFromObjects returns the best common ancestor of a and b, read
 // from the object database: the common ancestors that are not an ancestor
 // of another common ancestor. Exactly one must exist; none or several is an
-// error, never a guess.
+// error, never a guess. The walk (paintdown.go) reads only the commits that
+// can decide the answer, never the whole history.
 func (r *Repo) mergeBaseFromObjects(a, b string) (string, error) {
-	ancestorsOfA, err := r.ancestors([]string{a})
+	read, err := r.commitReader()
 	if err != nil {
 		return "", err
 	}
-	ancestorsOfB, err := r.ancestors([]string{b})
-	if err != nil {
-		return "", err
-	}
-	var parents []string
-	common := map[string][]string{}
-	for sha, ps := range ancestorsOfB {
-		if _, ok := ancestorsOfA[sha]; ok {
-			common[sha] = ps
-			parents = append(parents, ps...)
-		}
-	}
-	dominated, err := r.ancestors(parents)
-	if err != nil {
-		return "", err
-	}
-	var best []string
-	for sha := range common {
-		if _, ok := dominated[sha]; !ok {
-			best = append(best, sha)
-		}
-	}
-	sort.Strings(best)
-	switch len(best) {
-	case 0:
-		return "", fmt.Errorf("no common ancestor of %s and %s", a, b)
-	case 1:
-		return best[0], nil
-	}
-	return "", fmt.Errorf("merge base of %s and %s: %w", a, b, errAmbiguousMergeBase)
-}
-
-// ancestors walks the history from starts (included), returning each
-// commit with its parents, however long the history (each commit is read
-// once). A missing object (a shallow clone) is an error.
-func (r *Repo) ancestors(starts []string) (map[string][]string, error) {
-	seen := map[string][]string{}
-	queue := append([]string{}, starts...)
-	for len(queue) > 0 {
-		sha := queue[0]
-		queue = queue[1:]
-		if _, ok := seen[sha]; ok {
-			continue
-		}
-		_, parents, err := r.readCommit(sha)
-		if err != nil {
-			return nil, fmt.Errorf("reading commit %s: %w", sha, err)
-		}
-		seen[sha] = parents
-		queue = append(queue, parents...)
-	}
-	return seen, nil
+	return newPaintWalk(read).mergeBase(a, b)
 }
 
 // RangeDiffFromObjects is RangeDiff without a git binary: the diff of
@@ -167,4 +117,20 @@ func (r *Repo) sides(oldBlob blobAt, hadOld bool, newBlob blobAt, hasNew bool) (
 		}
 	}
 	return oldContent, newContent, nil
+}
+
+// forkPoint is the commit a --base diff starts from: the merge base of
+// baseSHA and headRef when there is exactly one, otherwise baseSHA itself
+// (unrelated histories, a criss-cross history, or a head that does not
+// resolve, which the caller then reports).
+func (r *Repo) forkPoint(baseSHA, headRef string) string {
+	headSHA, err := r.ResolveRef(headRef)
+	if err != nil {
+		return baseSHA
+	}
+	mergeBase, err := r.mergeBaseFromObjects(strings.ToLower(baseSHA), strings.ToLower(headSHA))
+	if err != nil {
+		return baseSHA
+	}
+	return mergeBase
 }

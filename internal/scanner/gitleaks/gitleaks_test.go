@@ -44,13 +44,18 @@ type fakeLeak struct {
 // comment hides a leak unless --ignore-gitleaks-allow is given. The report
 // carries the secret in Secret and Match, as gitleaks' own report does.
 type fakeRepo struct {
-	version   string
-	missing   map[string]bool
-	shallow   bool
-	leaks     []fakeLeak
-	stderr    string
-	report    string
-	scanCalls [][]string
+	version string
+	missing map[string]bool
+	shallow bool
+	// boundary is the shallow file's content and rangeCommits the output
+	// of `git rev-list <head> --not <base>` of a shallow clone.
+	boundary     string
+	rangeCommits string
+	shallowFile  string
+	leaks        []fakeLeak
+	stderr       string
+	report       string
+	scanCalls    [][]string
 }
 
 func newFakeRepo(leaks ...fakeLeak) *fakeRepo {
@@ -85,6 +90,10 @@ func (f *fakeRepo) git(args []string) (string, string, error) {
 	switch {
 	case len(args) == 2 && args[0] == "rev-parse":
 		return fmt.Sprintf("%v\n", f.shallow), "", nil
+	case len(args) == 3 && args[0] == "rev-parse" && args[1] == "--git-path":
+		return f.shallowFile + "\n", "", nil
+	case len(args) == 4 && args[0] == "rev-list" && args[1] == headSHA && args[3] == baseSHA:
+		return f.rangeCommits, "", nil
 	case len(args) == 3 && args[0] == "cat-file":
 		if f.missing[strings.TrimSuffix(args[2], "^{commit}")] {
 			return "", "fatal: not a valid object", errors.New("exit status 1")
@@ -154,6 +163,12 @@ func engine(t *testing.T) scanner.Engine {
 
 func scan(t *testing.T, f *fakeRepo, trust scanner.Trust, r scanner.Range) scanner.Outcome {
 	t.Helper()
+	if f.boundary != "" {
+		f.shallowFile = filepath.Join(t.TempDir(), "shallow")
+		if err := os.WriteFile(f.shallowFile, []byte(f.boundary), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	x := scanner.Executor{Command: f.run}
 	return x.Scan(context.Background(), engine(t), scanner.Request{Root: t.TempDir(), Trust: trust, Range: r})
 }
@@ -268,11 +283,15 @@ func TestGitleaksFailuresAreInconclusive(t *testing.T) {
 		r      scanner.Range
 		want   string
 	}{
-		"missing binary":     {func(f *fakeRepo) { f.missing["gitleaks"] = true }, prRange, "secrets_unavailable"},
-		"no range":           {func(*fakeRepo) {}, scanner.Range{}, "secrets_execution_error"},
-		"range is a flag":    {func(*fakeRepo) {}, scanner.Range{Base: "--all", Head: headSHA}, "secrets_execution_error"},
-		"base not fetched":   {func(f *fakeRepo) { f.missing[baseSHA] = true }, prRange, "secrets_execution_error"},
-		"shallow clone":      {func(f *fakeRepo) { f.shallow = true }, prRange, "secrets_execution_error"},
+		"missing binary":   {func(f *fakeRepo) { f.missing["gitleaks"] = true }, prRange, "secrets_unavailable"},
+		"no range":         {func(*fakeRepo) {}, scanner.Range{}, "secrets_execution_error"},
+		"range is a flag":  {func(*fakeRepo) {}, scanner.Range{Base: "--all", Head: headSHA}, "secrets_execution_error"},
+		"base not fetched": {func(f *fakeRepo) { f.missing[baseSHA] = true }, prRange, "secrets_execution_error"},
+		"shallow clone":    {func(f *fakeRepo) { f.shallow = true }, prRange, "secrets_execution_error"},
+		"shallow cuts range": {func(f *fakeRepo) {
+			f.shallow, f.boundary, f.rangeCommits = true, middleCommit+"\n", headSHA+"\n"+middleCommit+"\n"
+		}, prRange, "secrets_execution_error"},
+		"shallow full scan":  {func(f *fakeRepo) { f.shallow, f.boundary = true, baseSHA+"\n" }, scanner.Range{Head: headSHA, Full: true}, "secrets_execution_error"},
 		"other version":      {func(f *fakeRepo) { f.version = "v8.18.0" }, prRange, "secrets_execution_error"},
 		"logged error exit0": {func(f *fakeRepo) { f.stderr = "7:23PM ERR [git] fatal: bad revision" }, prRange, "secrets_execution_error"},
 		"colored logged error": {func(f *fakeRepo) {
@@ -332,5 +351,16 @@ func TestGitleaksRegistrationAndOptions(t *testing.T) {
 	}
 	if err := e.ValidateOptions(nil); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A shallow clone that holds the whole pull request range is scanned: the
+// boundary is the base itself, outside `rev-list <head> --not <base>`.
+func TestGitleaksScansAShallowCloneHoldingTheRange(t *testing.T) {
+	f := newFakeRepo(fakeLeak{file: "a", line: 1})
+	f.shallow, f.boundary, f.rangeCommits = true, baseSHA+"\n", headSHA+"\n"+middleCommit+"\n"
+	out := scan(t, f, scanner.TrustPolicy, prRange)
+	if out.Reason != "" || len(f.scanCalls) != 1 {
+		t.Fatalf("complete shallow range: reason %q, scans %d", out.Reason, len(f.scanCalls))
 	}
 }
