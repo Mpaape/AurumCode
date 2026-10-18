@@ -124,9 +124,9 @@ func (r *Repo) sides(oldBlob blobAt, hadOld bool, newBlob blobAt, hasNew bool) (
 }
 
 // forkPoint is the commit a --base diff starts from: the merge base of
-// baseSHA and headRef when there is exactly one. Only histories that truly
-// never meet, or a criss-cross history, fall back to baseSHA itself (the
-// tree comparison); a head that does not resolve also returns baseSHA, and
+// baseSHA and headRef, the newest one in a criss-cross history (as git
+// picks). Only histories that truly never meet fall back to baseSHA itself
+// (the tree comparison); a head that does not resolve also returns baseSHA, and
 // the caller reports it. Any other failure is an error, never a silent
 // tree comparison: in a shallow clone, "no common ancestor" may only mean
 // the clone was cut before the fork point, so it is an error there too.
@@ -140,7 +140,14 @@ func (r *Repo) forkPoint(baseSHA, headRef string) (string, error) {
 	case err == nil:
 		return mergeBase, nil
 	case errors.Is(err, errAmbiguousMergeBase):
-		return baseSHA, nil
+		// A criss-cross history: start from the newest best common
+		// ancestor, as `git diff base...head` does, never from the base's
+		// own tree (which would show the base's gains as undone).
+		var amb *ambiguousMergeBase
+		if errors.As(err, &amb) && len(amb.candidates) > 0 {
+			return amb.candidates[0], nil
+		}
+		return "", err
 	case errors.Is(err, errNoCommonAncestor):
 		shallow, serr := r.shallowCommits()
 		if serr != nil {

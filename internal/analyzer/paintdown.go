@@ -74,8 +74,22 @@ func (w *paintWalk) mergeBase(a, b string) (string, error) {
 	case 1:
 		return candidates[0], nil
 	}
-	return "", fmt.Errorf("merge base of %s and %s: %w", a, b, errAmbiguousMergeBase)
+	return "", &ambiguousMergeBase{a: a, b: b, candidates: candidates}
 }
+
+// ambiguousMergeBase is errAmbiguousMergeBase carrying the best common
+// ancestors, newest first (the walk's order), so a caller that must pick
+// one picks the one git would.
+type ambiguousMergeBase struct {
+	a, b       string
+	candidates []string
+}
+
+func (e *ambiguousMergeBase) Error() string {
+	return fmt.Sprintf("merge base of %s and %s: %v", e.a, e.b, errAmbiguousMergeBase)
+}
+
+func (e *ambiguousMergeBase) Is(target error) bool { return target == errAmbiguousMergeBase }
 
 // paintDown paints one with paintOne and twos with paintTwo and returns the
 // commits reached from both sides that are not ancestors of another such

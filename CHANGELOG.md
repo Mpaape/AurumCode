@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Corrigido: `review --base` num clone raso que não alcança o ancestral comum falha com a causa, em vez de comparar com a árvore da base em silêncio.
+- Corrigido: `review --base` nunca compara com a árvore da base em silêncio: clone raso que não alcança o ancestral falha com a causa; histórico criss-cross parte do ancestral mais novo, como o git.
 - Corrigido: com `--fail-on`, o parecer acompanha a saída: achado que o limiar pega aparece como bloqueante, e a linha do gate da política continua dizendo o que a política decidiu.
 - Corrigido: `review --base` e o check do changelog partem do ancestral comum, como `git diff base...HEAD`; branch atrás da base não aparece desfazendo o que a base ganhou.
 - Novo: a PR baixa só o próprio histórico (checkout raso + `fetch-pr-range.sh`, que aprofunda até o ancestral comum, sem teto); ancestral comum e gitleaks funcionam em clone raso.
