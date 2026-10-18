@@ -23,10 +23,10 @@ um `config.yml` dela com qualquer seção é recusado antes de o modelo ser
 chamado. Para destravar, quem muda é o time de segurança, por uma PR no
 `security-policy`. O passo 10 do roteiro mostra isso acontecendo.
 
-Cada achado do parecer diz quem o encontrou: o analista (`[perfil seguranca]`,
-`[perfil padroes]`, `[perfil qa]`) e, quando a regra vem da camada de padrões,
-a camada (`[padrões de engenharia]`). O roteiro ainda imprime, lendo os
-repositórios clonados, de que repositório veio cada regra:
+Quando a regra vem da camada de padrões, o achado traz a camada
+(`[padrões de engenharia]`), e os detalhes do parecer listam as regras citadas
+com os arquivos e linhas. O roteiro ainda imprime, lendo essas regras e os
+repositórios clonados, de que repositório veio cada uma:
 
 - a **chave fixa no código** (linha 10) é achada pela verificação
   determinística do AurumCode, cobrada pelo gate do `security-policy`;
