@@ -62,6 +62,11 @@ type Reviewer struct {
 	// context went whole (context_fit.go). Both are per review.
 	contextFits      map[contextFitKey]contextFit
 	contextReduction *ContextReduction
+	// droppedWindow is the declared window set aside during the current
+	// review as too small (declared_window.go), zero when none was; notify
+	// receives the operator notices.
+	droppedWindow int
+	notify        func(string)
 }
 
 // Completer is what the Reviewer needs from the model side: one call that

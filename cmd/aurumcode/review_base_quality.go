@@ -36,7 +36,7 @@ func (b *baseReview) runQualityPass() (int, bool) {
 	b.verifyCaller = orchestrator
 	reviewer := review.NewReviewer(orchestrator, review.DefaultConfig())
 	reviewer.SetBatchLimits(configuredBatchLimits(b.cfg))
-	reviewer.SetModelWindow(modelWindowTokens(b.cfg, b.env()))
+	b.declareModelWindow(reviewer)
 	// AUR-519: teach the model the expanded catalog and accept its
 	// citations against the same dynamic set computed earlier.
 	reviewer.SetDynamicRules(b.dynamicRules)
@@ -74,8 +74,7 @@ func (b *baseReview) setupCostCap() (int, bool) {
 	modelKey := costModelKey(b.f.modelo)
 	b.provider = &fixedModelProvider{Provider: b.provider, model: modelKey}
 	b.tracker = buildCostTracker(b.limiteUSD, modelKey, price)
-	printCostEstimate(b.stderr, estimateCostUSD(b.diff, price), b.limiteUSD)
-	printContextNotCounted(b.stderr, b.codebaseText)
+	b.costPrice = &price
 	return 0, false
 }
 
@@ -89,6 +88,7 @@ func (b *baseReview) callModel(reviewer *review.Reviewer, qc *qualityCache) (int
 		CodebaseContext: b.codebaseText,
 		MemoryNotes:     b.memoryNotesText,
 	})
+	b.preflight(reviewer, qc.toSend, reviewCtx)
 	var err error
 	if b.profilesApplied {
 		// Every analyst's reviewer accepts the same dynamic rules and

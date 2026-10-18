@@ -74,15 +74,3 @@ func fileSetKey(files []types.DiffFile) string {
 	sort.Strings(paths)
 	return strconv.Itoa(len(paths)) + "\x00" + strings.Join(paths, "\x00")
 }
-
-// modelWindowTokens is the declared context window: AURUMCODE_MODEL_WINDOW_TOKENS
-// when set to a positive integer, else review.model_window_tokens, else zero.
-func modelWindowTokens(cfg *config.Config, env reviewEnv) int {
-	if n, err := strconv.Atoi(strings.TrimSpace(env.modelWindowTokens)); err == nil && n > 0 {
-		return n
-	}
-	if cfg != nil && cfg.Review.ModelWindowTokens > 0 {
-		return cfg.Review.ModelWindowTokens
-	}
-	return 0
-}

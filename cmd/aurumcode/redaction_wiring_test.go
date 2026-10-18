@@ -87,7 +87,7 @@ func TestStderrLinesSurviveTheRedactionWriter(t *testing.T) {
 		"aurumcode review: refusing to publish: an inline comment requires a commit SHA and none is available; set GITHUB_SHA",
 		// AUR-433 (--limite): the two cost lines and the refusal message,
 		// all newly written to this same redacted stderr writer.
-		"aurumcode review: estimated cost $0.0914, diff-only pre-flight (--limite $0.5000)",
+		"aurumcode review: estimated cost $0.0914, pre-flight of the assembled prompt (about 3000 tokens: instructions, policy, context and diff) (--limite $0.5000)",
 		"aurumcode review: actual cost $0.0181 (--limite $0.5000)",
 		`aurumcode review: refusing to call the model: the request's cost would exceed --limite $0.1000; nothing was spent (LLM request failed: budget exceeded: insufficient budget for default (model "default"))`,
 		"aurumcode review: --limite: value must not be empty",

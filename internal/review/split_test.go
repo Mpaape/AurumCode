@@ -18,10 +18,12 @@ import (
 // count: one token per three bytes here, denser than the product's estimate
 // of one per four, as a real tokenizer is for code.
 type windowCompleter struct {
-	limit    int
-	mu       sync.Mutex
-	accepted []int
-	refused  []int
+	limit int
+	// charsPerToken is the provider's count, three bytes a token when zero.
+	charsPerToken float64
+	mu            sync.Mutex
+	accepted      []int
+	refused       []int
 	// sawGlobal is set when an accepted request carries the marker of the
 	// whole diff's codebase context.
 	sawGlobal bool
@@ -32,7 +34,11 @@ func (w *windowCompleter) CompleteMessages(_ context.Context, messages []llm.Mes
 	for _, m := range messages {
 		bytes += len(m.Content)
 	}
-	tokens := bytes / 3
+	perToken := w.charsPerToken
+	if perToken == 0 {
+		perToken = 3
+	}
+	tokens := int(float64(bytes) / perToken)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	for _, m := range messages {
@@ -169,7 +175,7 @@ func TestLearnedCeiling(t *testing.T) {
 		{"never keeps the whole prompt", PromptRefusal{EstimatedTokens: 1000, Limit: 128000, Requested: 128001}, 0, 899},
 		{"goes below the previous ceiling", PromptRefusal{EstimatedTokens: 28000, Limit: 128000, Requested: 128001}, 25000, 12500},
 		{"nothing left", PromptRefusal{EstimatedTokens: 1}, 0, 0},
-		{"only the window said: its share", PromptRefusal{EstimatedTokens: 3900000, Limit: 2000000}, 0, 1800000},
+		{"only the window said: its share", PromptRefusal{EstimatedTokens: 3900000, Limit: 2000000}, 0, 1575000},
 		{"only the window said, larger than the prompt", PromptRefusal{EstimatedTokens: 1000, Limit: 2000000}, 0, 999},
 	}
 	for _, c := range cases {
@@ -278,16 +284,17 @@ func TestPlanBatchesTreatsEvidenceThatFillsTheCeilingAsNotFitting(t *testing.T) 
 	}
 }
 
-// #198: a declared window sizes the prompt from the first request. The model
-// refuses nothing, every file is reviewed, and no request is longer than the
-// window.
+// #198: a declared window sizes the prompt from the first request. The
+// model counts 3.5 bytes a token, denser than the product's estimate of
+// four, and the window declared is the model's own: the batches fill up to
+// the ceiling, the model refuses nothing, every file is reviewed, and no
+// request is longer than the window.
 func TestDeclaredWindowSplitsWithoutARefusal(t *testing.T) {
-	model := &windowCompleter{limit: 20000}
+	model := &windowCompleter{limit: 20000, charsPerToken: 3.5}
 	reviewer := NewReviewer(model, DefaultConfig())
-	// The provider counts one token per three bytes, the product one per
-	// four: the declared window is the provider's, with room to spare.
-	reviewer.SetModelWindow(14000)
-	diff := manyFilesDiff(3, 2, 400)
+	reviewer.SetModelWindow(20000)
+	// Many small files: the packing fills each batch close to the ceiling.
+	diff := manyFilesDiff(8, 20, 10)
 
 	result, err := reviewer.GenerateReviewWithContext(context.Background(), diff, ReviewContext{})
 	if err != nil {
@@ -299,10 +306,15 @@ func TestDeclaredWindowSplitsWithoutARefusal(t *testing.T) {
 	if len(model.accepted) < 2 {
 		t.Fatalf("the diff should have gone in batches, got %d request(s)", len(model.accepted))
 	}
+	largest := 0
 	for _, tokens := range model.accepted {
 		if tokens > 20000 {
 			t.Fatalf("a request of %d tokens crossed the window", tokens)
 		}
+		largest = max(largest, tokens)
+	}
+	if largest < 16000 {
+		t.Fatalf("the largest batch took %d tokens: the batches do not fill the ceiling, so the margin is not under test", largest)
 	}
 	if result == nil {
 		t.Fatal("no result")
@@ -313,8 +325,66 @@ func TestDeclaredCeilingKeepsTheReplyRoom(t *testing.T) {
 	if got := declaredCeiling(0); got != 0 {
 		t.Fatalf("no window: %d", got)
 	}
-	if window := 262144; declaredCeiling(window) != int(float64(window)*promptMargin) {
-		got := declaredCeiling(window)
-		t.Fatalf("declaredCeiling(262144) = %d", got)
+	// A prompt estimated at the ceiling, four bytes a token, counted at
+	// 3.5 bytes a token, still leaves the reply room in the window.
+	window := 262144
+	ceiling := declaredCeiling(window)
+	if counted := float64(ceiling) * 4 / 3.5; counted > float64(window)*promptMargin {
+		t.Fatalf("declaredCeiling(%d) = %d: counted at 3.5 bytes a token it takes %.0f tokens", window, ceiling, counted)
+	}
+}
+
+// A declared window too small for what goes with every part never fails
+// the review: it is set aside with a notice, and the window is learned from
+// the model's refusal as if none had been declared.
+func TestDeclaredWindowTooSmallIsSetAsideWithANotice(t *testing.T) {
+	model := &windowCompleter{limit: 20000}
+	reviewer := NewReviewer(model, DefaultConfig())
+	reviewer.SetModelWindow(100)
+	var notices []string
+	reviewer.SetNotifier(func(s string) { notices = append(notices, s) })
+
+	result, err := reviewer.GenerateReviewWithContext(context.Background(), manyFilesDiff(3, 2, 400), ReviewContext{})
+	if err != nil {
+		t.Fatalf("a declared window too small failed the review: %v", err)
+	}
+	if result == nil || len(model.accepted) == 0 {
+		t.Fatal("the model never reviewed anything")
+	}
+	if len(notices) != 1 || !strings.Contains(notices[0], "declared model window (100 tokens") || !strings.Contains(notices[0], "as if no window were declared") {
+		t.Fatalf("notices = %q, want one naming the window set aside", notices)
+	}
+	// With nothing declared, the first request is the whole diff.
+	if len(model.refused) == 0 {
+		t.Fatal("the review did not fall back to learning the window from a refusal")
+	}
+}
+
+// An explicit prompt budget the caller set is not the declared window: its
+// lack of room is not set aside.
+func TestExplicitBudgetBelowTheFixedPartIsNotSetAside(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.PromptTokenBudget = 50
+	reviewer := NewReviewer(&windowCompleter{limit: 20000}, cfg)
+	reviewer.SetModelWindow(100)
+	_, err := reviewer.GenerateReviewWithContext(context.Background(), manyFilesDiff(1, 1, 10), ReviewContext{})
+	var noRoom *prompt.NoRoomError
+	if !errors.As(err, &noRoom) {
+		t.Fatalf("error = %v, want the caller's own budget's NoRoomError", err)
+	}
+}
+
+// The ceiling that leaves the first batch out is named, and the error still
+// takes the path of a model review that did not run.
+func TestNoBatchReviewedNamesTheCeiling(t *testing.T) {
+	model := &windowCompleter{limit: 20000}
+	reviewer := NewReviewer(model, DefaultConfig())
+	reviewer.SetBatchLimits(BatchLimits{MaxPromptTokens: 10})
+	_, err := reviewer.GenerateReviewWithContext(context.Background(), manyFilesDiff(3, 2, 400), ReviewContext{})
+	if !errors.Is(err, ErrNoBatchReviewed) || !errors.Is(err, llm.ErrAllProvidersFailed) {
+		t.Fatalf("error = %v, want ErrNoBatchReviewed wrapping llm.ErrAllProvidersFailed", err)
+	}
+	if !strings.Contains(err.Error(), "batches.max_prompt_tokens allows 10") || strings.Contains(err.Error(), "max_batches") {
+		t.Fatalf("error %q does not name the ceiling that left the batch out", err)
 	}
 }
