@@ -114,8 +114,17 @@ func publishCheckStatusIn(ctx context.Context, language string, client *githubcl
 	// With a declared gate, "grave" is exactly what the gate fails on (the
 	// same single rule as the review body and the formal review), so this
 	// status never contradicts aurumcode/policy-gate. Without one, every
-	// error-severity finding counts, as before.
-	grave := countAtOrAbove(issues, rankError)
+	// error-severity finding counts, as before, and so does every finding an
+	// explicit --fail-on caught, so the status fails with the exit.
+	graveIssue := func(issue types.ReviewIssue) bool {
+		return severityRank(issue.Severity) >= rankError || rule.CaughtByThreshold(issue)
+	}
+	grave := 0
+	for _, issue := range issues {
+		if graveIssue(issue) {
+			grave++
+		}
+	}
 	if rule.Gated() {
 		grave = rule.Count(issues)
 	}
@@ -132,7 +141,7 @@ func publishCheckStatusIn(ctx context.Context, language string, client *githubcl
 			if rule.Gated() {
 				return rule.Blocks(issue)
 			}
-			return severityRank(issue.Severity) >= rankError
+			return graveIssue(issue)
 		})
 		if shown < 1 {
 			shown = 1

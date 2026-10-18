@@ -34,6 +34,10 @@ func TestParecerFollowsFailOnOverAPassingGate(t *testing.T) {
 			t.Fatalf("parecer reads %q on a run that exits on --fail-on:\n%s", passed, out)
 		}
 	}
+	// Both errors are caught: the model's and the analysis catalog's secret.
+	if !strings.Contains(out, "Blocked: 2 problems must be fixed") && !strings.Contains(out, "Bloqueado: 2 problemas precisam") {
+		t.Fatalf("the parecer must read blocked by the two caught findings:\n%s", out)
+	}
 	if !strings.Contains(out, "policy gate: passed") && !strings.Contains(out, "gate da política: passou") {
 		t.Fatalf("the policy gate itself passed and the parecer must say so:\n%s", out)
 	}
