@@ -15,19 +15,19 @@ o gate reprovou antes do PR; a chave ainda não saiu da máquina do dev.
 # AC-001: a PR e bloqueada e cada achado diz a camada de origem e o analista
 $ aurumcode review --pr 1 --repo voce/assistente --publicar --check --modo-publicacao comments --politica /github/policy --padroes /github/standards
 > **Bloqueado: 2 problemas precisam de correção antes do merge.**
-(rule ia#ia-001-resposta-do-modelo-nunca-e-executada: IA-001 Resposta do modelo nunca e executada) [perfil seguranca] -- publicado na linha
-# os achados da engenharia entram no parecer da PR com o analista e o rotulo da camada (na PR bloqueada e na aprovada)
-(rule time#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia] -- no parecer
-(rule time#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia] -- no parecer
-(rule time#qa-001-comportamento-novo-tem-teste: QA-001 Comportamento novo tem teste) [perfil qa] [padrões de engenharia] -- no parecer
-(rule time#qa-001-comportamento-novo-tem-teste: QA-001 Comportamento novo tem teste) [perfil qa] [padrões de engenharia] -- no parecer
-- `assistente.py:32` — A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. (rule time#pad-001-argumentos-de-linha-de-comando-com-argparse: PAD-001 Argumentos de linha de comando com argparse) [perfil padroes] [padrões de engenharia]
-- `assistente.py:34` — A opção --executar é um comportamento novo sem teste (QA-001). (rule time#qa-001-comportamento-novo-tem-teste: QA-001 Comportamento novo tem teste) [perfil qa] [padrões de engenharia]
+assistente.py:36: [error] Com --executar, a resposta do modelo é executada como código Python, contra a regra IA-001 da segurança. -- publicado na linha
+# os achados da engenharia entram no parecer da PR com o rotulo da camada (na PR bloqueada e na aprovada)
+PAD-001 do time. [padrões de engenharia] -- no parecer
+PAD-001 do time. [padrões de engenharia] -- no parecer
+QA-001). [padrões de engenharia] -- no parecer
+QA-001). [padrões de engenharia] -- no parecer
+- `assistente.py:32` — A opção --executar é lida filtrando sys.argv na mão, contra a convenção PAD-001 do time. [padrões de engenharia]
+- `assistente.py:34` — A opção --executar é um comportamento novo sem teste (QA-001). [padrões de engenharia]
 status aurumcode/policy-gate: failure
 assistente.py:10:  analysis/hardcoded-secret → verificação determinística do AurumCode, cobrada pelo gate do security-policy
-assistente.py:32:  time#pad-001-argumentos-de-linha-de-comando-com-argparse → devops-policy (padrões de engenharia), analista padroes
-assistente.py:34:  time#qa-001-comportamento-novo-tem-teste → devops-policy (padrões de engenharia), analista qa
-assistente.py:36:  ia#ia-001-resposta-do-modelo-nunca-e-executada → security-policy (política de segurança), analista seguranca
+assistente.py:32:  time#pad-001-argumentos-de-linha-de-comando-com-argparse → devops-policy (padrões de engenharia)
+assistente.py:34:  time#qa-001-comportamento-novo-tem-teste → devops-policy (padrões de engenharia)
+assistente.py:36:  ia#ia-001-resposta-do-modelo-nunca-e-executada → security-policy (política de segurança)
 bloqueado pelas três camadas: a segurança reprova (IA-001), a engenharia observa (PAD-001, QA-001) e o serviço só escolheu os analistas.
 # AC-002: o gate e o ignore escritos no servico sao descartados com aviso e o bloqueio e o mesmo
 $ cp camadas/servico/afrouxa.yml .aurumcode/config.yml && git diff .aurumcode/config.yml

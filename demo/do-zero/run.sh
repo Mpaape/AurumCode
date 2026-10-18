@@ -230,6 +230,16 @@ for l in open(sys.argv[1]):
     elif "event" in c: print("review %s" % c["event"])
 ' "$TUT_PR_LOG" | ui_saida
 }
+# az_parecer_publicado: o corpo do ultimo parecer publicado no GitHub falso.
+az_parecer_publicado() {
+  python3 -I -c 'import json,sys
+corpo = ""
+for l in open(sys.argv[1]):
+    m = json.loads(l); c = m["corpo"]
+    if "aurumcode-review" in c.get("body", ""): corpo = c["body"]
+print(corpo)
+' "$TUT_PR_LOG"
+}
 # az_pr args...: `review --pr` contra o GitHub falso, como o workflow do
 # servico a roda: as camadas vem do que o PROPRIO workflow da main declara
 # (policy_repository e standards_repository), cada uma montada da main do
@@ -253,24 +263,25 @@ az_pr() {
   printf '%s\n' "$LAST_OUT" | ui_saida
   echo "    exit_code=$LAST_RC"
 }
-# az_legenda TEXTO: conclusao do roteiro, nao saida do produto. Para cada achado
-# do parecer (linha arquivo:linha, no terminal ou no comentario da PR), a
-# camada de origem: o repositorio central (clonado em .estado/) que tem a skill
-# cujo nome prefixa a regra; sem skill, e a verificacao deterministica do
-# proprio AurumCode. O analista vem do rotulo [perfil ...].
+# az_legenda TEXTO: conclusao do roteiro, nao saida do produto. Para cada regra
+# da secao "Regras citadas" do parecer (regra e arquivo:linha), a camada de
+# origem: o repositorio central (clonado em .estado/) que tem a skill cujo nome
+# prefixa a regra; sem skill, e a verificacao deterministica do proprio
+# AurumCode.
 az_legenda() {
-  local linha regra perfil prefixo origem achados
-  achados="$(printf '%s\n' "$1" | sed -E 's/^- \*\*`([^`]*)`\*\* — /\1: /; s/^- `([^`]*)` — /\1: /' | grep -F '(rule ' | grep -E '^[^ :]+:[0-9]+: ' || true)"
-  if [ -z "$achados" ]; then echo "nenhum achado arquivo:linha no parecer" | ui_saida; return 0; fi
+  local linha regra loc prefixo origem achados
+  achados="$(printf '%s\n' "$1" | sed 's/^[[:space:]]*│ //' | sed -n '/^#### Regras citadas/,/^#### /p' | grep -E '^- `[^`]+`' || true)"
+  if [ -z "$achados" ]; then echo "nenhuma regra citada no parecer" | ui_saida; return 0; fi
   printf '%s\n' "$achados" | while IFS= read -r linha; do
-    regra="$(printf '%s' "$linha" | sed -n 's/.*(rule \([^ :)]*\).*/\1/p')"
-    perfil="$(printf '%s' "$linha" | sed -n 's/.*\[perfil \([^]]*\)\].*/\1/p')"
+    regra="$(printf '%s' "$linha" | sed -n 's/^- `\([^`]*\)`.*/\1/p')"
     prefixo="${regra%%#*}"
     if [ "$prefixo" != "$regra" ] && [ -f "$SEC_DIR/.aurumcode/skills/$prefixo/SKILL.md" ]; then origem="$NOME_SEC (política de segurança)"
     elif [ "$prefixo" != "$regra" ] && [ -f "$DEV_DIR/.aurumcode/skills/$prefixo/SKILL.md" ]; then origem="$NOME_DEV (padrões de engenharia)"
     elif [ "$prefixo" != "$regra" ] && [ -f "$TUT_WORK/.aurumcode/skills/$prefixo/SKILL.md" ]; then origem="$NOME (o próprio serviço)"
     else origem="verificação determinística do AurumCode, cobrada pelo gate do $NOME_SEC"; fi
-    printf '%s  %s → %s%s\n' "$(printf '%s' "$linha" | cut -d' ' -f1)" "$regra" "$origem" "${perfil:+, analista $perfil}"
+    printf '%s\n' "${linha#*:}" | grep -oE '`[^`]+:[0-9]+`' | tr -d '`' | while IFS= read -r loc; do
+      printf '%s:  %s → %s\n' "$loc" "$regra" "$origem"
+    done
   done | sort -u | ui_saida
 }
 # az_remoto_real DIR NOME DESCRICAO: liga DIR ao GitHub. Repositorio ja
@@ -514,7 +525,7 @@ passo_9() {
     ui_diz "O que foi publicado na PR #1:"
     az_publicado
     ui_diz "De onde veio cada achado (conclusão do roteiro, lida dos repositórios clonados):"
-    az_legenda "$LAST_OUT"
+    az_legenda "$(az_parecer_publicado)"
   else
     ia_protege_main
     ui_run "abre a PR na sua conta" -- gh pr create --base main --head feature --title "assistente: chave fixa para testar rápido" --body "POC AurumCode do zero: a revisão deve reprovar esta mudança."
