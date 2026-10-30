@@ -1,4 +1,4 @@
-FROM golang:1.27.2-alpine3.24@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d
+FROM golang:1.27.3-alpine3.24@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb
 
 # AUR-534: toolchain image for every offline Go profile (go-unit-offline-v1,
 # bootstrap-readonly-v1, and the other profiles that only need bash from the
