@@ -1,7 +1,7 @@
 # Caderno de Orientacoes do Escritorio
 
 Este caderno e o ponto de partida de qualquer agente que receba um card. O
-monitor de 20 minutos e `.board/office-cycle.sh`; o gate estrutural e
+gate estrutural e
 `bash .board/pipeline.sh`; o preflight de um card e
 `PREFLIGHT_RUN=1 bash .board/card-preflight.sh AUR-NNN /caminho/do/worktree`.
 O `.board/validate.sh` e legado congelado: nao o execute neste fluxo e nao use
@@ -158,14 +158,13 @@ Cards com `validation: tested|skeptical` em `done` precisam de
 review aprovado, a validacao passada e pelo menos um `exit_code: 0`. O pipeline
 recusa `done` sem essa correspondencia.
 
-## Regra dos 20 minutos
+## Trabalho direto no card
 
-Cada ciclo de monitoramento dura 20 minutos. No inicio, rode
-`.board/office-cycle.sh --start`; em cada revisao, rode
-`.board/office-cycle.sh --review`. Se dois reviews nao aumentarem `done`, o
-script sai com exit 75 e a abordagem esta encerrada. Nao reenvie o mesmo prompt:
-classifique o bloqueio como especificacao, prova falsa, conflito de paths ou
-infraestrutura; corrija o processo ou troque de card.
+Siga o AGENTS.md: trabalhe diretamente no card, sem ciclo de escritorio,
+loop de preflight ou rodadas cronometradas. Execute o preflight por card antes
+do dispatch e o pipeline para conferir o estado. Em caso de falha, classifique
+o bloqueio como especificacao, prova falsa, conflito de paths ou infraestrutura
+e corrija a causa antes de prosseguir.
 
 ## Estado ao escrever este caderno (snapshot histórico; não usar para dispatch)
 
