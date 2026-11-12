@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A revisão local por MCP é opcional: as PRs de card usam o CI do repositório, e a autorrevisão obrigatória do Aurum permanece no lote `dev -> main`.
+
 - O gate local (`review --base` e o servidor MCP) roda o changelog obrigatório: em `required`, a entrada que a CI reprovaria bloqueia antes do push; em `suggest`, aparece como observação.
 - Com analistas, a passada que fica sem rodada com ferramenta não lista mais ferramentas que não recebeu: o terminal e a auditoria (`not_offered`) dizem que nada foi oferecido e por quê.
 

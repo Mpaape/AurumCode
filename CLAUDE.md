@@ -37,6 +37,14 @@ self review into `main`; only then does it move to `done`, recording the
 delivery SHA that is an ancestor of `main`. Direct pushes to `dev` or `main`
 are only for commits that touch nothing but `.board/`.
 
+Local Aurum review (`aurumcode mcp`, `aurum_gate`, or the optional pre-commit
+hook) is opt-in. Never require its installation, credentials, scanners, or a
+local pass to commit, push a card branch, or open its pull request. Publish the
+candidate and use the repository checks: card PRs to `dev` run CI only; the
+Aurum self review remains mandatory on the batched `dev -> main` PR. A local
+inconclusive result is not approval and does not prevent publishing a candidate
+for those remote checks. Never bypass a failing required repository check.
+
 ## Reconstruction workflow source of truth
 
 For the current AurumCode reconstruction, `.board/` is the sole authoritative
