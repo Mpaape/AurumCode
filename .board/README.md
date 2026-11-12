@@ -13,8 +13,8 @@ the execution queue; AUR-001 and AUR-002 characterize those claims explicitly.
 The board runs on a simple, parallel delivery cycle with executable fail-closed
 gates. The current process never invokes `.board/validate.sh`; that script and
 its second-reader ceremony are frozen legacy evidence, not a session gate.
-Every session starts with `.board/office-cycle.sh --start` or `--status`, and
-every 20-minute review uses `--review`.
+Work directly on the card, without office cycles or timed review rounds, as
+required by `AGENTS.md`. Run `bash .board/pipeline.sh` to check board state.
 
 1. A card moves from `backlog` to `ready` only when every `depends_on` card is
    in `done`, its `validation`, `paths`, `read_paths`, `container_profile` and
@@ -381,8 +381,8 @@ CLI). A missing utility fails closed with an infrastructure diagnosis. These
 locks must be decomposed into dedicated AUR-233 child cards; absence is never
 reported as behavioral RED or OCI conformance.
 
-The current session gate is `bash .board/pipeline.sh`, preceded by
-`bash .board/office-cycle.sh --status` and the per-card preflight. The
+The current session gate is `bash .board/pipeline.sh`, with the per-card
+preflight before dispatch. The
 `validate.sh` and `validator-mutants.sh` commands above are retained only as
 historical legacy evidence; they are not a current dispatch or completion
 command. The graph and work queue are summarized in [`KANBAN.md`](KANBAN.md).

@@ -20,14 +20,14 @@
    publicado: exigi-lo na proteção da branch ou num ruleset deixaria toda PR
    pendente.
 
-O exemplo fixa a release `v2.0.0`:
+O exemplo fixa a release `v2.3.0`:
 
 ```yaml
     uses: Mpaape/AurumCode/.github/workflows/review.yml@v2.3.0
 ```
 
 Prefira a tag de uma release a `@main`: `@main` recebe toda mudança do
-produto sem aviso, enquanto `@v2.0.0` só muda quando você trocar a
+produto sem aviso, enquanto `@v2.3.0` só muda quando você trocar a
 referência. As notas de cada versão ficam no `CHANGELOG.md` e nas
 [releases do repositório](https://github.com/Mpaape/AurumCode/releases); o
 roteiro de [Releases](releases.md) troca essa referência pela versão

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -92,7 +93,7 @@ func longOrigin(t *testing.T, commits, behind int) string {
 
 // runFetchPRRange clones the pull request with depth 1, as the workflow
 // checkout does, and runs the script on it.
-func runFetchPRRange(t *testing.T, src string) (string, string, string, string, error) {
+func runFetchPRRange(t *testing.T, src string, extraEnv ...string) (string, string, string, string, error) {
 	t.Helper()
 	script := fetchPRRangeScript(t)
 	dst := t.TempDir()
@@ -101,6 +102,7 @@ func runFetchPRRange(t *testing.T, src string) (string, string, string, string, 
 	head := prGit(t, src, nil, "rev-parse", "pr")
 	cmd := exec.Command("sh", script, dst, base, head)
 	cmd.Env = append(gittest.HermeticEnv(t.TempDir()), "GH_TOKEN=fetch-pr-range-canary")
+	cmd.Env = append(cmd.Env, extraEnv...)
 	out, err := cmd.CombinedOutput()
 	return dst, base, head, string(out), err
 }
@@ -143,5 +145,43 @@ func TestFetchPRRangeWithoutCommonAncestorFails(t *testing.T) {
 	}
 	if got := prGit(t, dst, nil, "rev-parse", "--is-shallow-repository"); got != "false" {
 		t.Fatalf("failed before reaching the whole history: %s", got)
+	}
+}
+
+// A fetch must not leave automatic maintenance racing with the caller's
+// teardown. Trace only the script, so fixture setup cannot satisfy this check.
+func TestFetchPRRangeDoesNotStartAutomaticMaintenance(t *testing.T) {
+	src := longOrigin(t, 50, 0)
+	trace := filepath.Join(t.TempDir(), "trace.json")
+	_, _, _, out, err := runFetchPRRange(t, src, "GIT_TRACE2_EVENT="+trace)
+	if err == nil || !strings.Contains(out, "não têm ancestral comum") {
+		t.Fatalf("unrelated histories: %v\n%s", err, out)
+	}
+	raw, err := os.ReadFile(trace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fetches := 0
+	for _, line := range bytes.Split(bytes.TrimSpace(raw), []byte("\n")) {
+		var event struct {
+			Event string   `json:"event"`
+			Argv  []string `json:"argv"`
+		}
+		if err := json.Unmarshal(line, &event); err != nil {
+			t.Fatal(err)
+		}
+		if event.Event == "start" && strings.Contains(" "+strings.Join(event.Argv, " ")+" ", " fetch ") {
+			fetches++
+		}
+		if event.Event != "child_start" {
+			continue
+		}
+		args := " " + strings.Join(event.Argv, " ") + " "
+		if strings.Contains(args, " --auto ") && (strings.Contains(args, " maintenance ") || strings.Contains(args, " gc ")) {
+			t.Errorf("fetch started automatic maintenance that can outlive the script: %v", event.Argv)
+		}
+	}
+	if fetches == 0 {
+		t.Fatal("trace recorded no fetch; maintenance check did not exercise the script")
 	}
 }
